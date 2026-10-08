@@ -1,0 +1,77 @@
+{
+  "name": "03_missed_nights_and_hrv",
+  "description": "Forgets the watch some nights and the watch skips HRV on others. Missing nights must still get a flagged row; nights without HRV must not be used for the HRV baseline.",
+  "nights": 30,
+  "seed": 303,
+  "events": [
+    {
+      "type": "no_sleep_data",
+      "nights": [
+        10,
+        11,
+        20
+      ]
+    },
+    {
+      "type": "no_hrv",
+      "nights": [
+        5,
+        6,
+        22
+      ]
+    }
+  ],
+  "expect": [
+    {
+      "type": "rows",
+      "equals": 30
+    },
+    {
+      "type": "flag",
+      "nights": [
+        10,
+        11,
+        20
+      ],
+      "note_contains": "no sleep recorded"
+    },
+    {
+      "type": "usable",
+      "nights": [
+        10,
+        11,
+        20
+      ],
+      "column": "usable_sleep",
+      "equals": false
+    },
+    {
+      "type": "flag",
+      "nights": [
+        5,
+        6,
+        22
+      ],
+      "note_contains": "no HRV"
+    },
+    {
+      "type": "usable",
+      "nights": [
+        5,
+        6,
+        22
+      ],
+      "column": "usable_hrv",
+      "equals": false
+    },
+    {
+      "type": "empty",
+      "column": "z_hrv",
+      "nights": [
+        5,
+        6,
+        22
+      ]
+    }
+  ]
+}

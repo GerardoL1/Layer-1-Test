@@ -1,0 +1,28 @@
+{
+  "name": "11_new_user_short_history",
+  "description": "New user with only 6 nights. Not enough history for a baseline, so no z-scores at all (they need 7 earlier nights).",
+  "nights": 6,
+  "seed": 1111,
+  "events": [],
+  "expect": [
+    {
+      "type": "rows",
+      "equals": 6
+    },
+    {
+      "type": "empty",
+      "column": "z_hrv",
+      "nights": "last 6"
+    },
+    {
+      "type": "empty",
+      "column": "z_rhr",
+      "nights": "last 6"
+    },
+    {
+      "type": "empty",
+      "column": "z_tst",
+      "nights": "last 6"
+    }
+  ]
+}

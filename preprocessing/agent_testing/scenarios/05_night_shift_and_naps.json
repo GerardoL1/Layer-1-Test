@@ -1,0 +1,42 @@
+{
+  "name": "05_night_shift_and_naps",
+  "description": "Works night shifts for 11 nights (sleeps 8:30 am to mid-afternoon) and takes occasional afternoon naps. Day sleep counts as that night's main sleep; naps are ignored.",
+  "nights": 30,
+  "seed": 505,
+  "events": [
+    {
+      "type": "bedtime",
+      "nights": {
+        "from": 10,
+        "to": 20
+      },
+      "time": "08:30"
+    },
+    {
+      "type": "nap",
+      "nights": [
+        4,
+        24,
+        27
+      ],
+      "time": "14:30",
+      "minutes": 35
+    }
+  ],
+  "expect": [
+    {
+      "type": "rows",
+      "equals": 30
+    },
+    {
+      "type": "value",
+      "column": "naps",
+      "nights": [
+        4,
+        24,
+        27
+      ],
+      "equals": 1
+    }
+  ]
+}

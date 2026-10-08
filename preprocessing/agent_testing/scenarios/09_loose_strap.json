@@ -1,0 +1,47 @@
+{
+  "name": "09_loose_strap",
+  "description": "Watch strap loose for three nights, so heart rate is only read every 40 minutes. Overnight resting HR must be flagged as unreliable and kept out of the baseline.",
+  "nights": 30,
+  "seed": 909,
+  "events": [
+    {
+      "type": "few_hr",
+      "nights": [
+        8,
+        9,
+        10
+      ],
+      "every_minutes": 40
+    }
+  ],
+  "expect": [
+    {
+      "type": "usable",
+      "nights": [
+        8,
+        9,
+        10
+      ],
+      "column": "usable_rhr",
+      "equals": false
+    },
+    {
+      "type": "flag",
+      "nights": [
+        8,
+        9,
+        10
+      ],
+      "note_contains": "few heart rate readings"
+    },
+    {
+      "type": "empty",
+      "column": "z_rhr",
+      "nights": [
+        8,
+        9,
+        10
+      ]
+    }
+  ]
+}

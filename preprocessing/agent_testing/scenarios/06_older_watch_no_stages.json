@@ -1,0 +1,31 @@
+{
+  "name": "06_older_watch_no_stages",
+  "description": "Older watch that only records asleep/awake, no core/deep/REM. Total sleep must still be right and the night flagged as having no stages.",
+  "nights": 25,
+  "seed": 606,
+  "events": [
+    {
+      "type": "no_stages",
+      "nights": "all"
+    }
+  ],
+  "expect": [
+    {
+      "type": "value",
+      "column": "deep_min",
+      "nights": "last 25",
+      "equals": 0
+    },
+    {
+      "type": "value",
+      "column": "rem_min",
+      "nights": "last 25",
+      "equals": 0
+    },
+    {
+      "type": "flag",
+      "nights": "last 25",
+      "note_contains": "no sleep stages"
+    }
+  ]
+}

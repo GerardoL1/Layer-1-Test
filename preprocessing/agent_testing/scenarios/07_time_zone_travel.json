@@ -1,0 +1,35 @@
+{
+  "name": "07_time_zone_travel",
+  "description": "Flies from Chicago-ish (-05:00) to the west coast (-08:00) for a week, then back. Every night keeps exactly one row and is labelled by local time. Uses iPhone In Bed.",
+  "nights": 32,
+  "seed": 707,
+  "utc_offset": "-0500",
+  "events": [
+    {
+      "type": "utc_offset",
+      "from_night": 16,
+      "offset": "-0800"
+    },
+    {
+      "type": "utc_offset",
+      "from_night": 23,
+      "offset": "-0500"
+    },
+    {
+      "type": "in_bed",
+      "nights": "all"
+    }
+  ],
+  "expect": [
+    {
+      "type": "rows",
+      "equals": 32
+    },
+    {
+      "type": "value",
+      "column": "tib_source",
+      "nights": "last 32",
+      "equals": "iphone_in_bed"
+    }
+  ]
+}

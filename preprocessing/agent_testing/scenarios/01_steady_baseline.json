@@ -1,0 +1,44 @@
+{
+  "name": "01_steady_baseline",
+  "description": "Healthy, consistent sleeper. Nothing should be flagged and z-scores should stay near 0.",
+  "nights": 35,
+  "seed": 101,
+  "baseline": {
+    "rhr": 56,
+    "hrv": 58,
+    "sleep_hours": 7.6,
+    "bedtime": "22:50",
+    "wake_ups": 2
+  },
+  "events": [],
+  "expect": [
+    {
+      "type": "rows",
+      "equals": 35
+    },
+    {
+      "type": "mean",
+      "column": "z_hrv",
+      "nights": "last 7",
+      "above": -1
+    },
+    {
+      "type": "mean",
+      "column": "z_hrv",
+      "nights": "last 7",
+      "below": 1
+    },
+    {
+      "type": "mean",
+      "column": "z_rhr",
+      "nights": "last 7",
+      "above": -1
+    },
+    {
+      "type": "mean",
+      "column": "z_rhr",
+      "nights": "last 7",
+      "below": 1
+    }
+  ]
+}

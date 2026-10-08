@@ -1,0 +1,67 @@
+{
+  "name": "04_short_and_late_nights",
+  "description": "One very short night (2.5 h) and two nights falling asleep after 2 am. The short night is flagged and not used; late nights still belong to the previous evening.",
+  "nights": 30,
+  "seed": 404,
+  "events": [
+    {
+      "type": "short_sleep",
+      "nights": [
+        12
+      ],
+      "hours": 2.5
+    },
+    {
+      "type": "bedtime",
+      "nights": [
+        15,
+        16
+      ],
+      "time": "02:30"
+    }
+  ],
+  "expect": [
+    {
+      "type": "rows",
+      "equals": 30
+    },
+    {
+      "type": "flag",
+      "nights": [
+        12
+      ],
+      "note_contains": "short sleep"
+    },
+    {
+      "type": "usable",
+      "nights": [
+        12
+      ],
+      "column": "usable_sleep",
+      "equals": false
+    },
+    {
+      "type": "value",
+      "column": "tst_min",
+      "nights": [
+        12
+      ],
+      "between": [
+        120,
+        180
+      ]
+    },
+    {
+      "type": "value",
+      "column": "tst_min",
+      "nights": [
+        15,
+        16
+      ],
+      "between": [
+        300,
+        600
+      ]
+    }
+  ]
+}

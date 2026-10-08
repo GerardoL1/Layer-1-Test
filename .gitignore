@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Local test database (contains real health data, never commit it)
+*.db
+
+# OS / editors
+.DS_Store
+.vscode/
+.idea/
+
+# Secrets
+.env
+
+# Raw Health Auto Export payloads (real health data)
+hae_raw/
+
+# Generated mock exports (rebuild with server/mock/make_mock_export.py)
+mock_exports/
+
+# Preprocessing outputs and caches
+preprocessing/layer1_features_*.csv
+.pytest_cache/
+
+# Layer 1 tester outputs
+preprocessing/agent_testing/build/
+preprocessing/agent_testing/reports/

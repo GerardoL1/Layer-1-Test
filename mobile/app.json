@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Recovery Test",
+    "slug": "recovery-test",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.group2.recoverytest",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "Sends your data to the test server on your Wi-Fi network.",
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "Reads heart rate, resting heart rate and HRV from your Apple Watch to calculate your recovery."
+        }
+      ]
+    ]
+  }
+}

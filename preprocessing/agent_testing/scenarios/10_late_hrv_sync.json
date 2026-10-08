@@ -1,0 +1,18 @@
+{
+  "name": "10_late_hrv_sync",
+  "description": "HRV readings reach the phone 26 hours late. Day-by-day processing must still end up identical to processing everything at once.",
+  "nights": 28,
+  "seed": 1010,
+  "events": [
+    {
+      "type": "late_hrv_hours",
+      "hours": 26
+    }
+  ],
+  "expect": [
+    {
+      "type": "rows",
+      "equals": 28
+    }
+  ]
+}

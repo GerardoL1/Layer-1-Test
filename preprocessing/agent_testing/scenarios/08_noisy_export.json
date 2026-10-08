@@ -1,0 +1,46 @@
+{
+  "name": "08_noisy_export",
+  "description": "Real-world mess: re-sent duplicates, impossible heart rates, a chest-strap app and a third-party sleep app writing into Health. Cleaning must remove all of it without changing any nightly number.",
+  "nights": 30,
+  "seed": 808,
+  "events": [
+    {
+      "type": "duplicates",
+      "rate": 0.03
+    },
+    {
+      "type": "glitches",
+      "count": 8
+    },
+    {
+      "type": "other_app_hr",
+      "nights": [
+        3,
+        9,
+        15,
+        21
+      ]
+    },
+    {
+      "type": "other_app_sleep",
+      "nights": [
+        4,
+        12,
+        18
+      ]
+    },
+    {
+      "type": "in_bed",
+      "nights": {
+        "from": 1,
+        "to": 15
+      }
+    }
+  ],
+  "expect": [
+    {
+      "type": "rows",
+      "equals": 30
+    }
+  ]
+}

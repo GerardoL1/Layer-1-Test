@@ -1,0 +1,50 @@
+{
+  "name": "02_overreach_block",
+  "description": "Normal for 25 nights, then a 10-night hard training block: HRV falls, resting HR rises, shorter and more broken sleep. Readiness signals should all move the bad way.",
+  "nights": 35,
+  "seed": 202,
+  "baseline": {
+    "rhr": 60,
+    "hrv": 48,
+    "sleep_hours": 7.3
+  },
+  "events": [
+    {
+      "type": "overreach",
+      "nights": {
+        "from": 26,
+        "to": 35
+      },
+      "hrv_change_pct": -35,
+      "rhr_change_bpm": 7,
+      "sleep_change_hours": -1.2,
+      "extra_wake_ups": 3
+    }
+  ],
+  "expect": [
+    {
+      "type": "mean",
+      "column": "z_hrv",
+      "nights": "last 5",
+      "below": -1
+    },
+    {
+      "type": "mean",
+      "column": "z_rhr",
+      "nights": "last 5",
+      "above": 1
+    },
+    {
+      "type": "mean",
+      "column": "z_tst",
+      "nights": "last 5",
+      "below": -1
+    },
+    {
+      "type": "mean",
+      "column": "z_frag",
+      "nights": "last 5",
+      "above": 0.5
+    }
+  ]
+}
