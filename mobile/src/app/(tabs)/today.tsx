@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 
 import { useApi, useLoad } from '../../api/useApi';
 import { Today, Trends, TrendValue } from '../../api/client';
 import { Button } from '../../components/Button';
 import { TrendLine } from '../../components/Charts';
+import { useHealthSync } from '../../health/HealthSync';
 import { MetricRow } from '../../components/MetricRow';
 import { Page, PageState } from '../../components/Page';
 import { ReadinessSummary } from '../../components/Readiness';
@@ -27,8 +28,11 @@ function points(trends: Trends | null, key: string) {
 export default function TodayScreen() {
   const api = useApi();
   const { colors, isWide } = useTheme();
-  const today = useLoad(() => api.today(), api);
-  const trends = useLoad(() => api.trends(14), api);
+  const health = useHealthSync();
+  // Reload when the tester changes or the phone just sent new Apple Health data.
+  const key = useMemo(() => ({ api, v: health.dataVersion }), [api, health.dataVersion]);
+  const today = useLoad(() => api.today(), key);
+  const trends = useLoad(() => api.trends(14), key);
   const [updating, setUpdating] = useState(false);
   const [updateNote, setUpdateNote] = useState<string | null>(null);
 
@@ -36,6 +40,8 @@ export default function TodayScreen() {
     setUpdating(true);
     setUpdateNote(null);
     try {
+      // Make sure last night's data is on the server first.
+      await health.syncNow();
       const r = await api.updateNow();
       if (!r.processed) setUpdateNote(r.message);
       today.reload();

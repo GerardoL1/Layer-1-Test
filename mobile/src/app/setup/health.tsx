@@ -7,7 +7,7 @@ import { Button } from '../../components/Button';
 import { ListRow } from '../../components/ListRow';
 import { SetupFrame } from '../../components/SetupFrame';
 import { Text } from '../../components/Text';
-import { connectHealth, healthAvailable, sendLastDay } from '../../health/health';
+import { connectHealth, healthAvailable, syncHealth } from '../../health/health';
 import { canPickFile, pickFile } from '../../lib/pickFile';
 import { useSession } from '../../state/session';
 
@@ -31,7 +31,9 @@ export default function HealthStep() {
     setNote(null);
     try {
       await connectHealth();
-      setNote(await sendLastDay(serverUrl, userId));
+      setNote('Reading the last 90 days from Apple Health…');
+      const r = await syncHealth(serverUrl, userId);
+      setNote(r.message);
       router.push('/setup/about');
     } catch (e) {
       setNote(e instanceof Error ? e.message : String(e));

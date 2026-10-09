@@ -6,6 +6,7 @@ import { useApi, useLoad } from '../../api/useApi';
 import { Settings } from '../../api/client';
 import { Chips, DaysPicker, EditRow, TextEditor, TRAINING, UPDATE_TIMES } from '../../components/Editors';
 import { ListRow } from '../../components/ListRow';
+import { useHealthSync } from '../../health/HealthSync';
 import { Page, PageState } from '../../components/Page';
 import { SectionHeader } from '../../components/SectionHeader';
 import { TestBuild } from '../../components/TestBuild';
@@ -33,6 +34,7 @@ export default function ProfileScreen() {
   const api = useApi();
   const session = useSession();
   const { colors, isWide } = useTheme();
+  const health = useHealthSync();
   const { data: p, error, loading, reload } = useLoad(() => api.profile(), api);
   const [open, setOpen] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -87,7 +89,20 @@ export default function ProfileScreen() {
     <View>
       <SectionHeader title="Data source" note="Apple Watch only" />
       {Platform.OS === 'ios'
-        ? <ListRow label="Apple Health" value="Set up" onPress={() => router.push('/setup/health')} />
+        ? (
+          <View>
+            <ListRow label="Apple Health" value={health.syncing ? 'Syncing…' : 'Sync now'} onPress={async () => {
+              await health.syncNow();
+              reload();
+            }} />
+            {health.lastError || health.lastResult ? (
+              <Text variant="bodySmall" color={health.lastError ? 'low' : 'textSecondary'} style={{ paddingBottom: 12 }}>
+                {health.lastError ?? health.lastResult?.message}
+              </Text>
+            ) : null}
+            <ListRow label="Permissions" value="Set up" onPress={() => router.push('/setup/health')} />
+          </View>
+        )
         : <ListRow label="Apple Health" value="iPhone app or export" />}
       <ListRow label="Watch" value={watch ? 'Apple Watch' : 'Not found yet'} />
       <ListRow label="Last update" value={p.last_update_local

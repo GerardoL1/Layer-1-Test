@@ -33,7 +33,7 @@
       [
         "@kingstinct/react-native-healthkit",
         {
-          "NSHealthShareUsageDescription": "Reads heart rate, resting heart rate and HRV from your Apple Watch to calculate your recovery."
+          "NSHealthShareUsageDescription": "Reads heart rate, resting heart rate, HRV and sleep from your Apple Watch to calculate your recovery."
         }
       ],
       "expo-router",
