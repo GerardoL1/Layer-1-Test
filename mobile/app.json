@@ -5,7 +5,7 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.group2.recoverytest",
@@ -26,7 +26,8 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     },
     "plugins": [
       [
@@ -34,7 +35,11 @@
         {
           "NSHealthShareUsageDescription": "Reads heart rate, resting heart rate and HRV from your Apple Watch to calculate your recovery."
         }
-      ]
-    ]
+      ],
+      "expo-router",
+      "expo-status-bar",
+      "expo-font"
+    ],
+    "scheme": "recovery"
   }
 }
