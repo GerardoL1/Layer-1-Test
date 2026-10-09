@@ -24,11 +24,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
+import api
 import db
 import processing
 from apple_export import import_export, parse_date
 
 app = FastAPI(title="Recovery platform")
+app.include_router(api.router)
 
 # Wide open for testing only.
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])

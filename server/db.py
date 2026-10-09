@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS users (
     training         TEXT,
     training_days    TEXT,                          -- JSON list of weekdays
     units            TEXT,
-    data_changed_ms  INTEGER                        -- when new readings last arrived
+    data_changed_ms  INTEGER,                       -- when new readings last arrived
+    clock_local      TEXT                           -- demo users only: a fixed local clock
 );
 CREATE TABLE IF NOT EXISTS samples (
     id             TEXT PRIMARY KEY,  -- HealthKit UUID, or a stable hash when there is none
@@ -77,6 +78,10 @@ def connect() -> sqlite3.Connection:
 def init_db():
     with connect() as conn:
         conn.executescript(SCHEMA)
+        # Databases made before a column existed get it added here.
+        have = {r["name"] for r in conn.execute("PRAGMA table_info(users)")}
+        if "clock_local" not in have:
+            conn.execute("ALTER TABLE users ADD COLUMN clock_local TEXT")
 
 
 def stable_id(*parts) -> str:
@@ -122,21 +127,26 @@ def _local(ms: pd.Series, offset_min: pd.Series) -> pd.Series:
     return (pd.to_datetime(ms, unit="ms") + pd.to_timedelta(offset_min, unit="min"))
 
 
-def load_records(conn: sqlite3.Connection, user_id: str) -> pd.DataFrame:
+def load_records(conn: sqlite3.Connection, user_id: str, since_ms: int | None = None,
+                 sleep_only: bool = False) -> pd.DataFrame:
     """
     A user's readings in the same shape as preprocessing's load_export(), so the
     tested pipeline runs on database rows without any changes.
+    since_ms and sleep_only are for quick looks at recent sleep, not for processing.
     """
+    since = since_ms if since_ms is not None else -2**62
     q = pd.read_sql_query("SELECT metric, value, start_ms, end_ms, tz_offset_min AS start_tz, "
-                          "tz_offset_min AS end_tz, source FROM samples WHERE user_id = ?",
-                          conn, params=(user_id,))
+                          "tz_offset_min AS end_tz, source FROM samples WHERE user_id = ? AND end_ms >= ?"
+                          + (" AND 0" if sleep_only else ""),
+                          conn, params=(user_id, since))
     q["kind"] = "quantity"
     q["stage"] = None
     q["unit"] = q["metric"].map(METRICS)
     q["raw_value"] = q["value"].astype(str)
 
     s = pd.read_sql_query("SELECT stage, start_ms, end_ms, start_tz_min AS start_tz, end_tz_min AS end_tz, "
-                          "source FROM sleep_stages WHERE user_id = ?", conn, params=(user_id,))
+                          "source FROM sleep_stages WHERE user_id = ? AND end_ms >= ?",
+                          conn, params=(user_id, since))
     s["kind"] = "sleep"
     s["metric"] = "sleep_analysis"
     s["value"] = float("nan")

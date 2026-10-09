@@ -83,8 +83,11 @@ def local_now(conn, user_id: str, now_utc: datetime) -> datetime:
     """
     The user's wall-clock time, without a time zone (the pipeline works in local time).
     Uses the time zone from their settings, or else the offset of their newest reading.
+    Demo users have a fixed clock instead.
     """
-    row = conn.execute("SELECT timezone FROM users WHERE user_id = ?", (user_id,)).fetchone()
+    row = conn.execute("SELECT timezone, clock_local FROM users WHERE user_id = ?", (user_id,)).fetchone()
+    if row and row["clock_local"]:
+        return datetime.fromisoformat(row["clock_local"])
     if row and row["timezone"]:
         try:
             return now_utc.astimezone(ZoneInfo(row["timezone"])).replace(tzinfo=None)
