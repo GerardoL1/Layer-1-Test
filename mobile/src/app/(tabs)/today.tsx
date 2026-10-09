@@ -96,7 +96,8 @@ export default function TodayScreen() {
       <SectionHeader title={t.is_last_night ? 'Last night' : `Night of ${dayLabel(t.night_date!)}`} note="vs your usual" />
       {rows.map((m) => {
         const d = metricDisplay(m);
-        return <MetricRow key={m.key} label={LAST_NIGHT_LABELS[m.key]} value={d.value} unit={d.unit}
+        return <MetricRow key={m.key} label={LAST_NIGHT_LABELS[m.key]} shortLabel={m.key === 'rhr' ? 'Resting HR' : undefined}
+          value={d.value} unit={d.unit}
           delta={d.delta} direction={m.direction} />;
       })}
       {t.quality_notes ? (

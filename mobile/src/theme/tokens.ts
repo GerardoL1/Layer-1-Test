@@ -126,3 +126,5 @@ export const radius = { sm: 2, md: 3, lg: 4 } as const;
 
 // Below this width the app uses the iPhone layout (tab bar), above it the computer layout (sidebar).
 export const WIDE_BREAKPOINT = 768;
+// Below this width (iPhone SE 1st gen and similar, 320 px) a few things get shorter or smaller to fit.
+export const NARROW_BREAKPOINT = 360;

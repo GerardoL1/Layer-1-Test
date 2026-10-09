@@ -51,6 +51,12 @@ export function ReadinessScale({ score, status, cutoffs }: { score: number | nul
   );
 }
 
+/** Size of the big score: Figma's 168 on a computer, 150 on most phones, 120 on the narrowest. */
+export function heroSize(isWide: boolean, isNarrow: boolean) {
+  if (isWide) return undefined;
+  return isNarrow ? { fontSize: 120, lineHeight: 104 } : { fontSize: 150, lineHeight: 130 };
+}
+
 type SummaryProps = {
   score: number | null;
   status: ReadinessStatus;
@@ -61,7 +67,7 @@ type SummaryProps = {
 
 /** Top of Today: status word, score, scale, one-line verdict and a plain-language reason. */
 export function ReadinessSummary({ score, status, cutoffs, verdict, reason }: SummaryProps) {
-  const { statusColor, isWide } = useTheme();
+  const { statusColor, isWide, isNarrow } = useTheme();
   const color = statusColor(status);
   return (
     <View>
@@ -69,7 +75,7 @@ export function ReadinessSummary({ score, status, cutoffs, verdict, reason }: Su
       <Text variant="labelSmall" style={{ color, marginTop: 20 }}>Readiness  ·  {STATUS_WORD[status]}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 8 }}>
         <Text variant="scoreHero" accessibilityLabel={score === null ? 'No score yet' : `${score} out of 100`}
-          style={isWide ? undefined : { fontSize: 150, lineHeight: 130 }}>
+          style={heroSize(isWide, isNarrow)}>
           {score ?? '–'}
         </Text>
         <Text variant="scoreSuffix" color="textMuted" style={{ marginLeft: 8, marginBottom: 6 }}>/ 100</Text>

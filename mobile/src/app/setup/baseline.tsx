@@ -3,6 +3,7 @@ import { View } from 'react-native';
 
 import { useApi, useLoad } from '../../api/useApi';
 import { Button } from '../../components/Button';
+import { heroSize } from '../../components/Readiness';
 import { SetupFrame } from '../../components/SetupFrame';
 import { Text } from '../../components/Text';
 import { useTheme } from '../../theme/theme';
@@ -10,7 +11,7 @@ import { useTheme } from '../../theme/theme';
 /** Setup 4: how many nights the app has, and how close the score is to fully personal. */
 export default function BaselineStep() {
   const api = useApi();
-  const { colors, isWide } = useTheme();
+  const { colors, isWide, isNarrow } = useTheme();
   const { data: p, loading } = useLoad(() => api.profile().catch(() => null), api);
   const window = p?.baseline_window_nights ?? 28;
   const first = p?.baseline_min_nights ?? 7;
@@ -27,7 +28,7 @@ export default function BaselineStep() {
     <SetupFrame step={3} actions={<Button title="Go to Today" onPress={() => router.replace('/today')} />}>
       <Text variant="h1" accessibilityRole="header">Learning your normal</Text>
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 24 }}>
-        <Text variant="scoreHero" style={isWide ? undefined : { fontSize: 150, lineHeight: 130 }}>{loading ? '–' : have}</Text>
+        <Text variant="scoreHero" style={heroSize(isWide, isNarrow)}>{loading ? '–' : have}</Text>
         <Text variant="scoreSuffix" color="textMuted" style={{ marginLeft: 8, marginBottom: 6 }}>/ {window} nights</Text>
       </View>
       <View accessible accessibilityLabel={`${have} of ${window} nights`} style={{ flexDirection: 'row', gap: 3, marginTop: 20 }}>
