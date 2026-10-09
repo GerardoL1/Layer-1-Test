@@ -138,3 +138,32 @@ def test_demo_reload_starts_fresh(demo):
     client.post("/api/demo/sam")
     assert client.get("/api/settings", params={"user_id": "demo-sam"}).json()["update_time"] == "08:00"
     assert client.post("/api/demo/someone").status_code == 422
+
+
+def test_today_has_deltas_awakenings_and_placeholder_text(demo):
+    t = client.get("/api/today", params={"user_id": "demo-alex"}).json()
+    rows = {m["key"]: m for m in t["metrics"]}
+    assert rows["hrv"]["usual_mean"] and rows["hrv"]["usual_low"] < rows["hrv"]["usual_mean"] < rows["hrv"]["usual_high"]
+    assert rows["awakenings"]["value"] == demo["alex"].loc["2026-09-30", "awakenings"]
+    assert t["verdict"] == "Take a recovery day." and t["text_placeholder"]
+    assert "resting heart rate" in t["reason"] and t["reason"].endswith("an early night.")
+
+
+def test_trend_summaries(demo):
+    s = client.get("/api/trends", params={"user_id": "demo-alex", "nights": 14}).json()["summaries"]
+    assert set(s) == {"readiness", "hrv", "rhr", "sleep", "efficiency"}
+    assert "Low" in s["readiness"]
+    assert s["rhr"].startswith("Above your usual range")
+    assert "less sleep" in s["sleep"]
+
+
+def test_explain_templates():
+    import explain
+    verdict, reason = explain.today_text("building_baseline", [], 3, 7)
+    assert verdict == "Still learning your normal." and "3 of 7" in reason
+    _, reason = explain.today_text("ready", [{"key": "hrv", "direction": "usual"}], 20, 7)
+    assert reason == "Your numbers are within your usual range. Your body looks recovered."
+    _, reason = explain.today_text("low", [{"key": "hrv", "direction": "worse"}, {"key": "sleep", "direction": "worse"}], 20, 7)
+    assert reason.startswith("Your HRV is below your usual and you slept less than usual.")
+    rows = [{"readiness": {"score": s, "status": st}} for s, st in [(80, "ready")] * 5 + [(30, "low")] * 3]
+    assert explain.readiness_summary(rows) == "Slid from Ready into Low over the last 3 nights."

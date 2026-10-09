@@ -2,7 +2,7 @@
  * "Test build" section: pick the server and tester, or load a demo person.
  * Only for testing. Remove it once real accounts exist.
  */
-import { router } from 'expo-router';
+import { Href, router } from 'expo-router';
 import { useState } from 'react';
 import { TextInput, View } from 'react-native';
 
@@ -15,7 +15,8 @@ import { Text } from './Text';
 
 const DEMO = ['sam', 'alex', 'jordan'] as const;
 
-export function TestBuild() {
+/** next: where to go once a tester is picked. */
+export function TestBuild({ next = '/today' }: { next?: Href }) {
   const { colors } = useTheme();
   const session = useSession();
   const [serverUrl, setServerUrl] = useState(session.serverUrl);
@@ -34,7 +35,7 @@ export function TestBuild() {
     try {
       await makeApi(serverUrl, userId).health();
       await session.update({ serverUrl: serverUrl.trim(), userId: userId.trim() });
-      router.replace('/today');
+      router.replace(next);
     } catch (e) {
       setNote(e instanceof Error ? e.message : String(e));
     } finally {
@@ -48,7 +49,7 @@ export function TestBuild() {
     try {
       const r = await makeApi(serverUrl, '').loadDemo(person);
       await session.update({ serverUrl: serverUrl.trim(), userId: r.user_id });
-      router.replace('/today');
+      router.replace(next);
     } catch (e) {
       setNote(e instanceof Error ? e.message : String(e));
     } finally {

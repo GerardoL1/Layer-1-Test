@@ -96,6 +96,7 @@ export type Profile = {
   usual_ranges: { key: string; label: string; unit: string; usual_low: number | null; usual_high: number | null;
     baseline_nights: number | null; placeholder: boolean }[];
   sources: string[];
+  last_update_local: string | null;
 };
 
 export class ApiError extends Error {

@@ -20,6 +20,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, field_validator
 
 import db
+import explain
 import processing
 from processing import C, I, P
 
@@ -91,6 +92,15 @@ def usual_range(row, col) -> tuple:
     return r1(lo), r1(hi)
 
 
+def usual_mean(row, col):
+    """The middle of the usual range, for changes like "-18%". HRV's is the geometric mean."""
+    base = BASE_COLUMN.get(col, col)
+    mu = row.get(f"{base}_base_mean")
+    if pd.isna(mu):
+        return None
+    return r1(math.exp(mu) if base != col else mu)
+
+
 def direction(z, higher_is_better) -> str | None:
     if pd.isna(z):
         return None
@@ -103,8 +113,13 @@ def metric_rows(row) -> list:
     for key, col, label, unit, zcol, up in METRICS:
         lo, hi = usual_range(row, col)
         out.append({"key": key, "label": label, "unit": unit, "value": r1(row.get(col)),
-                    "z": r1(row.get(zcol)), "usual_low": lo, "usual_high": hi,
+                    "z": r1(row.get(zcol)), "usual_low": lo, "usual_high": hi, "usual_mean": usual_mean(row, col),
                     "direction": direction(row.get(zcol), up), "placeholder": True})
+    # The count people understand. Its Worse / Usual / Better comes from the per-hour z-score,
+    # since that's the measure the baseline is kept on (no usual range for the count itself).
+    out.append({"key": "awakenings", "label": "Awakenings", "unit": "", "value": clean(row.get("awakenings")),
+                "z": r1(row.get("z_frag")), "usual_low": None, "usual_high": None, "usual_mean": None,
+                "direction": direction(row.get("z_frag"), False), "placeholder": True})
     return out
 
 
@@ -181,9 +196,14 @@ def today(user_id: str):
     if shown < last_night:
         message = (f"Last night updates at {base['update_time']}"
                    + (", or tap Update now." if update_now_ok else "."))
+    ready = readiness(row)
+    metrics = metric_rows(row)
+    verdict, reason = explain.today_text(ready["status"], metrics, clean(row.get("tst_min_base_n")),
+                                         C.BASELINE_MIN_NIGHTS)
     return {**base, "night_date": shown.isoformat(), "is_last_night": shown == last_night, "message": message,
-            "readiness": readiness(row), "metrics": metric_rows(row), "sleep": sleep_block(row),
-            "quality_notes": row.get("quality_notes") or None}
+            "readiness": ready, "metrics": metrics, "sleep": sleep_block(row),
+            "quality_notes": row.get("quality_notes") or None,
+            "verdict": verdict, "reason": reason, "text_placeholder": True}
 
 
 # ---------------------------------------------------------------- Trends
@@ -213,7 +233,7 @@ def trends(user_id: str, nights: int = 14):
             entry[key] = {"value": r1(row.get(col)), "z": r1(row.get(zcol)), "usual_low": lo, "usual_high": hi}
         rows.append(entry)
     return {"user_id": user_id, "nights": nights, "cutoffs": {"low_below": LOW_BELOW, "ready_from": READY_FROM},
-            "placeholder": True, "rows": rows}
+            "placeholder": True, "rows": rows, "summaries": explain.trends_summaries(rows)}
 
 
 # ---------------------------------------------------------------- Profile
@@ -223,6 +243,7 @@ def profile(user_id: str):
     processing.ensure_processed(user_id)
     with db.connect() as conn:
         require_user(conn, user_id)
+        run = last_run(conn, user_id)
         sources = [r[0] for r in conn.execute(
             "SELECT DISTINCT source FROM samples WHERE user_id = ? AND source IS NOT NULL "
             "UNION SELECT DISTINCT source FROM sleep_stages WHERE user_id = ? AND source IS NOT NULL",
@@ -247,6 +268,7 @@ def profile(user_id: str):
         "baseline_min_nights": C.BASELINE_MIN_NIGHTS,
         "usual_ranges": usual,
         "sources": sorted(sources),
+        "last_update_local": run["sync_local"] if run else None,
     }
 
 
