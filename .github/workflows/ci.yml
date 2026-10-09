@@ -1,0 +1,70 @@
+# Runs on every push and pull request. Three jobs run side by side:
+#   preprocessing  Layer 1 pipeline unit tests, then a quick Layer 1 tester run
+#   server         API, processing and scenario tests
+#   app            typecheck, lint and the HealthKit conversion checks (no iPhone needed)
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  preprocessing:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: preprocessing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      # Only what the tests need. Streamlit and Plotly are for the test platform app, not the tests.
+      - run: pip install "pandas>=2.2" "numpy>=1.26" "pytest>=8.0"
+      - name: Unit tests
+        run: python -m pytest -q
+      - name: Layer 1 tester (quick run, unit tests and daily replay already covered)
+        run: python agent_testing/run_layer1_tests.py --skip-unit --skip-daily
+      - name: Keep the tester report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: layer1-report
+          path: preprocessing/agent_testing/reports/
+          if-no-files-found: ignore
+
+  server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt "pytest>=8.0" httpx
+      - name: Server tests
+        run: python -m pytest -q tests
+
+  app:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npx expo lint
+      - name: HealthKit conversion checks
+        run: npm test
