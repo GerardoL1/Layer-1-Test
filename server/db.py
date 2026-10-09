@@ -45,24 +45,27 @@ CREATE TABLE IF NOT EXISTS users (
     clock_local      TEXT                           -- demo users only: a fixed local clock
 );
 CREATE TABLE IF NOT EXISTS samples (
-    id             TEXT PRIMARY KEY,  -- HealthKit UUID, or a stable hash when there is none
+    id             TEXT NOT NULL,     -- HealthKit UUID, or a stable hash when there is none
     user_id        TEXT NOT NULL,
     metric         TEXT NOT NULL,     -- heart_rate, resting_heart_rate, hrv_sdnn
     value          REAL NOT NULL,
     start_ms       INTEGER NOT NULL,  -- UTC milliseconds
     end_ms         INTEGER NOT NULL,
     tz_offset_min  INTEGER NOT NULL,  -- local time = UTC + this
-    source         TEXT
+    source         TEXT,
+    -- Per user: the same phone can sync under two tester names, with the same HealthKit UUIDs.
+    PRIMARY KEY (user_id, id)
 );
 CREATE TABLE IF NOT EXISTS sleep_stages (
-    id            TEXT PRIMARY KEY,
+    id            TEXT NOT NULL,
     user_id       TEXT NOT NULL,
     stage         TEXT NOT NULL,      -- in_bed, awake, core, deep, rem, asleep_unspecified
     start_ms      INTEGER NOT NULL,
     end_ms        INTEGER NOT NULL,
     start_tz_min  INTEGER NOT NULL,   -- two offsets since a night can cross a clock change
     end_tz_min    INTEGER NOT NULL,
-    source        TEXT
+    source        TEXT,
+    PRIMARY KEY (user_id, id)
 );
 CREATE INDEX IF NOT EXISTS idx_samples_user ON samples(user_id, start_ms);
 CREATE INDEX IF NOT EXISTS idx_sleep_user ON sleep_stages(user_id, start_ms);
@@ -82,6 +85,16 @@ def init_db():
         have = {r["name"] for r in conn.execute("PRAGMA table_info(users)")}
         if "clock_local" not in have:
             conn.execute("ALTER TABLE users ADD COLUMN clock_local TEXT")
+        # Early databases keyed readings by id alone. Rebuild those tables keyed by (user_id, id).
+        for table in ("samples", "sleep_stages"):
+            key = [r["name"] for r in sorted(conn.execute(f"PRAGMA table_info({table})"), key=lambda r: r["pk"])
+                   if r["pk"]]
+            if key == ["id"]:
+                conn.execute(f"ALTER TABLE {table} RENAME TO {table}_old")
+                conn.executescript(SCHEMA)
+                conn.execute(f"INSERT OR IGNORE INTO {table} SELECT * FROM {table}_old")
+                conn.execute(f"DROP TABLE {table}_old")
+                conn.executescript(SCHEMA)   # the index went with the old table, so make it again
 
 
 def stable_id(*parts) -> str:

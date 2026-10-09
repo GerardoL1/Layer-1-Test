@@ -15,3 +15,10 @@ os.environ["RECOVERY_DB"] = os.path.join(_tmp, "test.db")
 SAMPLE_DATA = ROOT / "preprocessing" / "sample_data"
 SAMPLES = {"sam": "mock_export_sam_steady.zip", "alex": "mock_export_alex_overreach.zip",
            "jordan": "mock_export_jordan_messy.zip"}
+
+# Create the tables up front, so any test file can run on its own.
+import db  # noqa: E402
+import processing  # noqa: E402
+
+db.init_db()
+processing.init_db()
