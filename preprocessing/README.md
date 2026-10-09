@@ -3,8 +3,8 @@
 A standalone tool that takes **one Apple Health export** and shows, step by step, how it becomes an
 **ML-ready table: one row per person per night**. Nothing is trained here.
 
-It's separate from `server/` and `mobile/` on purpose. Later, the same `pipeline.py` is meant to run on
-the server, so the app can send raw data and get preprocessed results back.
+The server runs this same code (`server/processing.py` uses `incremental.py`), so the app gets exactly
+these numbers. This folder is where the logic is changed and tested.
 
 ```
 Apple Health export
@@ -104,5 +104,5 @@ python -m pytest -q
 python run_pipeline.py --save-expected
 ```
 
-When this logic moves to the server or app, the `expected/` CSVs are the check that the new version
-produces the same numbers.
+The server's tests (`server/tests/`) check that results through the server match this pipeline, including
+every Layer 1 tester scenario, so run them too after changing anything here.
