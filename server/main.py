@@ -8,6 +8,7 @@ Four ways data can arrive (all land in the same database):
   4. Apple Health export file        POST /api/import  or  python import_export.py
 
 Every reading is stored with its UTC offset so nights can be worked out in local time.
+After new data arrives the Layer 1 preprocessing runs in the background (processing.py).
 
 Run:
     pip install -r requirements.txt
@@ -24,6 +25,7 @@ from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
 import db
+import processing
 from apple_export import import_export, parse_date
 
 app = FastAPI(title="Recovery platform")
@@ -32,6 +34,7 @@ app = FastAPI(title="Recovery platform")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 db.init_db()
+processing.init_db()
 
 
 @app.get("/health")
@@ -80,7 +83,7 @@ def require_offset(minutes, what: str) -> int:
 
 
 @app.post("/upload")
-def upload(payload: Upload):
+def upload(payload: Upload, background: BackgroundTasks):
     samples, stages = [], []
     for s in payload.samples:
         if s.metric not in db.METRICS:
@@ -96,6 +99,8 @@ def upload(payload: Upload):
 
     with db.connect() as conn:
         added = db.add_readings(conn, payload.user_id, samples, stages)
+    if added:
+        background.add_task(processing.process_user, payload.user_id)
     received = len(samples) + len(stages)
     print(f"[upload] {payload.user_id}: received {received}, new {added}")
     return {"received": received, "new": added}
@@ -115,7 +120,7 @@ HAE_SLEEP_STAGES = {
 
 
 @app.post("/api/hae")
-async def health_auto_export(request: Request, user_id: str = "tester1"):
+async def health_auto_export(request: Request, background: BackgroundTasks, user_id: str = "tester1"):
     """
     Receiver for the Health Auto Export app (REST API automation, JSON format).
     Set the URL in the app to:  http://<computer-ip>:8000/api/hae?user_id=<tester name>
@@ -163,6 +168,8 @@ async def health_auto_export(request: Request, user_id: str = "tester1"):
 
     with db.connect() as conn:
         added = db.add_readings(conn, user_id, samples, stages)
+    if added:
+        background.add_task(processing.process_user, user_id)
 
     print(f"[hae] {user_id}: {len(samples)} samples, {len(stages)} sleep stages, {added} new"
           f"{', ' + str(bad) + ' unreadable dates' if bad else ''}"
@@ -204,7 +211,8 @@ def sleep_stage(value: str) -> str | None:
 
 
 @app.post("/api/shortcut", response_class=PlainTextResponse)
-def apple_shortcut(user: str = Form(...), metric: str = Form(...), rows: str = Form("")):
+def apple_shortcut(background: BackgroundTasks, user: str = Form(...), metric: str = Form(...),
+                   rows: str = Form("")):
     """
     Receiver for the Apple Shortcuts automation. Form fields:
       user    tester name
@@ -250,6 +258,8 @@ def apple_shortcut(user: str = Form(...), metric: str = Form(...), rows: str = F
 
     with db.connect() as conn:
         added = db.add_readings(conn, user, samples, stages)
+    if added:
+        background.add_task(processing.process_user, user)
 
     received = len(samples) + len(stages)
     print(f"[shortcut] {user} {metric}: {received} rows, {added} new, {len(bad)} unreadable")
@@ -273,6 +283,9 @@ def run_import(path: str, user_id: str, since_days: int | None):
         counts = import_export(path, conn, user_id, since_days,
                                progress=lambda c: IMPORT_STATUS.update(counts=c))
         conn.close()
+        if counts.get("new"):
+            IMPORT_STATUS.update(state="processing")
+            processing.process_user(user_id)
         IMPORT_STATUS.update(state="done", counts=counts)
     except Exception as e:  # report any parsing problem to whoever is polling the status
         IMPORT_STATUS.update(state="error", error=str(e))
@@ -287,7 +300,7 @@ async def import_upload(
     user_id: str = Form("tester1"),
     since_days: int = Form(90),
 ):
-    if IMPORT_STATUS.get("state") in ("queued", "running"):
+    if IMPORT_STATUS.get("state") in ("queued", "running", "processing"):
         raise HTTPException(409, "An import is already running. Wait for it to finish.")
     if not file.filename.lower().endswith((".zip", ".xml")):
         raise HTTPException(400, "Upload the export.zip (or export.xml) from the Health app.")
