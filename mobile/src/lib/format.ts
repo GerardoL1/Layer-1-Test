@@ -93,3 +93,21 @@ export function displayName(userId: string): string {
   const name = demo ? userId.slice(5) : userId;
   return name.charAt(0).toUpperCase() + name.slice(1) + (demo ? ' (demo)' : '');
 }
+
+const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/** "2026-09-28" -> "Monday" */
+export function weekdayName(iso: string): string {
+  return WEEKDAY_NAMES[parts(iso).date.getDay()];
+}
+
+/** "2026-09-28" -> "Mon" */
+export function weekdayShort(iso: string): string {
+  return DAYS[parts(iso).date.getDay()];
+}
+
+/** Update time as Figma writes it: "08:00" -> "8:00", "17:30" -> "17:30" (24 hours, so never ambiguous). */
+export function updateTimeLabel(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  return `${h}:${String(m).padStart(2, '0')}`;
+}

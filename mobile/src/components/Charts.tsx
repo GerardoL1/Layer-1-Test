@@ -48,8 +48,9 @@ function Frame({ height, label, children }: { height: number; label: string; chi
 
 export type TrendPoint = { date: string; value: number | null; usualLow: number | null; usualHigh: number | null };
 
-export function TrendLine({ points, height = 90, label, color }: {
-  points: TrendPoint[]; height?: number; label: string; color?: string;
+/** lastLabel: what the right end of the axis says, "Last night" unless the newest night is older. */
+export function TrendLine({ points, height = 90, label, color, lastLabel }: {
+  points: TrendPoint[]; height?: number; label: string; color?: string; lastLabel?: string;
 }) {
   const { colors } = useTheme();
   const nums = points.flatMap((p) => [p.value, p.usualLow, p.usualHigh]).filter((v): v is number => v !== null);
@@ -110,7 +111,7 @@ export function TrendLine({ points, height = 90, label, color }: {
           );
         }}
       </Frame>
-      <Axis first={points[0]?.date} />
+      <Axis first={points[0]?.date} lastLabel={lastLabel} />
     </View>
   );
 }

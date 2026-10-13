@@ -11,7 +11,7 @@ import { Page, PageState } from '../../components/Page';
 import { ReadinessSummary } from '../../components/Readiness';
 import { SectionHeader } from '../../components/SectionHeader';
 import { Text } from '../../components/Text';
-import { clock, dayLabel, metricDisplay } from '../../lib/format';
+import { clock, dayLabel, metricDisplay, updateTimeLabel, weekdayName, weekdayShort } from '../../lib/format';
 import { useTheme } from '../../theme/theme';
 
 const LAST_NIGHT_ROWS = ['hrv', 'rhr', 'sleep', 'awakenings'];
@@ -77,14 +77,26 @@ export default function TodayScreen() {
     );
   }
 
+  // Before the update time, Today still shows an earlier night. Say which one, and offer Update now
+  // (greyed out until last night's sleep has ended and synced).
+  const waiting = !!t.night_date && !t.is_last_night;
   const summary = (
     <View>
       <ReadinessSummary score={t.readiness.score} status={t.readiness.status} cutoffs={t.cutoffs}
         verdict={t.verdict} reason={t.reason} />
-      {t.message || updateNote ? (
-        <View style={{ marginTop: 20, padding: 14, backgroundColor: colors.surfaceMuted, gap: 12 }}>
-          <Text variant="body" color="textSecondary">{updateNote ?? t.message}</Text>
-          {t.can_update_now ? <Button title="Update now" kind="secondary" busy={updating} onPress={updateNow} /> : null}
+      {waiting || updateNote ? (
+        <View style={{ marginTop: 24, paddingTop: 14, paddingBottom: 4, gap: 12, borderTopWidth: 1,
+          borderTopColor: colors.border }}>
+          {waiting ? (
+            <Text variant="labelMedium" color="textMuted">
+              Showing {weekdayName(t.night_date!)} night · Last night updates at {updateTimeLabel(t.update_time)}
+            </Text>
+          ) : null}
+          {waiting ? (
+            <Button title="Update now" kind="secondary" busy={updating} disabled={!t.can_update_now}
+              onPress={updateNow} style={{ alignSelf: 'flex-start' }} />
+          ) : null}
+          {updateNote ? <Text variant="bodySmall" color="textSecondary">{updateNote}</Text> : null}
         </View>
       ) : null}
     </View>
@@ -93,7 +105,7 @@ export default function TodayScreen() {
   const rows = LAST_NIGHT_ROWS.map((k) => t.metrics.find((m) => m.key === k)).filter((m) => m !== undefined);
   const lastNight = (
     <View>
-      <SectionHeader title={t.is_last_night ? 'Last night' : `Night of ${dayLabel(t.night_date!)}`} note="vs your usual" />
+      <SectionHeader title={waiting ? `${weekdayName(t.night_date!)} night` : 'Last night'} note="vs your usual" />
       {rows.map((m) => {
         const d = metricDisplay(m);
         return <MetricRow key={m.key} label={LAST_NIGHT_LABELS[m.key]} shortLabel={m.key === 'rhr' ? 'Resting HR' : undefined}
@@ -106,10 +118,13 @@ export default function TodayScreen() {
     </View>
   );
 
+  // The charts end at the night on screen: "Last night", or its short weekday while waiting ("Mon").
+  const chartEnd = waiting ? weekdayShort(t.night_date!) : 'Last night';
   const hrvChart = (
     <View>
       <SectionHeader title="HRV, 14 nights" note="Shaded = your usual" />
-      {trends.data ? <TrendLine label="Heart rate variability, last 14 nights" points={points(trends.data, 'hrv')} />
+      {trends.data ? <TrendLine label="Heart rate variability, last 14 nights" points={points(trends.data, 'hrv')}
+        lastLabel={chartEnd} />
         : <PageState loading={trends.loading} error={trends.error} />}
     </View>
   );
@@ -117,7 +132,8 @@ export default function TodayScreen() {
     <View>
       <SectionHeader title="Resting heart rate, 14 nights" note="Shaded = your usual" />
       {trends.data ? <TrendLine label="Resting heart rate, last 14 nights" color={colors.rhr}
-        points={points(trends.data, 'rhr')} /> : <PageState loading={trends.loading} error={trends.error} />}
+        points={points(trends.data, 'rhr')} lastLabel={chartEnd} />
+        : <PageState loading={trends.loading} error={trends.error} />}
     </View>
   );
 
