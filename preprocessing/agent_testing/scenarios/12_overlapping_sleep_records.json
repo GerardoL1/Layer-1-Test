@@ -1,0 +1,46 @@
+{
+  "name": "12_overlapping_sleep_records",
+  "description": "Sleep written twice: some nights have an 'asleep' record on top of the core/deep/REM stages (as after an iOS update), others are recorded by a second Apple Watch too. Each minute must count once, so total sleep and stages match the truth and efficiency never goes over 100%.",
+  "nights": 30,
+  "seed": 1212,
+  "events": [
+    {
+      "type": "overlapping_sleep",
+      "nights": [5, 6, 7, 20, 21],
+      "kind": "unspecified"
+    },
+    {
+      "type": "overlapping_sleep",
+      "nights": [10, 11, 25],
+      "kind": "second_watch"
+    },
+    {
+      "type": "in_bed",
+      "nights": [20, 25]
+    }
+  ],
+  "expect": [
+    {
+      "type": "rows",
+      "equals": 30
+    },
+    {
+      "type": "value",
+      "column": "sleep_efficiency_pct",
+      "nights": [5, 6, 7, 10, 11, 20, 21, 25],
+      "between": [0, 100]
+    },
+    {
+      "type": "value",
+      "column": "unspecified_min",
+      "nights": [5, 6, 7, 20, 21],
+      "equals": 0.0
+    },
+    {
+      "type": "usable",
+      "nights": [5, 6, 7, 10, 11, 20, 21, 25],
+      "column": "usable_sleep",
+      "equals": true
+    }
+  ]
+}

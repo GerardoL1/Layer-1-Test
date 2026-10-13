@@ -173,6 +173,61 @@ def clean(records: pd.DataFrame) -> tuple[dict[str, pd.DataFrame], pd.DataFrame,
 
 # ======================================================================= 3. Sleep window
 
+def resolve_overlaps(stages: pd.DataFrame) -> pd.DataFrame:
+    """
+    Make sure no two sleep pieces cover the same moment, so minutes are never counted twice.
+
+    Where pieces overlap, the moment goes to the stage with the lowest SLEEP_STAGE_PRIORITY
+    (deep, REM and core beat asleep_unspecified, which beats awake). Between equal stages the
+    piece that started first wins. Pieces are trimmed or split to the parts they win.
+    Data without overlaps is returned unchanged.
+    """
+    if len(stages) < 2:
+        return stages
+    st = stages.sort_values(["start_utc", "end_utc"], kind="stable").reset_index(drop=True)
+    starts, ends = st["start_utc"].tolist(), st["end_utc"].tolist()
+    latest, overlap = ends[0], False
+    for s, e in zip(starts[1:], ends[1:]):
+        if s < latest:
+            overlap = True
+            break
+        latest = max(latest, e)
+    if not overlap:
+        return stages
+
+    rank = [C.SLEEP_STAGE_PRIORITY.get(s, len(C.SLEEP_STAGE_PRIORITY)) for s in st["stage"]]
+    bounds = sorted(set(starts) | set(ends))
+    pieces = []          # (row index, start, end) of the parts each piece keeps
+    active, nxt = [], 0  # pieces covering the current stretch, next piece to start
+    for lo, hi in zip(bounds[:-1], bounds[1:]):
+        while nxt < len(st) and starts[nxt] <= lo:
+            active.append(nxt)
+            nxt += 1
+        active = [i for i in active if ends[i] > lo]
+        live = [i for i in active if starts[i] <= lo and ends[i] >= hi]
+        if not live:
+            continue
+        # Sorted by start already, so min() picks the earliest piece among equal stages.
+        win = min(live, key=lambda i: (rank[i], starts[i], i))
+        if pieces and pieces[-1][0] == win and pieces[-1][2] == lo:
+            pieces[-1] = (win, pieces[-1][1], hi)
+        else:
+            pieces.append((win, lo, hi))
+
+    rows = []
+    for i, s, e in pieces:
+        r = st.iloc[i].copy()
+        # Keep each piece's own local offset for the new start and end (it may cross a clock change).
+        if s != r["start_utc"]:
+            r["start_local"] = s.tz_localize(None) + (r["start_local"] - r["start_utc"].tz_localize(None))
+        if e != r["end_utc"]:
+            r["end_local"] = e.tz_localize(None) + (r["end_local"] - r["end_utc"].tz_localize(None))
+        r["start_utc"], r["end_utc"] = s, e
+        rows.append(r)
+    out = pd.DataFrame(rows, columns=st.columns).reset_index(drop=True)
+    return out.astype(st.dtypes.to_dict())
+
+
 def find_sleep_windows(stages: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Step 3. Group sleep pieces into sessions and choose each night's main sleep.
@@ -181,11 +236,13 @@ def find_sleep_windows(stages: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame
     Each session's window runs from the first asleep piece (onset) to the last asleep
     piece (final awakening); awake pieces before onset or after final awakening are ignored.
 
+    Overlapping pieces are resolved first (resolve_overlaps), so each minute has one stage.
+
     Returns
       sessions  one row per session, with night_date and is_main
-      stages    the input stages with a session_id column
+      stages    the input stages (overlaps resolved) with a session_id column
     """
-    st = stages.sort_values("start_utc").reset_index(drop=True).copy()
+    st = resolve_overlaps(stages).sort_values("start_utc").reset_index(drop=True).copy()
     if st.empty:
         st["session_id"] = pd.Series(dtype=int)
         return pd.DataFrame(columns=["session_id", "night_date", "onset_utc", "wake_utc", "onset_local",

@@ -22,6 +22,11 @@ SLEEP_VALUES = {
     "HKCategoryValueSleepAnalysisAsleepREM": "rem",
 }
 ASLEEP_STAGES = ("core", "deep", "rem", "asleep_unspecified")
+# When sleep pieces overlap (two watches, or "asleep" written on top of stages after an iOS update),
+# each minute is given to one stage only, so nothing is counted twice. Lower number wins.
+# If two of deep / REM / core overlap, the piece that started first keeps the minutes.
+# "In Bed" is kept separately and is not part of this.
+SLEEP_STAGE_PRIORITY = {"deep": 0, "rem": 0, "core": 0, "asleep_unspecified": 1, "awake": 2}
 
 # Only process this many days back from the newest record (None = everything).
 DEFAULT_DAYS = 90

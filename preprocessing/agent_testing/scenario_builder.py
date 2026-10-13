@@ -42,6 +42,9 @@ EVENT TYPES ("nights" can be a list like [3, 4] or "all" or {"from": 20, "to": 3
   {"type": "glitches", "count": 6}                     impossible HR values (12, 250 bpm)
   {"type": "other_app_hr", "nights": [...]}            HR written by another app
   {"type": "other_app_sleep", "nights": [...]}         a third-party sleep app's "asleep" record
+  {"type": "overlapping_sleep", "nights": [...], "kind": "unspecified" | "second_watch"}
+       sleep written twice: "asleep" records on top of the stages, or a second Apple Watch
+       recording the same night. The true sleep doesn't change, so nothing may be counted twice.
 """
 from __future__ import annotations
 
@@ -145,6 +148,7 @@ def build(spec: dict) -> Scenario:
     bed_ev, no_stage, naps = nights_with("bedtime"), nights_with("no_stages"), nights_with("nap")
     in_bed, few_hr = nights_with("in_bed"), nights_with("few_hr")
     other_hr, other_sleep = nights_with("other_app_hr"), nights_with("other_app_sleep")
+    overlapping = nights_with("overlapping_sleep")
     offsets = sorted(((e["from_night"], e["offset"]) for e in by_type.get("utc_offset", [])))
 
     def offset_for(n: int) -> str:
@@ -205,6 +209,7 @@ def build(spec: dict) -> Scenario:
         wake_slots = set(rng.sample(range(1, len(blocks)), k=min(wake_ups, max(len(blocks) - 1, 0)))) if len(blocks) > 1 else set()
 
         t = onset
+        night_first_record = len(recs)
         # A few minutes awake BEFORE onset (must not count)
         recs.append(Record(SLEEP, WATCH, t - timedelta(minutes=6), t, off, "HKCategoryValueSleepAnalysisAwake"))
         stage_min = {"core": 0.0, "deep": 0.0, "rem": 0.0, "asleep_unspecified": 0.0}
@@ -231,6 +236,18 @@ def build(spec: dict) -> Scenario:
         wake = t
         # A few minutes awake AFTER final awakening (must not count)
         recs.append(Record(SLEEP, WATCH, wake, wake + timedelta(minutes=9), off, "HKCategoryValueSleepAnalysisAwake"))
+
+        # The same sleep written twice. Truth stays the same: each minute must still count once.
+        if n in overlapping:
+            night = [r for r in recs[night_first_record:] if r.rtype == SLEEP]
+            if overlapping[n].get("kind", "unspecified") == "second_watch":
+                for r in night:
+                    recs.append(Record(SLEEP, "Tester’s second Apple Watch", r.start, r.end, r.offset, r.value))
+            else:
+                for r in night:
+                    if not r.value.endswith("Awake"):
+                        recs.append(Record(SLEEP, WATCH, r.start, r.end, r.offset,
+                                           "HKCategoryValueSleepAnalysisAsleepUnspecified"))
 
         tst = sum(stage_min.values())
         row.update({"onset": onset.isoformat(), "final_wake": wake.isoformat(), "tst_min": tst,
