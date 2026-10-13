@@ -111,3 +111,17 @@ export function updateTimeLabel(hhmm: string): string {
   const [h, m] = hhmm.split(':').map(Number);
   return `${h}:${String(m).padStart(2, '0')}`;
 }
+
+/** "16:00", "4 pm", "4:30pm" -> "16:00" / "16:30". Returns null if it isn't a time. */
+export function parseTime(text: string): string | null {
+  const m = text.trim().toLowerCase().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/);
+  if (!m) return null;
+  let h = Number(m[1]);
+  const min = Number(m[2] ?? 0);
+  if (m[3]) {
+    if (h < 1 || h > 12) return null;
+    h = (h % 12) + (m[3] === 'pm' ? 12 : 0);
+  }
+  if (h > 23 || min > 59) return null;
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}

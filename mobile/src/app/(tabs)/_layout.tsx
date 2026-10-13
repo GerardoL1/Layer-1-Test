@@ -1,4 +1,4 @@
-import { Redirect, Slot } from 'expo-router';
+import { Redirect, Slot, usePathname } from 'expo-router';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,7 +11,10 @@ import { useTheme } from '../../theme/theme';
 export default function TabsLayout() {
   const { colors, isWide } = useTheme();
   const { serverUrl, userId } = useSession();
+  const path = usePathname();
   if (!serverUrl || !userId) return <Redirect href="/setup" />;
+  // Screens opened from a tab (like /profile/update-time) cover the tab bar on iPhone, as in Figma.
+  const subPage = path.split('/').filter(Boolean).length > 1;
 
   // Apple Health sync runs while any tab is open (it does nothing on the web).
   if (isWide) {
@@ -32,7 +35,7 @@ export default function TabsLayout() {
         <View style={{ flex: 1 }}>
           <Slot />
         </View>
-        <TabBar />
+        {subPage ? null : <TabBar />}
       </SafeAreaView>
     </HealthSyncProvider>
   );

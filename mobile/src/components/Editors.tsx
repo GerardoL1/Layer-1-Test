@@ -75,9 +75,6 @@ export function TextEditor({ initial, placeholder, keyboard, onSave, hint }: {
   );
 }
 
-// Common morning times, plus later ones for night-shift workers.
-export const UPDATE_TIMES = ['06:00', '07:00', '08:00', '09:00', '10:00', '12:00', '14:00', '17:00'];
-
 /** A list row that opens an editor under itself when tapped. */
 export function EditRow({ label, value, children, open, onToggle, error }: {
   label: string; value: string; children: React.ReactNode; open: boolean; onToggle: () => void; error?: string | null;

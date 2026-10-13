@@ -99,6 +99,18 @@ export type Profile = {
   last_update_local: string | null;
 };
 
+export type ImportStatus = {
+  state: 'idle' | 'queued' | 'running' | 'processing' | 'done' | 'error';
+  user_id?: string;
+  counts?: Partial<Record<'heart_rate' | 'resting_heart_rate' | 'hrv_sdnn' | 'sleep_stages' | 'new' | 'skipped', number>>;
+  error?: string | null;
+  file_name?: string;
+  file_bytes?: number;
+  read_fraction?: number;    // how far through export.xml the server has read, 0 to 1
+  reading?: string | null;   // what kind of record it's on, e.g. "sleep"
+  nights_ready?: number | null;
+};
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -148,15 +160,34 @@ export function makeApi(serverUrl: string, userId: string) {
       '/api/update-now' + q(), json('POST')),
     loadDemo: (person: 'sam' | 'alex' | 'jordan') =>
       call<{ user_id: string; clock_local: string }>(`/api/demo/${person}`, json('POST')),
-    importExport: (file: Blob, name: string) => {
+    /** Uploads a Health export. onProgress(0..1) reports how much of the file has been sent. */
+    importExport: (file: Blob, name: string, onProgress?: (share: number) => void) => {
       const form = new FormData();
       form.append('file', file, name);
       form.append('user_id', userId);
       form.append('since_days', '0');
-      return call<{ started: boolean }>('/api/import', { method: 'POST', body: form });
+      // fetch can't report upload progress, XMLHttpRequest can.
+      return new Promise<{ started: boolean }>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${base}/api/import`);
+        xhr.upload.onprogress = (e) => {
+          if (onProgress && e.lengthComputable) onProgress(e.loaded / e.total);
+        };
+        xhr.onload = () => {
+          let body: { detail?: unknown; started?: boolean } = {};
+          try {
+            body = JSON.parse(xhr.responseText);
+          } catch {
+            // not JSON, use the status code below
+          }
+          if (xhr.status >= 200 && xhr.status < 300) resolve(body as { started: boolean });
+          else reject(new ApiError(xhr.status, typeof body.detail === 'string' ? body.detail : `Server replied ${xhr.status}`));
+        };
+        xhr.onerror = () => reject(new ApiError(0, `Can't reach the server at ${base}. Is it running, and is the address right?`));
+        xhr.send(form);
+      });
     },
-    importStatus: () => call<{ state: string; counts?: Record<string, number>; error?: string | null }>(
-      '/api/import/status'),
+    importStatus: () => call<ImportStatus>('/api/import/status'),
   };
 }
 

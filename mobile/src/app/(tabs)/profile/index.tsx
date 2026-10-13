@@ -2,19 +2,19 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Platform, View } from 'react-native';
 
-import { useApi, useLoad } from '../../api/useApi';
-import { Settings } from '../../api/client';
-import { Chips, DaysPicker, EditRow, TextEditor, TRAINING, UPDATE_TIMES } from '../../components/Editors';
-import { ListRow } from '../../components/ListRow';
-import { useHealthSync } from '../../health/HealthSync';
-import { Page, PageState } from '../../components/Page';
-import { SectionHeader } from '../../components/SectionHeader';
-import { TestBuild } from '../../components/TestBuild';
-import { Text } from '../../components/Text';
-import { clock, dayLabel, displayName, longDate, rangeText, WEEKDAYS } from '../../lib/format';
-import { canPickFile, pickFile } from '../../lib/pickFile';
-import { Appearance, useSession } from '../../state/session';
-import { useTheme } from '../../theme/theme';
+import { useApi, useLoad } from '../../../api/useApi';
+import { Settings } from '../../../api/client';
+import { Chips, DaysPicker, EditRow, TextEditor, TRAINING } from '../../../components/Editors';
+import { ListRow } from '../../../components/ListRow';
+import { useHealthSync } from '../../../health/HealthSync';
+import { Page, PageState } from '../../../components/Page';
+import { SectionHeader } from '../../../components/SectionHeader';
+import { TestBuild } from '../../../components/TestBuild';
+import { Text } from '../../../components/Text';
+import { clock, dayLabel, displayName, longDate, rangeText, WEEKDAYS } from '../../../lib/format';
+import { canPickFile } from '../../../lib/pickFile';
+import { Appearance, useSession } from '../../../state/session';
+import { useTheme } from '../../../theme/theme';
 
 const APPEARANCE: { value: Appearance; label: string }[] = [
   { value: 'system', label: 'Match system' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' },
@@ -38,7 +38,6 @@ export default function ProfileScreen() {
   const { data: p, error, loading, reload } = useLoad(() => api.profile(), api);
   const [open, setOpen] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [importNote, setImportNote] = useState<string | null>(null);
 
   const toggle = (key: string) => {
     setSaveError(null);
@@ -52,32 +51,6 @@ export default function ProfileScreen() {
       reload();
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : String(e));
-    }
-  }
-
-  async function importExport() {
-    const file = await pickFile('.zip,.xml');
-    if (!file) return;
-    setImportNote(`Uploading ${file.name}…`);
-    try {
-      await api.importExport(file, file.name);
-      // The server reads the file in the background. Check every 2 s until it's done.
-      for (;;) {
-        await new Promise((r) => setTimeout(r, 2000));
-        const s = await api.importStatus();
-        if (s.state === 'done') {
-          setImportNote(`Imported. ${s.counts?.new ?? 0} new readings.`);
-          reload();
-          return;
-        }
-        if (s.state === 'error') {
-          setImportNote(`Import failed: ${s.error}`);
-          return;
-        }
-        setImportNote(s.state === 'processing' ? 'Working out your nights…' : 'Reading the export…');
-      }
-    } catch (e) {
-      setImportNote(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -108,12 +81,6 @@ export default function ProfileScreen() {
       <ListRow label="Last update" value={p.last_update_local
         ? `${dayLabel(p.last_update_local)}, ${clock(p.last_update_local)}` : 'Not yet'} />
       <ListRow label="What we read" value="HRV, heart rate, sleep" />
-      {canPickFile ? (
-        <View>
-          <ListRow label="Import Apple Health export" value="export.zip" onPress={importExport} />
-          {importNote ? <Text variant="bodySmall" color="textSecondary" style={{ paddingBottom: 12 }}>{importNote}</Text> : null}
-        </View>
-      ) : null}
 
       <View style={{ marginTop: 32 }}>
         <SectionHeader title="Your usual" note={`Previous ${p.baseline_window_nights} nights`} />
@@ -150,15 +117,7 @@ export default function ProfileScreen() {
           open={open === 'appearance'} onToggle={() => toggle('appearance')}>
           <Chips options={APPEARANCE} value={session.appearance} onPick={(a) => session.update({ appearance: a })} />
         </EditRow>
-        <EditRow label="Update time" value={clock(s.update_time)} open={open === 'update'}
-          onToggle={() => toggle('update')} error={saveError}>
-          <Text variant="bodySmall" color="textSecondary">
-            Last night is processed once this time passes. Night-shift workers can pick a later time.
-            You can always tap Update now on Today after you wake up.
-          </Text>
-          <Chips options={UPDATE_TIMES.map((t) => ({ value: t, label: clock(t) }))} value={s.update_time}
-            onPick={(t) => save({ update_time: t })} />
-        </EditRow>
+        <ListRow label="Update time" value={clock(s.update_time)} onPress={() => router.push('/profile/update-time')} />
         <EditRow label="Time zone" value={s.timezone ?? 'From your watch data'} open={open === 'tz'}
           onToggle={() => toggle('tz')} error={saveError}>
           <TextEditor initial={s.timezone ?? deviceTimeZone()} placeholder="America/Chicago"
@@ -174,6 +133,9 @@ export default function ProfileScreen() {
 
       <View style={{ marginTop: 32 }}>
         <SectionHeader title="Your data" />
+        {canPickFile ? (
+          <ListRow label="Import Apple Health export" value="export.zip" onPress={() => router.push('/profile/import')} />
+        ) : null}
         <ListRow label="Export my data" comingSoon onPress={() => {}} />
         <ListRow label="Delete my data" danger comingSoon onPress={() => {}} />
       </View>

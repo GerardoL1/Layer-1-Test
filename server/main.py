@@ -279,16 +279,20 @@ IMPORT_STATUS: dict = {"state": "idle"}
 
 
 def run_import(path: str, user_id: str, since_days: int | None):
-    IMPORT_STATUS.update(state="running", user_id=user_id, counts={}, error=None)
+    IMPORT_STATUS.update(state="running", user_id=user_id, counts={}, error=None, read_fraction=0.0, reading=None)
     try:
         conn = db.connect()
         counts = import_export(path, conn, user_id, since_days,
-                               progress=lambda c: IMPORT_STATUS.update(counts=c))
+                               progress=lambda c: IMPORT_STATUS.update(counts=c),
+                               on_position=lambda share, reading: IMPORT_STATUS.update(read_fraction=round(share, 3),
+                                                                                       reading=reading))
         conn.close()
         if counts.get("new"):
             IMPORT_STATUS.update(state="processing")
             processing.process_user(user_id)
-        IMPORT_STATUS.update(state="done", counts=counts)
+        with db.connect() as conn:
+            nights = conn.execute("SELECT COUNT(*) FROM nights WHERE user_id = ?", (user_id,)).fetchone()[0]
+        IMPORT_STATUS.update(state="done", counts=counts, nights_ready=nights)
     except Exception as e:  # report any parsing problem to whoever is polling the status
         IMPORT_STATUS.update(state="error", error=str(e))
     finally:
@@ -309,7 +313,10 @@ async def import_upload(
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix)
     with tmp:
         shutil.copyfileobj(file.file, tmp)
-    IMPORT_STATUS.update(state="queued", user_id=user_id, counts={}, error=None)
+    IMPORT_STATUS.clear()
+    IMPORT_STATUS.update(state="queued", user_id=user_id, counts={}, error=None, file_name=file.filename,
+                         file_bytes=Path(tmp.name).stat().st_size, read_fraction=0.0, reading=None,
+                         nights_ready=None)
     background.add_task(run_import, tmp.name, user_id, since_days or None)
     return {"started": True}
 

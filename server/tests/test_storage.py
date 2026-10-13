@@ -127,6 +127,22 @@ def test_import_route_runs_in_background():
     assert r.json() == {"started": True}
     status = client.get("/api/import/status").json()
     assert status["state"] == "done" and status["counts"]["new"] > 0
+    # What the import screen shows: the file, how far through it the reader got, and nights ready.
+    assert status["file_name"] == "export.zip" and status["file_bytes"] > 0
+    assert status["read_fraction"] == 1.0 and status["nights_ready"] > 0
+
+
+def test_import_reports_position_through_the_file(monkeypatch):
+    import apple_export
+    monkeypatch.setattr(apple_export, "TICK_EVERY", 500)   # the mock file is small, so report often
+    seen = []
+    with db.connect() as conn:
+        import_export(SAMPLE_DATA / SAMPLES["jordan"], conn, "ticks",
+                      on_position=lambda share, reading: seen.append((share, reading)))
+    shares = [s for s, _ in seen]
+    assert len(seen) > 3 and shares == sorted(shares) and shares[-1] == 1.0
+    assert all(0 <= s <= 1 for s in shares)
+    assert {"heart rate", "sleep"} & {r for _, r in seen}
 
 
 def test_dashboard_endpoints_are_gone():

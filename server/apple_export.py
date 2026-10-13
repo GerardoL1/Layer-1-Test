@@ -35,6 +35,15 @@ SLEEP_STAGES = {
 }
 
 BATCH = 5000
+# How often (in records of any type) the import reports how far through the file it is.
+TICK_EVERY = 20000
+# What the progress line says it's reading, by HealthKit type.
+READING = {
+    "HKQuantityTypeIdentifierHeartRate": "heart rate",
+    "HKQuantityTypeIdentifierRestingHeartRate": "resting heart rate",
+    "HKQuantityTypeIdentifierHeartRateVariabilitySDNN": "HRV",
+    SLEEP_TYPE: "sleep",
+}
 
 
 def parse_date(date_str: str) -> tuple[int, int]:
@@ -44,6 +53,16 @@ def parse_date(date_str: str) -> tuple[int, int]:
     """
     dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S %z")
     return int(dt.timestamp() * 1000), int(dt.utcoffset().total_seconds() // 60)
+
+
+def xml_size(path: str | Path) -> int:
+    """Size of export.xml in bytes (unzipped), so progress can be shown as a share of it."""
+    path = Path(path)
+    if path.suffix.lower() != ".zip":
+        return path.stat().st_size
+    with zipfile.ZipFile(path) as zf:
+        name = next((n for n in zf.namelist() if n.endswith("/export.xml") or n == "export.xml"), None)
+        return zf.getinfo(name).file_size if name else 0
 
 
 @contextmanager
@@ -63,10 +82,18 @@ def open_export_xml(path: str | Path):
             yield f
 
 
-def iter_records(fileobj) -> Iterator[dict]:
+def iter_records(fileobj, on_tick: Callable[[int, str], None] | None = None) -> Iterator[dict]:
+    """
+    Yields the records Layer 1 uses. on_tick(bytes_read, reading) is called every TICK_EVERY
+    records, including ones we skip, so progress keeps moving through long stretches of steps etc.
+    """
+    seen = 0
     for _, elem in ET.iterparse(fileobj, events=("end",)):
         if elem.tag == "Record":
             rtype = elem.get("type")
+            seen += 1
+            if on_tick and seen % TICK_EVERY == 0:
+                on_tick(fileobj.tell(), READING.get(rtype, "other"))
             if rtype in QUANTITY_TYPES or rtype == SLEEP_TYPE:
                 yield dict(elem.attrib)
         # Free memory as we go. Record elements can contain nested metadata.
@@ -80,8 +107,13 @@ def import_export(
     user_id: str,
     since_days: int | None = None,
     progress: Callable[[dict], None] | None = None,
+    on_position: Callable[[float, str], None] | None = None,
 ) -> dict:
-    """Load heart rate, resting HR, HRV and sleep stages from an Apple Health export."""
+    """
+    Load heart rate, resting HR, HRV and sleep stages from an Apple Health export.
+    progress(counts) is called after each saved batch. on_position(share_read, reading) reports
+    how far through export.xml the reader is (0 to 1) and what kind of record it's on.
+    """
     cutoff_ms = None
     if since_days:
         cutoff_ms = int((datetime.now().timestamp() - since_days * 86400) * 1000)
@@ -98,8 +130,11 @@ def import_export(
         if progress:
             progress(dict(counts))
 
+    total = xml_size(path) if on_position else 0
+    tick = (lambda pos, reading: on_position(min(pos / total, 1.0), reading)) if on_position and total else None
+
     with open_export_xml(path) as f:
-        for r in iter_records(f):
+        for r in iter_records(f, tick):
             try:
                 start_ms, start_tz = parse_date(r["startDate"])
                 end_ms, end_tz = parse_date(r["endDate"])
@@ -132,4 +167,6 @@ def import_export(
             if len(samples) + len(stages) >= BATCH:
                 flush()
     flush()
+    if on_position:
+        on_position(1.0, "done")
     return counts
