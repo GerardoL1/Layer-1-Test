@@ -74,7 +74,15 @@ def r1(v):
 def readiness(row) -> dict:
     zs = [sign * row[z] for z, sign in READINESS_SIGNS.items() if pd.notna(row.get(z))]
     if not zs:
-        score, status = None, ("building_baseline" if row.get("usable_sleep") else "no_data")
+        # No score: still learning the person's normal, a recorded night that was too short
+        # (kept out of the baselines, so there's nothing to compare), or no sleep at all.
+        if row.get("usable_sleep"):
+            status = "building_baseline"
+        elif pd.notna(row.get("tst_min")) and row.get("flag_short_sleep"):
+            status = "short_sleep"
+        else:
+            status = "no_data"
+        score = None
     else:
         score = int(round(min(100, max(0, READINESS_CENTER + READINESS_POINTS_PER_SD * sum(zs) / len(zs)))))
         status = "low" if score < LOW_BELOW else "moderate" if score < READY_FROM else "ready"
@@ -199,7 +207,7 @@ def today(user_id: str):
     ready = readiness(row)
     metrics = metric_rows(row)
     verdict, reason = explain.today_text(ready["status"], metrics, clean(row.get("tst_min_base_n")),
-                                         C.BASELINE_MIN_NIGHTS)
+                                         C.BASELINE_MIN_NIGHTS, clean(row.get("tst_min")))
     return {**base, "night_date": shown.isoformat(), "is_last_night": shown == last_night, "message": message,
             "readiness": ready, "metrics": metrics, "sleep": sleep_block(row),
             "quality_notes": row.get("quality_notes") or None,

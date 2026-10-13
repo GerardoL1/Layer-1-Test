@@ -10,6 +10,7 @@ VERDICT = {
     "moderate": "Train, but keep it moderate.",
     "ready": "Good to train hard.",
     "building_baseline": "Still learning your normal.",
+    "short_sleep": "Short night.",
     "no_data": "No sleep recorded for this night.",
 }
 
@@ -35,9 +36,22 @@ def _join(parts: list[str]) -> str:
     return ", ".join(parts[:-1]) + " and " + parts[-1]
 
 
-def today_text(status: str, metrics: list[dict], baseline_nights: int | None, min_nights: int) -> tuple[str, str]:
+def sleep_length(minutes: float) -> str:
+    """150 -> "2 h 30 min", 120 -> "2 h", 45 -> "45 min"."""
+    total = int(round(minutes))
+    h, m = divmod(total, 60)
+    if not h:
+        return f"{m} min"
+    return f"{h} h {m} min" if m else f"{h} h"
+
+
+def today_text(status: str, metrics: list[dict], baseline_nights: int | None, min_nights: int,
+               tst_min: float | None = None) -> tuple[str, str]:
     """Returns (verdict, reason) for Today."""
     verdict = VERDICT.get(status, "")
+    if status == "short_sleep":
+        slept = f"You slept {sleep_length(tst_min)}" if tst_min is not None else "You slept very little"
+        return verdict, f"{slept}, too little to compare with your usual. Keep today light."
     if status == "no_data":
         return verdict, "Wear your watch to bed with Sleep tracking on, and the next night will show here."
     if status == "building_baseline":

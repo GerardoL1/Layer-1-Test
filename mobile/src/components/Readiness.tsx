@@ -13,6 +13,7 @@ const STATUS_WORD: Record<ReadinessStatus, string> = {
   moderate: 'Moderate',
   ready: 'Ready',
   building_baseline: 'Learning your normal',
+  short_sleep: 'Short night',
   no_data: 'No data',
 };
 

@@ -2,7 +2,7 @@
  * Talks to the recovery server (server/api.py). Types mirror its JSON responses.
  */
 
-export type ReadinessStatus = 'low' | 'moderate' | 'ready' | 'building_baseline' | 'no_data';
+export type ReadinessStatus = 'low' | 'moderate' | 'ready' | 'building_baseline' | 'short_sleep' | 'no_data';
 
 export type Readiness = { score: number | null; status: ReadinessStatus; z_count: number; placeholder: boolean };
 
