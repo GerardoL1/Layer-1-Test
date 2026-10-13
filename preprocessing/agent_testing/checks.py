@@ -2,7 +2,9 @@
 Independent checks for Layer 1. Nothing here reuses the pipeline's own math: the truth comes
 from the scenario builder, and the formulas are re-implemented from docs/layer1_spec.md.
 
-Every check returns Result(check, status, detail). status is "pass", "fail" or "warn".
+Every check returns Result(check, status, detail). status is "pass" or "fail".
+An expectation that can't be checked (unknown type, or it crashes) is a "fail" too, so a broken
+scenario can never hide inside an "ALL PASSED" report.
 
 Expectation types for a scenario's "expect" list:
   {"type": "rows", "equals": 35}
@@ -257,8 +259,8 @@ def expectation_checks(expect: list, truth: dict, nights: pd.DataFrame) -> list[
                 elif kind == "usable":
                     vals = sub[e["column"]].astype(bool).tolist(); ok = all(v == e["equals"] for v in vals); det = f"{vals}"
                 else:
-                    out.append(Result(label, "warn", f"unknown expectation type '{kind}'")); continue
+                    out.append(Result(label, "fail", f"unknown expectation type '{kind}'")); continue
             out.append(Result(label, "pass" if ok else "fail", det))
-        except Exception as ex:  # a broken expectation is reported, not crashed on
-            out.append(Result(label, "warn", f"could not evaluate: {ex}"))
+        except Exception as ex:  # a broken expectation fails the run instead of crashing it
+            out.append(Result(label, "fail", f"could not evaluate: {ex}"))
     return out
