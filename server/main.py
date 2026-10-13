@@ -14,8 +14,10 @@ Run:
     pip install -r requirements.txt
     uvicorn main:app --host 0.0.0.0 --port 8000
 """
+import json
 import shutil
 import tempfile
+import zipfile
 from datetime import datetime
 from pathlib import Path
 
@@ -26,13 +28,74 @@ from pydantic import BaseModel
 
 import api
 import db
+import limits
 import processing
-from apple_export import import_export, parse_date
+from apple_export import ExportTooLarge, check_unzipped_size, import_export, parse_date
 
 app = FastAPI(title="Recovery platform")
 app.include_router(api.router)
 
-# Wide open for testing only.
+# Wide open for testing only (added below, after the size limit).
+
+
+class _TooLarge(Exception):
+    pass
+
+
+class LimitRequestSize:
+    """
+    Refuses requests bigger than limits.LIMITS_BY_PATH with a 413. Checks the declared size
+    first, and also counts the bytes as they arrive in case the client didn't declare one.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        limit = limits.LIMITS_BY_PATH.get(scope.get("path")) if scope["type"] == "http" else None
+        if limit is None:
+            return await self.app(scope, receive, send)
+
+        async def refuse():
+            body = json.dumps({"detail": limits.too_large_message(scope["path"], limit)}).encode()
+            await send({"type": "http.response.start", "status": 413,
+                        "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode())]})
+            await send({"type": "http.response.body", "body": body})
+
+        declared = dict(scope.get("headers") or []).get(b"content-length")
+        if declared and declared.isdigit() and int(declared) > limit:
+            return await refuse()
+
+        seen, over, started = 0, False, False
+
+        async def counting_receive():
+            nonlocal seen, over
+            message = await receive()
+            if message["type"] == "http.request":
+                seen += len(message.get("body", b""))
+                if seen > limit:
+                    over = True
+                    raise _TooLarge()
+            return message
+
+        async def guarded_send(message):
+            nonlocal started
+            # FastAPI turns a failed body read into its own error reply. Send the 413 instead.
+            if over:
+                return
+            started = started or message["type"] == "http.response.start"
+            await send(message)
+
+        try:
+            await self.app(scope, counting_receive, guarded_send)
+        except _TooLarge:
+            pass
+        if over and not started:
+            await refuse()
+
+
+# Added before CORS so CORS wraps it: the app in a browser can then read the 413 message.
+app.add_middleware(LimitRequestSize)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 db.init_db()
@@ -313,6 +376,14 @@ async def import_upload(
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix)
     with tmp:
         shutil.copyfileobj(file.file, tmp)
+    try:
+        check_unzipped_size(tmp.name)
+    except ExportTooLarge as e:
+        Path(tmp.name).unlink(missing_ok=True)
+        raise HTTPException(413, str(e))
+    except zipfile.BadZipFile:
+        Path(tmp.name).unlink(missing_ok=True)
+        raise HTTPException(400, "That zip file can't be opened. Upload the export.zip made by the Health app.")
     IMPORT_STATUS.clear()
     IMPORT_STATUS.update(state="queued", user_id=user_id, counts={}, error=None, file_name=file.filename,
                          file_bytes=Path(tmp.name).stat().st_size, read_fraction=0.0, reading=None,

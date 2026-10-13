@@ -14,6 +14,24 @@ from pathlib import Path
 from typing import Callable, Iterator
 
 import db
+import limits
+
+
+class ExportTooLarge(ValueError):
+    """The zip would unpack to more than limits.MAX_UNZIPPED_BYTES."""
+
+
+def check_unzipped_size(path: str | Path) -> None:
+    """Refuse a zip whose entries add up to more than the limit, before reading any of it."""
+    path = Path(path)
+    if path.suffix.lower() != ".zip":
+        return
+    with zipfile.ZipFile(path) as zf:
+        total = sum(info.file_size for info in zf.infolist())
+    if total > limits.MAX_UNZIPPED_BYTES:
+        raise ExportTooLarge(f"This export unzips to {limits.size_text(total)}, over the "
+                             f"{limits.size_text(limits.MAX_UNZIPPED_BYTES)} limit. Import a shorter export, "
+                             "or unzip it and upload export.xml.")
 
 # HealthKit type -> our metric name
 QUANTITY_TYPES = {
@@ -69,6 +87,7 @@ def xml_size(path: str | Path) -> int:
 def open_export_xml(path: str | Path):
     """Accepts either export.zip or an already-unzipped export.xml."""
     path = Path(path)
+    check_unzipped_size(path)
     if path.suffix.lower() != ".zip":
         with open(path, "rb") as f:
             yield f
