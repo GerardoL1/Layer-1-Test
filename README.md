@@ -143,7 +143,7 @@ Never commit real health data. Only the mock exports in `preprocessing/sample_da
 ## Test-only settings to remove before real users
 
 - **No login yet:** the tester name is trusted as-is. The **Test build** section and demo mode
-  (`POST /api/demo/...`, `demo-*` users) are for testing only.
+  (`POST /api/v1/demo-users/...`, `demo-*` users) are for testing only.
 - Open CORS (`allow_origins=["*"]`) in `server/main.py`.
 - `NSAllowsArbitraryLoads` in `mobile/app.json` (allows plain `http`). Real deployments need HTTPS.
 

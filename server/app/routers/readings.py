@@ -1,8 +1,9 @@
 """
-Three of the four ways readings arrive (the fourth, the export file, is in imports.py):
-  1. Our iPhone app                  POST /upload
-  2. Health Auto Export iPhone app   POST /api/hae       (no Mac needed, paid app feature)
-  3. Apple Shortcuts automation      POST /api/shortcut  (no Mac needed, free)
+Three of the four ways readings arrive (the fourth, the export file, is in imports.py).
+All under /api/v1/users/{user_id}/readings:
+  1. Our iPhone app                  POST .../readings
+  2. Health Auto Export iPhone app   POST .../readings/health-auto-export  (no Mac needed, paid app feature)
+  3. Apple Shortcuts automation      POST .../readings/shortcuts           (no Mac needed, free)
 """
 
 import logging
@@ -11,13 +12,14 @@ from fastapi import APIRouter, BackgroundTasks, Form, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 
 from app.core import db
-from app.schemas.readings import Upload
+from app.core.urls import USER
+from app.schemas.readings import ReadingsBatch
 from app.services import health_auto_export, shortcuts
 from app.services.readings import save_readings
 
 log = logging.getLogger("recovery.ingest")
 
-router = APIRouter(tags=["readings"])
+router = APIRouter(prefix=USER + "/readings", tags=["readings"])
 
 
 # ---------------------------------------------------------------- 1. our iPhone app
@@ -36,8 +38,10 @@ def require_offset(minutes, what: str) -> int:
     return minutes
 
 
-@router.post("/upload")
-def upload(payload: Upload, background: BackgroundTasks):
+@router.post("")
+def add_readings(user_id: str, payload: ReadingsBatch, background: BackgroundTasks):
+    if payload.user_id is not None and payload.user_id != user_id:
+        raise HTTPException(400, f"The body is for '{payload.user_id}' but the URL is for '{user_id}'.")
     samples: list[tuple] = []
     stages: list[tuple] = []
     for q in payload.samples:
@@ -52,20 +56,21 @@ def upload(payload: Upload, background: BackgroundTasks):
         end_tz = require_offset(st.end_tz_min, f"sleep stage {st.uuid}")
         stages.append((st.uuid, st.stage, st.start_ms, st.end_ms, start_tz, end_tz, st.source))
 
-    added = save_readings(background, payload.user_id, samples, stages)
+    added = save_readings(background, user_id, samples, stages)
     received = len(samples) + len(stages)
-    log.info("upload %s: received %d, new %d", payload.user_id, received, added)
+    log.info("upload %s: received %d, new %d", user_id, received, added)
     return {"received": received, "new": added}
 
 
 # ---------------------------------------------------------------- 2. Health Auto Export
 
 
-@router.post("/api/hae")
-async def health_auto_export_receiver(request: Request, background: BackgroundTasks, user_id: str = "tester1"):
+@router.post("/health-auto-export")
+async def add_health_auto_export(user_id: str, request: Request, background: BackgroundTasks):
     """
     Receiver for the Health Auto Export app (REST API automation, JSON format).
-    Set the URL in the app to:  http://<computer-ip>:8000/api/hae?user_id=<tester name>
+    Set the URL in the app to:
+      http://<computer-ip>:8000/api/v1/users/<tester name>/readings/health-auto-export
     Its dates carry the UTC offset, e.g. '2026-09-30 23:14:05 -0700'.
     """
     parsed = health_auto_export.parse_payload(await request.json(), user_id)
@@ -91,11 +96,10 @@ async def health_auto_export_receiver(request: Request, background: BackgroundTa
 # ---------------------------------------------------------------- 3. Apple Shortcuts
 
 
-@router.post("/api/shortcut", response_class=PlainTextResponse)
-def apple_shortcut(background: BackgroundTasks, user: str = Form(...), metric: str = Form(...), rows: str = Form("")):
+@router.post("/shortcuts", response_class=PlainTextResponse)
+def add_shortcut_rows(user_id: str, background: BackgroundTasks, metric: str = Form(...), rows: str = Form("")):
     """
     Receiver for the Apple Shortcuts automation. Form fields:
-      user    tester name
       metric  heart_rate | resting_heart_rate | hrv_sdnn | sleep
       rows    one line per Health sample:  start | end | value | source
     Replies in plain text so the shortcut can show the result.
@@ -103,14 +107,13 @@ def apple_shortcut(background: BackgroundTasks, user: str = Form(...), metric: s
     metric = metric.strip()
     if metric not in shortcuts.SHORTCUT_METRICS:
         raise HTTPException(400, f"Unknown metric '{metric}'. Use one of: {', '.join(shortcuts.SHORTCUT_METRICS)}")
-    user = user.strip()
-    samples, stages, bad = shortcuts.parse_rows(user, metric, rows)
-    added = save_readings(background, user, samples, stages)
+    samples, stages, bad = shortcuts.parse_rows(user_id, metric, rows)
+    added = save_readings(background, user_id, samples, stages)
 
     received = len(samples) + len(stages)
-    log.info("shortcut %s %s: %d rows, %d new, %d unreadable", user, metric, received, added, len(bad))
+    log.info("shortcut %s %s: %d rows, %d new, %d unreadable", user_id, metric, received, added, len(bad))
     if bad:
-        log.warning("shortcut %s: first unreadable line: %s", user, bad[0][:200])
+        log.warning("shortcut %s: first unreadable line: %s", user_id, bad[0][:200])
     msg = f"{metric}: received {received}, new {added}"
     if bad:
         msg += f", {len(bad)} lines could not be read (first one: {bad[0][:80]})"

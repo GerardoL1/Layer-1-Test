@@ -85,18 +85,17 @@ def count(table, user):
 
 
 def test_phone_upload_requires_offset():
-    r = client.post("/upload", json={"user_id": "phone_bad", "samples": [phone_sample(tz_offset_min=None)]})
+    r = client.post("/api/v1/users/phone_bad/readings", json={"samples": [phone_sample(tz_offset_min=None)]})
     assert r.status_code == 400 and "tz_offset_min" in r.json()["detail"]
-    r = client.post("/upload", json={"user_id": "phone_bad", "samples": [phone_sample(tz_offset_min=5000)]})
+    r = client.post("/api/v1/users/phone_bad/readings", json={"samples": [phone_sample(tz_offset_min=5000)]})
     assert r.status_code == 400
-    r = client.post("/upload", json={"user_id": "phone_bad", "samples": [phone_sample(metric="steps")]})
+    r = client.post("/api/v1/users/phone_bad/readings", json={"samples": [phone_sample(metric="steps")]})
     assert r.status_code == 400
     assert count("samples", "phone_bad") == 0
 
 
 def test_phone_upload_stores_samples_and_sleep():
     body = {
-        "user_id": "phone",
         "samples": [phone_sample()],
         "sleep": [
             {
@@ -110,8 +109,8 @@ def test_phone_upload_stores_samples_and_sleep():
             }
         ],
     }
-    assert client.post("/upload", json=body).json() == {"received": 2, "new": 2}
-    assert client.post("/upload", json=body).json() == {"received": 2, "new": 0}
+    assert client.post("/api/v1/users/phone/readings", json=body).json() == {"received": 2, "new": 2}
+    assert client.post("/api/v1/users/phone/readings", json=body).json() == {"received": 2, "new": 0}
     with db.connect() as conn:
         rec = db.load_records(conn, "phone")
     hr = rec[rec["metric"] == "heart_rate"].iloc[0]
@@ -142,7 +141,7 @@ def test_health_auto_export_keeps_offset():
             ]
         }
     }
-    r = client.post("/api/hae?user_id=hae", json=payload).json()
+    r = client.post("/api/v1/users/hae/readings/health-auto-export", json=payload).json()
     assert r["new"] == 2 and r["ignored_metrics"] == ["step_count"]
     with db.connect() as conn:
         rec = db.load_records(conn, "hae")
@@ -151,7 +150,7 @@ def test_health_auto_export_keeps_offset():
 
 def test_shortcut_keeps_offset():
     rows = "2026-09-30T23:30:00-05:00 | 2026-10-01T00:10:00-05:00 | 3 | Apple Watch\nnot a valid line"
-    r = client.post("/api/shortcut", data={"user": "sc", "metric": "sleep", "rows": rows})
+    r = client.post("/api/v1/users/sc/readings/shortcuts", data={"metric": "sleep", "rows": rows})
     assert r.status_code == 200 and "new 1" in r.text and "1 lines could not be read" in r.text
     with db.connect() as conn:
         rec = db.load_records(conn, "sc")
@@ -162,13 +161,17 @@ def test_shortcut_keeps_offset():
 def test_import_route_runs_in_background():
     with open(SAMPLE_DATA / SAMPLES["alex"], "rb") as f:
         r = client.post(
-            "/api/import",
+            "/api/v1/users/route/imports",
             files={"file": ("export.zip", f, "application/zip")},
-            data={"user_id": "route", "since_days": "0"},
+            data={"since_days": "0"},
         )
-    assert r.json() == {"started": True}
-    status = client.get("/api/import/status").json()
+    assert r.status_code == 202 and r.json()["state"] == "queued"
+    import_id = r.json()["import_id"]
+    assert r.headers["location"] == f"/api/v1/users/route/imports/{import_id}"
+    status = client.get(r.headers["location"]).json()
     assert status["state"] == "done" and status["counts"]["new"] > 0
+    assert [job["import_id"] for job in client.get("/api/v1/users/route/imports").json()] == [import_id]
+    assert client.get(f"/api/v1/users/someone_else/imports/{import_id}").status_code == 404
     # What the import screen shows: the file, how far through it the reader got, and nights ready.
     assert status["file_name"] == "export.zip" and status["file_bytes"] > 0
     assert status["read_fraction"] == 1.0 and status["nights_ready"] > 0

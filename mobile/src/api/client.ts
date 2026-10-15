@@ -100,6 +100,7 @@ export type Profile = {
 };
 
 export type ImportStatus = {
+  import_id?: string;
   state: 'idle' | 'queued' | 'running' | 'processing' | 'done' | 'error';
   user_id?: string;
   counts?: Partial<Record<'heart_rate' | 'resting_heart_rate' | 'hrv_sdnn' | 'sleep_stages' | 'new' | 'skipped', number>>;
@@ -111,6 +112,9 @@ export type ImportStatus = {
   nights_ready?: number | null;
 };
 
+/** An import the server knows about, so it always has an id. */
+export type ImportJob = ImportStatus & { import_id: string };
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -119,9 +123,8 @@ export class ApiError extends Error {
 
 export function makeApi(serverUrl: string, userId: string) {
   const base = serverUrl.replace(/\/+$/, '');
-  const q = (extra: Record<string, string | number> = {}) =>
-    '?' + new URLSearchParams({ user_id: userId, ...Object.fromEntries(
-      Object.entries(extra).map(([k, v]) => [k, String(v)])) }).toString();
+  // Everything about this person lives under their user id.
+  const user = `/api/v1/users/${encodeURIComponent(userId)}`;
 
   async function call<T>(path: string, init?: RequestInit): Promise<T> {
     let res: Response;
@@ -151,43 +154,44 @@ export function makeApi(serverUrl: string, userId: string) {
 
   return {
     health: () => call<{ ok: boolean }>('/health'),
-    today: () => call<Today>('/api/today' + q()),
-    trends: (nights: 14 | 28 | 90) => call<Trends>('/api/trends' + q({ nights })),
-    profile: () => call<Profile>('/api/profile' + q()),
-    settings: () => call<Settings>('/api/settings' + q()),
-    saveSettings: (changes: Partial<Settings>) => call<Settings>('/api/settings' + q(), json('PUT', changes)),
+    today: () => call<Today>(`${user}/today`),
+    trends: (nights: 14 | 28 | 90) => call<Trends>(`${user}/trends?nights=${nights}`),
+    profile: () => call<Profile>(`${user}/profile`),
+    settings: () => call<Settings>(`${user}/settings`),
+    saveSettings: (changes: Partial<Settings>) => call<Settings>(`${user}/settings`, json('PATCH', changes)),
     updateNow: () => call<{ processed: boolean; new_nights: string[]; message: string }>(
-      '/api/update-now' + q(), json('POST')),
+      `${user}/processing-runs`, json('POST')),
     loadDemo: (person: 'sam' | 'alex' | 'jordan') =>
-      call<{ user_id: string; clock_local: string }>(`/api/demo/${person}`, json('POST')),
-    /** Uploads a Health export. onProgress(0..1) reports how much of the file has been sent. */
+      call<{ user_id: string; clock_local: string }>(`/api/v1/demo-users/${person}`, json('POST')),
+    /** Uploads a Health export and returns the new import. onProgress(0..1) reports how much has been sent. */
     importExport: (file: Blob, name: string, onProgress?: (share: number) => void) => {
       const form = new FormData();
       form.append('file', file, name);
-      form.append('user_id', userId);
       form.append('since_days', '0');
       // fetch can't report upload progress, XMLHttpRequest can.
-      return new Promise<{ started: boolean }>((resolve, reject) => {
+      return new Promise<ImportJob>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', `${base}/api/import`);
+        xhr.open('POST', `${base}${user}/imports`);
         xhr.upload.onprogress = (e) => {
           if (onProgress && e.lengthComputable) onProgress(e.loaded / e.total);
         };
         xhr.onload = () => {
-          let body: { detail?: unknown; started?: boolean } = {};
+          let body: { detail?: unknown } = {};
           try {
             body = JSON.parse(xhr.responseText);
           } catch {
             // not JSON, use the status code below
           }
-          if (xhr.status >= 200 && xhr.status < 300) resolve(body as { started: boolean });
+          if (xhr.status >= 200 && xhr.status < 300) resolve(body as ImportJob);
           else reject(new ApiError(xhr.status, typeof body.detail === 'string' ? body.detail : `Server replied ${xhr.status}`));
         };
         xhr.onerror = () => reject(new ApiError(0, `Can't reach the server at ${base}. Is it running, and is the address right?`));
         xhr.send(form);
       });
     },
-    importStatus: () => call<ImportStatus>('/api/import/status'),
+    importStatus: (importId: string) => call<ImportJob>(`${user}/imports/${importId}`),
+    /** This person's latest import, if the server still has it. Empty after a server restart. */
+    imports: () => call<ImportJob[]>(`${user}/imports`),
   };
 }
 

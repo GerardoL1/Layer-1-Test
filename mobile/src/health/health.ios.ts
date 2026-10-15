@@ -64,14 +64,15 @@ export async function connectHealth(): Promise<void> {
 }
 
 async function upload(serverUrl: string, userId: string, samples: UploadSample[], sleep: UploadStage[]) {
+  const url = `${serverUrl.replace(/\/+$/, '')}/api/v1/users/${encodeURIComponent(userId)}/readings`;
   let added = 0;
-  for (const part of chunks(samples, UPLOAD_SIZE)) added += await post(serverUrl, { user_id: userId, samples: part });
-  for (const part of chunks(sleep, UPLOAD_SIZE)) added += await post(serverUrl, { user_id: userId, sleep: part });
+  for (const part of chunks(samples, UPLOAD_SIZE)) added += await post(url, { samples: part });
+  for (const part of chunks(sleep, UPLOAD_SIZE)) added += await post(url, { sleep: part });
   return added;
 }
 
-async function post(serverUrl: string, body: object): Promise<number> {
-  const res = await fetch(`${serverUrl.replace(/\/+$/, '')}/upload`, {
+async function post(url: string, body: object): Promise<number> {
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

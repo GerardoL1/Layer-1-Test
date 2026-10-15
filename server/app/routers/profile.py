@@ -4,12 +4,13 @@ from fastapi import APIRouter
 
 from app.core import db
 from app.core.json_values import clean
+from app.core.urls import USER
 from app.readiness.usual import BASE_COLUMN, METRICS, usual_range
 from app.services import processing
 from app.services.users import last_run, night_rows, read_settings, require_user
 from layer1 import config as C
 
-router = APIRouter(prefix="/api", tags=["profile"])
+router = APIRouter(prefix=USER, tags=["profile"])
 
 
 @router.get("/profile")

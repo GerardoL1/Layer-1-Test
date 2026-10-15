@@ -5,11 +5,12 @@ import json
 from fastapi import APIRouter
 
 from app.core import db
+from app.core.urls import USER
 from app.schemas.settings import Settings
 from app.services.users import read_settings
 from layer1 import config as C
 
-router = APIRouter(prefix="/api", tags=["settings"])
+router = APIRouter(prefix=USER, tags=["settings"])
 
 
 @router.get("/settings")
@@ -17,8 +18,8 @@ def get_settings(user_id: str):
     return read_settings(user_id)
 
 
-@router.put("/settings")
-def put_settings(user_id: str, settings: Settings):
+@router.patch("/settings")
+def update_settings(user_id: str, settings: Settings):
     """Changes only the fields that were sent. A new user is created by their first settings or data."""
     changes = settings.model_dump(exclude_unset=True)
     if "training_days" in changes and changes["training_days"] is not None:

@@ -37,7 +37,7 @@ def load_scenario(name: str, user: str, tmp_path, night: int) -> tuple[dict, str
 
 def test_short_night_gets_its_own_status_and_wording(tmp_path):
     truth, night_date = load_scenario("04_short_and_late_nights", "short", tmp_path, night=12)
-    t = client.get("/api/today", params={"user_id": "short"}).json()
+    t = client.get("/api/v1/users/short/today").json()
     assert t["night_date"] == night_date and t["is_last_night"]
     assert t["readiness"]["status"] == "short_sleep" and t["readiness"]["score"] is None
     assert t["verdict"] == "Short night."
@@ -62,7 +62,7 @@ def test_short_night_stays_out_of_the_baselines(tmp_path):
 
 def test_night_without_sleep_is_still_no_data(tmp_path):
     _, night_date = load_scenario("03_missed_nights_and_hrv", "missed", tmp_path, night=10)
-    t = client.get("/api/today", params={"user_id": "missed"}).json()
+    t = client.get("/api/v1/users/missed/today").json()
     assert t["night_date"] == night_date
     assert t["readiness"]["status"] == "no_data"
     assert t["verdict"] == "No sleep recorded for this night."

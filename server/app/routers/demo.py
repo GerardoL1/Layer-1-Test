@@ -5,18 +5,19 @@ from typing import Literal
 from fastapi import APIRouter
 
 from app.core import db
+from app.core.urls import API_V1
 from app.services import processing
 from app.services.apple_export import import_export
 from layer1.samples import sample_path
 
-router = APIRouter(prefix="/api", tags=["demo"])
+router = APIRouter(prefix=API_V1, tags=["demo"])
 
 # The mock people last sleep on the night of 30 Sep 2026 (they wake on 1 Oct), so the demo
 # clock sits just after that night's update time.
 DEMO_CLOCK = "2026-10-01T08:30:00"
 
 
-@router.post("/demo/{person}")
+@router.post("/demo-users/{person}")
 def load_demo(person: Literal["sam", "alex", "jordan"]):
     """Load a mock person as demo-<name> with a fixed clock. Reloading starts them fresh."""
     user_id = f"demo-{person}"

@@ -67,11 +67,11 @@ export default function ImportScreen() {
     polling.current = null;
   };
 
-  function poll() {
+  function poll(importId: string) {
     stopPolling();
     polling.current = setInterval(async () => {
       try {
-        const s = await api.importStatus();
+        const s = await api.importStatus(importId);
         setJob((j) => (j ? { ...j, status: s } : j));
         if (s.state === 'done' || s.state === 'error') stopPolling();
       } catch (e) {
@@ -84,10 +84,10 @@ export default function ImportScreen() {
   // Reopening the screen during an import picks it up again.
   useEffect(() => {
     let alive = true;
-    api.importStatus().then((s) => {
-      if (alive && s.user_id === userId && ['queued', 'running', 'processing'].includes(s.state)) {
+    api.imports().then(([s]) => {
+      if (alive && s && ['queued', 'running', 'processing'].includes(s.state)) {
         setJob({ name: s.file_name ?? 'export.zip', bytes: s.file_bytes ?? 0, sent: 1, status: s, error: null });
-        poll();
+        poll(s.import_id);
       }
     }).catch(() => {});
     return () => {
@@ -105,9 +105,9 @@ export default function ImportScreen() {
     }
     setJob({ name: file.name, bytes: file.size, sent: 0, status: null, error: null });
     try {
-      await api.importExport(file, file.name, (share) => setJob((j) => (j ? { ...j, sent: share } : j)));
+      const started = await api.importExport(file, file.name, (share) => setJob((j) => (j ? { ...j, sent: share } : j)));
       setJob((j) => (j ? { ...j, sent: 1 } : j));
-      poll();
+      poll(started.import_id);
     } catch (e) {
       setJob((j) => (j ? { ...j, error: e instanceof Error ? e.message : String(e) } : j));
     }

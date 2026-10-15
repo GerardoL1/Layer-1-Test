@@ -6,13 +6,14 @@ from fastapi import APIRouter, HTTPException
 
 from app.core import db
 from app.core.json_values import r1
+from app.core.urls import USER
 from app.readiness import explain
 from app.readiness.scoring import LOW_BELOW, READY_FROM, readiness
 from app.readiness.usual import METRICS, usual_range
 from app.services import processing
 from app.services.users import night_rows, require_user
 
-router = APIRouter(prefix="/api", tags=["trends"])
+router = APIRouter(prefix=USER, tags=["trends"])
 
 TREND_RANGES = (14, 28, 90)
 

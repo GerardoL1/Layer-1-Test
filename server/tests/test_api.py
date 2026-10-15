@@ -23,7 +23,7 @@ client = TestClient(main.app)
 def demo():
     """Load all three demo people once."""
     for person in ("sam", "alex", "jordan"):
-        assert client.post(f"/api/demo/{person}").status_code == 200
+        assert client.post(f"/api/v1/demo-users/{person}").status_code == 200
     return {
         p: P.run_pipeline(SAMPLE_DATA / SAMPLES[p], f"demo-{p}", days=None).ml_table.set_index("night_date")
         for p in ("sam", "alex", "jordan")
@@ -31,7 +31,7 @@ def demo():
 
 
 def test_demo_today_shows_last_night(demo):
-    t = client.get("/api/today", params={"user_id": "demo-sam"}).json()
+    t = client.get("/api/v1/users/demo-sam/today").json()
     assert t["now_local"] == "2026-10-01T08:30"
     assert t["night_date"] == "2026-09-30" and t["is_last_night"] and t["message"] is None
     assert t["readiness"]["placeholder"] and 0 <= t["readiness"]["score"] <= 100
@@ -42,8 +42,8 @@ def test_demo_today_shows_last_night(demo):
 
 
 def test_overreach_scores_lower_than_steady(demo):
-    sam = client.get("/api/today", params={"user_id": "demo-sam"}).json()["readiness"]
-    alex = client.get("/api/today", params={"user_id": "demo-alex"}).json()
+    sam = client.get("/api/v1/users/demo-sam/today").json()["readiness"]
+    alex = client.get("/api/v1/users/demo-alex/today").json()
     assert alex["readiness"]["score"] < sam["score"]
     assert alex["readiness"]["status"] == "low"
     rhr = next(m for m in alex["metrics"] if m["key"] == "rhr")
@@ -60,7 +60,7 @@ def test_readiness_placeholder_math():
 
 @pytest.mark.parametrize("n", [14, 28, 90])
 def test_trends_ranges(demo, n):
-    rows = client.get("/api/trends", params={"user_id": "demo-jordan", "nights": n}).json()["rows"]
+    rows = client.get("/api/v1/users/demo-jordan/trends", params={"nights": n}).json()["rows"]
     assert rows[-1]["night_date"] == "2026-09-30"
     # Every calendar night up to last night gets a row, even jordan's missed 30 Sep.
     first = pd.Timestamp(demo["jordan"].index[0])
@@ -70,11 +70,11 @@ def test_trends_ranges(demo, n):
 
 
 def test_trends_rejects_other_ranges(demo):
-    assert client.get("/api/trends", params={"user_id": "demo-sam", "nights": 7}).status_code == 422
+    assert client.get("/api/v1/users/demo-sam/trends", params={"nights": 7}).status_code == 422
 
 
 def test_profile(demo):
-    p = client.get("/api/profile", params={"user_id": "demo-sam"}).json()
+    p = client.get("/api/v1/users/demo-sam/profile").json()
     assert p["nights_total"] == len(demo["sam"])
     assert p["last_night"] == "2026-09-30"
     assert any("Apple Watch" in s for s in p["sources"])
@@ -84,9 +84,8 @@ def test_profile(demo):
 
 def test_settings_round_trip_and_validation():
     user = "settings_user"
-    r = client.put(
-        "/api/settings",
-        params={"user_id": user},
+    r = client.patch(
+        f"/api/v1/users/{user}/settings",
         json={
             "timezone": "America/Chicago",
             "update_time": "7:5",
@@ -106,7 +105,7 @@ def test_settings_round_trip_and_validation():
         "units": "imperial",
     }
     # Only the fields sent change.
-    assert client.put("/api/settings", params={"user_id": user}, json={"age": 22}).json()["update_time"] == "07:05"
+    assert client.patch(f"/api/v1/users/{user}/settings", json={"age": 22}).json()["update_time"] == "07:05"
     for bad in (
         {"timezone": "Mars/Base"},
         {"update_time": "25:00"},
@@ -114,13 +113,13 @@ def test_settings_round_trip_and_validation():
         {"training_days": [7]},
         {"units": "stones"},
     ):
-        assert client.put("/api/settings", params={"user_id": user}, json=bad).status_code == 422
+        assert client.patch(f"/api/v1/users/{user}/settings", json=bad).status_code == 422
 
 
 def test_unknown_user_is_404():
-    for path in ("/api/today", "/api/profile", "/api/settings"):
-        assert client.get(path, params={"user_id": "nobody"}).status_code == 404
-    assert client.post("/api/update-now", params={"user_id": "nobody"}).status_code == 404
+    for path in ("today", "profile", "settings"):
+        assert client.get(f"/api/v1/users/nobody/{path}").status_code == 404
+    assert client.post("/api/v1/users/nobody/processing-runs").status_code == 404
 
 
 def test_update_now_from_the_app():
@@ -148,26 +147,26 @@ def test_update_now_from_the_app():
         conn.execute("DELETE FROM samples WHERE user_id = ? AND end_ms > ?", (user, cut))
         conn.execute("DELETE FROM sleep_stages WHERE user_id = ? AND end_ms > ?", (user, cut))
 
-    t = client.get("/api/today", params={"user_id": user}).json()
+    t = client.get(f"/api/v1/users/{user}/today").json()
     assert t["night_date"] == (night - timedelta(days=1)).isoformat()
     assert t["can_update_now"] and "Update now" in t["message"]
-    r = client.post("/api/update-now", params={"user_id": user}).json()
+    r = client.post(f"/api/v1/users/{user}/processing-runs").json()
     assert r["processed"] and r["new_nights"] == [night.isoformat()]
-    t = client.get("/api/today", params={"user_id": user}).json()
+    t = client.get(f"/api/v1/users/{user}/today").json()
     assert t["night_date"] == night.isoformat() and t["is_last_night"] and not t["can_update_now"]
-    assert not client.post("/api/update-now", params={"user_id": user}).json()["processed"]
+    assert not client.post(f"/api/v1/users/{user}/processing-runs").json()["processed"]
 
 
 def test_demo_reload_starts_fresh(demo):
     with db.connect() as conn:
         conn.execute("UPDATE users SET update_time = '11:00' WHERE user_id = 'demo-sam'")
-    client.post("/api/demo/sam")
-    assert client.get("/api/settings", params={"user_id": "demo-sam"}).json()["update_time"] == "08:00"
-    assert client.post("/api/demo/someone").status_code == 422
+    client.post("/api/v1/demo-users/sam")
+    assert client.get("/api/v1/users/demo-sam/settings").json()["update_time"] == "08:00"
+    assert client.post("/api/v1/demo-users/someone").status_code == 422
 
 
 def test_today_has_deltas_awakenings_and_placeholder_text(demo):
-    t = client.get("/api/today", params={"user_id": "demo-alex"}).json()
+    t = client.get("/api/v1/users/demo-alex/today").json()
     rows = {m["key"]: m for m in t["metrics"]}
     assert (
         rows["hrv"]["usual_mean"] and rows["hrv"]["usual_low"] < rows["hrv"]["usual_mean"] < rows["hrv"]["usual_high"]
@@ -178,7 +177,7 @@ def test_today_has_deltas_awakenings_and_placeholder_text(demo):
 
 
 def test_trend_summaries(demo):
-    s = client.get("/api/trends", params={"user_id": "demo-alex", "nights": 14}).json()["summaries"]
+    s = client.get("/api/v1/users/demo-alex/trends", params={"nights": 14}).json()["summaries"]
     assert set(s) == {"readiness", "hrv", "rhr", "sleep", "efficiency"}
     assert "Low" in s["readiness"]
     assert s["rhr"].startswith("Above your usual range")

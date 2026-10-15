@@ -48,10 +48,10 @@ export default function HealthStep() {
     setBusy(true);
     setNote(`Uploading ${file.name}…`);
     try {
-      await api.importExport(file, file.name);
+      const started = await api.importExport(file, file.name);
       for (;;) {
         await new Promise((r) => setTimeout(r, 2000));
-        const s = await api.importStatus();
+        const s = await api.importStatus(started.import_id);
         if (s.state === 'done') break;
         if (s.state === 'error') throw new Error(`Import failed: ${s.error}`);
         setNote(s.state === 'processing' ? 'Working out your nights…' : 'Reading the export…');

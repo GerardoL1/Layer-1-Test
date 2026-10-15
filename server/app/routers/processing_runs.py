@@ -1,16 +1,17 @@
-"""Update now: process last night early, once its sleep has ended."""
+"""Update now: start a processing run, which handles last night early once its sleep has ended."""
 
 from fastapi import APIRouter
 
 from app.core import db
+from app.core.urls import USER
 from app.services import processing
 from app.services.users import require_user
 
-router = APIRouter(prefix="/api", tags=["processing"])
+router = APIRouter(prefix=USER, tags=["processing"])
 
 
-@router.post("/update-now")
-def update_now(user_id: str):
+@router.post("/processing-runs")
+def create_processing_run(user_id: str):
     with db.connect() as conn:
         require_user(conn, user_id)
     report = processing.process_user(user_id, update_now=True)

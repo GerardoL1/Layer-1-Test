@@ -1,4 +1,4 @@
-"""What our iPhone app sends to POST /upload."""
+"""What our iPhone app sends with a batch of readings."""
 
 from pydantic import BaseModel
 
@@ -24,7 +24,14 @@ class SleepStage(BaseModel):
     source: str | None = None
 
 
-class Upload(BaseModel):
-    user_id: str
+class ReadingsBatch(BaseModel):
+    # The user is in the URL. Older app builds also put it here, which is fine if it matches.
+    user_id: str | None = None
     samples: list[Sample] = []
     sleep: list[SleepStage] = []
+
+
+class Upload(ReadingsBatch):
+    """The old POST /upload body, where the user id had to be in the body."""
+
+    user_id: str

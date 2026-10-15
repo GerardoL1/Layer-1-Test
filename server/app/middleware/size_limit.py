@@ -19,12 +19,13 @@ class LimitRequestSize:
         self.app = app
 
     async def __call__(self, scope, receive, send):
-        limit = limits.LIMITS_BY_PATH.get(scope.get("path")) if scope["type"] == "http" else None
-        if limit is None:
+        match = limits.limit_for(scope.get("path", "")) if scope["type"] == "http" else None
+        if match is None:
             return await self.app(scope, receive, send)
+        template, limit = match
 
         async def refuse():
-            body = json.dumps({"detail": limits.too_large_message(scope["path"], limit)}).encode()
+            body = json.dumps({"detail": limits.too_large_message(template, limit)}).encode()
             await send(
                 {
                     "type": "http.response.start",

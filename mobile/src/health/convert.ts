@@ -1,5 +1,5 @@
 /**
- * Turns HealthKit samples into what the server's POST /upload expects.
+ * Turns HealthKit samples into what the server's POST /api/v1/users/{user_id}/readings expects.
  * No HealthKit imports here, so this file also runs (and is tested) on a computer.
  */
 

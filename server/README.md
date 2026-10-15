@@ -60,16 +60,18 @@ It reuses `DailyProcessor` from `preprocessing/layer1/incremental.py`, so result
 
 ## API for the app (`app/routers/`)
 
-Every endpoint takes `?user_id=<tester name>`. Unknown users get 404.
+The API is versioned under `/api/v1`, and everything about one person is under `/api/v1/users/{user_id}`
+(the tester name). Below, `.../` means `/api/v1/users/{user_id}/`. Unknown users get 404. Errors come back as
+`{"detail": "..."}` with a message the app can show as is.
 
 | Endpoint | Returns |
 |---|---|
-| `GET /api/today` | Last night's readiness, verdict and reason, metric rows with usual range and change, sleep stages, quality notes, update time, whether Update now can do anything |
-| `GET /api/trends?nights=14\|28\|90` | One entry per night (readiness, HRV, resting HR, sleep, efficiency, fragmentation, usual bands) plus one-line summaries |
-| `GET /api/profile` | Usual ranges, nights recorded, data sources, last update, settings |
-| `GET /api/settings`, `PUT /api/settings` | Time zone, update time (`HH:MM`), age, training, training days (0 = Monday), units. PUT changes only the fields sent |
-| `POST /api/update-now` | Processes last night early if its sleep has ended |
-| `POST /api/demo/sam\|alex\|jordan` | Loads a demo person (`demo-sam` ...) with the clock fixed at 1 Oct 2026, 8:30 am. Testing only |
+| `GET .../today` | Last night's readiness, verdict and reason, metric rows with usual range and change, sleep stages, quality notes, update time, whether Update now can do anything |
+| `GET .../trends?nights=14\|28\|90` | One entry per night (readiness, HRV, resting HR, sleep, efficiency, fragmentation, usual bands) plus one-line summaries |
+| `GET .../profile` | Usual ranges, nights recorded, data sources, last update, settings |
+| `GET .../settings`, `PATCH .../settings` | Time zone, update time (`HH:MM`), age, training, training days (0 = Monday), units. PATCH changes only the fields sent |
+| `POST .../processing-runs` | Update now: processes last night early if its sleep has ended |
+| `POST /api/v1/demo-users/sam\|alex\|jordan` | Loads a demo person (`demo-sam` ...) with the clock fixed at 1 Oct 2026, 8:30 am. Testing only |
 
 Placeholders, marked `"placeholder": true` in responses: the readiness formula and 40 / 70 cut-offs and the usual
 range (`app/readiness/scoring.py` and `usual.py`), and all wording (`app/readiness/explain.py`, to be replaced by
@@ -79,10 +81,31 @@ the LLM).
 
 | Route | Endpoint | Time zone from |
 |---|---|---|
-| Our iPhone app | `POST /upload` | Sent with every reading (`tz_offset_min`, or `start_tz_min` / `end_tz_min` for sleep). Readings without it are rejected |
-| Health export file | `POST /api/import` (form: `file`, `user_id`, `since_days`), status at `GET /api/import/status` | The dates in the file |
-| Health Auto Export | `POST /api/hae?user_id=...` | The dates in the payload |
-| Apple Shortcuts | `POST /api/shortcut` | The ISO 8601 dates sent |
+| Our iPhone app | `POST .../readings` (JSON: `samples`, `sleep`) | Sent with every reading (`tz_offset_min`, or `start_tz_min` / `end_tz_min` for sleep). Readings without it are rejected |
+| Health export file | `POST .../imports` (form: `file`, `since_days`, 0 = everything). Replies 202 with the import's `import_id` and a `Location` header. Progress at `GET .../imports/{import_id}`, latest import at `GET .../imports` | The dates in the file |
+| Health Auto Export | `POST .../readings/health-auto-export` | The dates in the payload |
+| Apple Shortcuts | `POST .../readings/shortcuts` (form: `metric`, `rows`) | The ISO 8601 dates sent |
+
+### Old URLs (deprecated)
+
+The URLs from before `/api/v1` still work, so older app builds and Health Auto Export or Shortcuts automations set
+up earlier keep going. They answer exactly as before, but each call logs a warning naming the new URL, replies
+that worked carry a `Deprecation` header, and `/docs` marks them deprecated. They're all in
+`app/routers/legacy.py`, to be removed once the log shows nothing uses them.
+
+| Old | New |
+|---|---|
+| `POST /upload` | `POST .../readings` |
+| `POST /api/hae?user_id=` | `POST .../readings/health-auto-export` |
+| `POST /api/shortcut` (form field `user`) | `POST .../readings/shortcuts` |
+| `POST /api/import` (form field `user_id`) | `POST .../imports` |
+| `GET /api/import/status` | `GET .../imports/{import_id}` |
+| `GET /api/today?user_id=` | `GET .../today` |
+| `GET /api/trends?user_id=` | `GET .../trends` |
+| `GET /api/profile?user_id=` | `GET .../profile` |
+| `GET` / `PUT /api/settings?user_id=` | `GET` / `PATCH .../settings` |
+| `POST /api/update-now?user_id=` | `POST .../processing-runs` |
+| `POST /api/demo/{person}` | `POST /api/v1/demo-users/{person}` |
 
 ### Health export from the command line
 
@@ -97,7 +120,8 @@ python import_export.py C:\Users\you\Downloads\export.zip --user tester1 --days 
 ### Health Auto Export (no Mac, automatic, paid app feature)
 
 1. Install **Health Auto Export – JSON+CSV** from the App Store. Sending to a server needs its **Premium** upgrade.
-2. **Automations > new automation > REST API**. URL: `http://<computer-ip>:8000/api/hae?user_id=tester1`.
+2. **Automations > new automation > REST API**. URL:
+   `http://<computer-ip>:8000/api/v1/users/tester1/readings/health-auto-export`.
 3. Format **JSON**. Metrics: **Heart Rate, Resting Heart Rate, Heart Rate Variability, Sleep Analysis**.
    Export sleep **unaggregated** (individual phases), or no sleep stages come through.
 4. Run it once manually, then open the app.
@@ -106,15 +130,15 @@ Metrics we don't use (like steps) are listed as `ignored_metrics` in the reply.
 
 ### Apple Shortcuts (no Mac, free, once a day)
 
-A shortcut reads the last 2 days and posts it to `POST /api/shortcut`. Each metric is one block (build one,
+A shortcut reads the last 2 days and posts it to `POST .../readings/shortcuts`. Each metric is one block (build one,
 then duplicate it):
 
 1. **Find Health Samples** where Type is *Heart Rate* and Start Date is in the last *2 days*, sorted by Start Date.
 2. **Repeat with Each** sample > **Text**: `Start Date | End Date | Value | Source` (both dates as *ISO 8601* with
    *Include ISO 8601 Time* on) > **End Repeat**.
 3. **Combine Text** (Repeat Results) with *New Lines*.
-4. **Get Contents of URL**: `http://<computer-ip>:8000/api/shortcut`, Method *POST*, Request Body *Form* with
-   fields `user`, `metric`, `rows` (= Combined Text).
+4. **Get Contents of URL**: `http://<computer-ip>:8000/api/v1/users/tester1/readings/shortcuts`, Method *POST*,
+   Request Body *Form* with fields `metric` and `rows` (= Combined Text).
 
 | Health type in Shortcuts | `metric` value |
 |---|---|
@@ -153,13 +177,16 @@ About 2–3 minutes. They use a throwaway database, never `platform.db`.
 | `test_api.py` | Today, Trends, Profile, Settings, Update now, demo mode, placeholder wording |
 | `test_scenarios.py` | All Layer 1 tester scenarios through the server, plus the tester's own independent checks |
 | `test_edges.py` | A night across a clock change, runs at the same time, changing the update time, one phone with two tester names, upgrading an old database |
+| `test_limits.py` | Size limits: oversized requests and zips get a clear 413 |
+| `test_short_night.py` | Short nights get their own status and wording |
+| `test_legacy_urls.py` | Every old URL still works, gives the same answer as its new URL, and says it's deprecated |
 
 ## Troubleshooting
 
 | Symptom | Likely cause |
 |---|---|
 | iPhone can't reach the server | Wrong IP, server not started with `--host 0.0.0.0`, different Wi-Fi, or the firewall |
-| `/upload` replies 400 "missing its UTC offset" | An old app build. Rebuild the iPhone app |
+| Uploads reply 400 "missing its UTC offset" | An old app build. Rebuild the iPhone app |
 | Import says "No export.xml found" | Upload the zip made by the Health app, not a re-zipped folder |
 | Import fails with an XML error | Unzip the export and upload `export.xml`, or use `import_export.py` |
 | No sleep for a tester | The watch must be worn to bed with Sleep tracking on (Watch app > Sleep) |

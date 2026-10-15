@@ -9,6 +9,7 @@ from fastapi import APIRouter
 
 from app.core import db
 from app.core.json_values import clean, r1
+from app.core.urls import USER
 from app.readiness import explain
 from app.readiness.scoring import LOW_BELOW, READINESS_METHOD, READY_FROM, readiness
 from app.readiness.usual import metric_rows
@@ -17,7 +18,7 @@ from app.services.update_schedule import can_update_now, next_update
 from app.services.users import last_run, night_rows, require_user
 from layer1 import config as C
 
-router = APIRouter(prefix="/api", tags=["today"])
+router = APIRouter(prefix=USER, tags=["today"])
 
 
 def sleep_block(row) -> dict:

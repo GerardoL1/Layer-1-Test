@@ -157,12 +157,12 @@ def test_nights_follow_the_users_time_zone():
 
 def test_new_data_starts_processing():
     with open(SAMPLE_DATA / SAMPLES["jordan"], "rb") as f:
-        client.post(
-            "/api/import",
+        location = client.post(
+            "/api/v1/users/auto/imports",
             files={"file": ("export.zip", f, "application/zip")},
-            data={"user_id": "auto", "since_days": "0"},
-        )
-    assert client.get("/api/import/status").json()["state"] == "done"
+            data={"since_days": "0"},
+        ).headers["location"]
+    assert client.get(location).json()["state"] == "done"
     # The real clock is past the mock data, so every night is ready. Nights after the data ends
     # get flagged empty rows, just like the full pipeline run up to the same night.
     recs, _ = P.load_export(SAMPLE_DATA / SAMPLES["jordan"], days=None)

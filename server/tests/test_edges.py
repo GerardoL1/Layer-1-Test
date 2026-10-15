@@ -58,7 +58,9 @@ def test_night_across_the_clock_change():
     user = "dst"
     with db.connect() as conn:
         conn.execute("INSERT INTO users (user_id, clock_local) VALUES (?, ?)", (user, "2026-11-01T09:00:00"))
-    r = client.post("/upload", json=night_payload(user, ms(2026, 11, 1, 3), ms(2026, 11, 1, 12), -300, -360))
+    r = client.post(
+        f"/api/v1/users/{user}/readings", json=night_payload(user, ms(2026, 11, 1, 3), ms(2026, 11, 1, 12), -300, -360)
+    )
     assert r.status_code == 200
     with db.connect() as conn:
         night = processing.load_nights(conn, user).set_index("night_date").loc[date(2026, 10, 31)]
@@ -71,7 +73,9 @@ def test_two_runs_at_once_dont_clash():
     user = "busy"
     with db.connect() as conn:
         conn.execute("INSERT INTO users (user_id, clock_local) VALUES (?, ?)", (user, "2026-10-02T09:00:00"))
-    client.post("/upload", json=night_payload(user, ms(2026, 10, 1, 5), ms(2026, 10, 1, 13), -420, -420))
+    client.post(
+        f"/api/v1/users/{user}/readings", json=night_payload(user, ms(2026, 10, 1, 5), ms(2026, 10, 1, 13), -420, -420)
+    )
     errors = []
 
     def run():
@@ -97,7 +101,9 @@ def test_changing_the_update_time():
     user = "late_riser"
     with db.connect() as conn:
         conn.execute("INSERT INTO users (user_id, clock_local) VALUES (?, ?)", (user, "2026-10-02T07:30:00"))
-    client.post("/upload", json=night_payload(user, ms(2026, 10, 2, 5), ms(2026, 10, 2, 13), -420, -420))
+    client.post(
+        f"/api/v1/users/{user}/readings", json=night_payload(user, ms(2026, 10, 2, 5), ms(2026, 10, 2, 13), -420, -420)
+    )
     processing.process_user(user, force=True)
 
     def needs_at(clock):
@@ -106,7 +112,7 @@ def test_changing_the_update_time():
             return processing.needs_processing(conn, user)
 
     assert needs_at("2026-10-02T08:30:00")  # passed the default 8:00
-    client.put("/api/settings", params={"user_id": user}, json={"update_time": "10:00"})
+    client.patch(f"/api/v1/users/{user}/settings", json={"update_time": "10:00"})
     assert not needs_at("2026-10-02T08:30:00")  # now waits until 10:00
     assert needs_at("2026-10-02T10:05:00")
 
@@ -123,10 +129,10 @@ def test_phone_and_server_use_the_same_names():
 def test_same_phone_two_tester_names():
     # HealthKit UUIDs are the same whichever tester name the phone syncs under.
     body = night_payload("first_name", ms(2026, 9, 20, 5), ms(2026, 9, 20, 13), -420, -420, prefix="same")
-    assert client.post("/upload", json=body).json()["new"] > 0
+    assert client.post("/api/v1/users/first_name/readings", json=body).json()["new"] > 0
     body["user_id"] = "second_name"
-    assert client.post("/upload", json=body).json()["new"] > 0  # stored again for the new name
-    assert client.post("/upload", json=body).json()["new"] == 0  # but repeats are still ignored
+    assert client.post("/api/v1/users/second_name/readings", json=body).json()["new"] > 0  # stored again
+    assert client.post("/api/v1/users/second_name/readings", json=body).json()["new"] == 0  # repeats ignored
 
 
 def test_old_database_is_upgraded(tmp_path, monkeypatch):
