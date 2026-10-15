@@ -29,11 +29,17 @@ computer's IP (Windows: `ipconfig`, look for IPv4 Address. Mac: `ipconfig getifa
 | Folder | What's in it |
 |---|---|
 | `app/core/` | `db.py` (tables, saving and loading readings), `limits.py` (size limits and their messages), `json_values.py` |
-| `app/schemas/` | Request bodies: `readings.py` (what the iPhone app sends), `settings.py` (with its checks) |
+| `app/schemas/` | Request bodies and response shapes, one file per area (`today.py`, `trends.py`, `settings.py` ...). The routes use them as `response_model`, so `/docs` and `openapi.json` describe every reply |
 | `app/middleware/` | `size_limit.py`, the 413 for requests over the limit |
 | `app/services/` | The work behind the endpoints: `processing.py`, `apple_export.py` (reads export files), `health_auto_export.py`, `shortcuts.py`, `import_jobs.py`, `readings.py`, `users.py`, `update_schedule.py` |
 | `app/readiness/` | Placeholders: `scoring.py` (readiness score and cut-offs), `usual.py` (usual range, Worse / Usual / Better), `explain.py` (wording) |
 | `app/routers/` | The endpoints, one file per screen or data route: `today`, `trends`, `profile`, `settings`, `update_now`, `demo`, `readings`, `imports`, `health` |
+
+## API description (`openapi.json`)
+
+`openapi.json` describes every endpoint, request and reply. The app's TypeScript types are generated from it.
+After changing an endpoint or a schema, run `python export_openapi.py`, then `npm run api-types` in `../mobile/`.
+A test fails if it's out of date.
 
 ## What it stores
 
@@ -180,6 +186,7 @@ About 2–3 minutes. They use a throwaway database, never `platform.db`.
 | `test_limits.py` | Size limits: oversized requests and zips get a clear 413 |
 | `test_short_night.py` | Short nights get their own status and wording |
 | `test_legacy_urls.py` | Every old URL still works, gives the same answer as its new URL, and says it's deprecated |
+| `test_openapi.py` | `openapi.json` is up to date and every v1 endpoint describes its reply |
 
 ## Troubleshooting
 

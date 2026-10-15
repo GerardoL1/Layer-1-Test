@@ -1,0 +1,2662 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Recovery platform",
+    "version": "1"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health",
+        "description": "Open this from the phone's browser to check it can reach the server.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthCheck"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/readings": {
+      "post": {
+        "tags": [
+          "readings"
+        ],
+        "summary": "Add Readings",
+        "operationId": "add_readings_api_v1_users__user_id__readings_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadingsBatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadingsResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/readings/health-auto-export": {
+      "post": {
+        "tags": [
+          "readings"
+        ],
+        "summary": "Add Health Auto Export",
+        "description": "Receiver for the Health Auto Export app (REST API automation, JSON format).\nSet the URL in the app to:\n  http://<computer-ip>:8000/api/v1/users/<tester name>/readings/health-auto-export\nIts dates carry the UTC offset, e.g. '2026-09-30 23:14:05 -0700'.",
+        "operationId": "add_health_auto_export_api_v1_users__user_id__readings_health_auto_export_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthAutoExportResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/readings/shortcuts": {
+      "post": {
+        "tags": [
+          "readings"
+        ],
+        "summary": "Add Shortcut Rows",
+        "description": "Receiver for the Apple Shortcuts automation. Form fields:\n  metric  heart_rate | resting_heart_rate | hrv_sdnn | sleep\n  rows    one line per Health sample:  start | end | value | source\nReplies in plain text so the shortcut can show the result.",
+        "operationId": "add_shortcut_rows_api_v1_users__user_id__readings_shortcuts_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_add_shortcut_rows_api_v1_users__user_id__readings_shortcuts_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/imports": {
+      "post": {
+        "tags": [
+          "imports"
+        ],
+        "summary": "Create Import",
+        "description": "Upload export.zip (or export.xml). Replies 202 straight away with the import's status,\nand its address in the Location header. since_days 0 imports everything.",
+        "operationId": "create_import_api_v1_users__user_id__imports_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_import_api_v1_users__user_id__imports_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportJob"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "imports"
+        ],
+        "summary": "List Imports",
+        "description": "This person's latest import, if the server still remembers it. Used to pick an import up again.",
+        "operationId": "list_imports_api_v1_users__user_id__imports_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ImportJob"
+                  },
+                  "title": "Response List Imports Api V1 Users  User Id  Imports Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/imports/{import_id}": {
+      "get": {
+        "tags": [
+          "imports"
+        ],
+        "summary": "Get Import",
+        "operationId": "get_import_api_v1_users__user_id__imports__import_id__get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "import_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Import Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportJob"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/today": {
+      "get": {
+        "tags": [
+          "today"
+        ],
+        "summary": "Today",
+        "operationId": "today_api_v1_users__user_id__today_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Today"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/trends": {
+      "get": {
+        "tags": [
+          "trends"
+        ],
+        "summary": "Trends",
+        "operationId": "trends_api_v1_users__user_id__trends_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "nights",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 14,
+              "title": "Nights"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Trends"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/profile": {
+      "get": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Profile",
+        "operationId": "profile_api_v1_users__user_id__profile_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/settings": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Get Settings",
+        "operationId": "get_settings_api_v1_users__user_id__settings_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Update Settings",
+        "description": "Changes only the fields that were sent. A new user is created by their first settings or data.",
+        "operationId": "update_settings_api_v1_users__user_id__settings_patch",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/processing-runs": {
+      "post": {
+        "tags": [
+          "processing"
+        ],
+        "summary": "Create Processing Run",
+        "operationId": "create_processing_run_api_v1_users__user_id__processing_runs_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessingRun"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/demo-users/{person}": {
+      "post": {
+        "tags": [
+          "demo"
+        ],
+        "summary": "Load Demo",
+        "description": "Load a mock person as demo-<name> with a fixed clock. Reloading starts them fresh.",
+        "operationId": "load_demo_api_v1_demo_users__person__post",
+        "parameters": [
+          {
+            "name": "person",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "sam",
+                "alex",
+                "jordan"
+              ],
+              "type": "string",
+              "title": "Person"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemoUser"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/upload": {
+      "post": {
+        "tags": [
+          "deprecated"
+        ],
+        "summary": "Upload",
+        "operationId": "upload_upload_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Upload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/hae": {
+      "post": {
+        "tags": [
+          "deprecated"
+        ],
+        "summary": "Hae",
+        "operationId": "hae_api_hae_post",
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "tester1",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shortcut": {
+      "post": {
+        "tags": [
+          "deprecated"
+        ],
+        "summary": "Shortcut",
+        "operationId": "shortcut_api_shortcut_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_shortcut_api_shortcut_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/import": {
+      "post": {
+        "tags": [
+          "deprecated"
+        ],
+        "summary": "Import Upload",
+        "operationId": "import_upload_api_import_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_upload_api_import_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/import/status": {
+      "get": {
+        "tags": [
+          "deprecated"
+        ],
+        "summary": "Import Status",
+        "operationId": "import_status_api_import_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/today": {
+      "get": {
+        "tags": [
+          "deprecated"
+        ],
+        "summary": "Get Today",
+        "operationId": "get_today_api_today_get",
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/trends": {
+      "get": {
+        "tags": [
+          "deprecated"
+        ],
+        "summary": "Get Trends",
+        "operationId": "get_trends_api_trends_get",
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "nights",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 14,
+              "title": "Nights"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile": {
+      "get": {
+        "tags": [
+          "deprecated"
+        ],
+        "summary": "Get Profile",
+        "operationId": "get_profile_api_profile_get",
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings": {
+      "get": {
+        "tags": [
+          "deprecated"
+        ],
+        "summary": "Get Settings",
+        "operationId": "get_settings_api_settings_get",
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "deprecated"
+        ],
+        "summary": "Put Settings",
+        "operationId": "put_settings_api_settings_put",
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/update-now": {
+      "post": {
+        "tags": [
+          "deprecated"
+        ],
+        "summary": "Update Now",
+        "operationId": "update_now_api_update_now_post",
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/demo/{person}": {
+      "post": {
+        "tags": [
+          "deprecated"
+        ],
+        "summary": "Load Demo",
+        "operationId": "load_demo_api_demo__person__post",
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "person",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "sam",
+                "alex",
+                "jordan"
+              ],
+              "type": "string",
+              "title": "Person"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Body_add_shortcut_rows_api_v1_users__user_id__readings_shortcuts_post": {
+        "properties": {
+          "metric": {
+            "type": "string",
+            "title": "Metric"
+          },
+          "rows": {
+            "type": "string",
+            "title": "Rows",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "metric"
+        ],
+        "title": "Body_add_shortcut_rows_api_v1_users__user_id__readings_shortcuts_post"
+      },
+      "Body_create_import_api_v1_users__user_id__imports_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "since_days": {
+            "type": "integer",
+            "title": "Since Days",
+            "default": 90
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_create_import_api_v1_users__user_id__imports_post"
+      },
+      "Body_import_upload_api_import_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id",
+            "default": "tester1"
+          },
+          "since_days": {
+            "type": "integer",
+            "title": "Since Days",
+            "default": 90
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_upload_api_import_post"
+      },
+      "Body_shortcut_api_shortcut_post": {
+        "properties": {
+          "user": {
+            "type": "string",
+            "title": "User"
+          },
+          "metric": {
+            "type": "string",
+            "title": "Metric"
+          },
+          "rows": {
+            "type": "string",
+            "title": "Rows",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "metric"
+        ],
+        "title": "Body_shortcut_api_shortcut_post"
+      },
+      "Cutoffs": {
+        "properties": {
+          "low_below": {
+            "type": "integer",
+            "title": "Low Below"
+          },
+          "ready_from": {
+            "type": "integer",
+            "title": "Ready From"
+          },
+          "placeholder": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Placeholder"
+          }
+        },
+        "type": "object",
+        "required": [
+          "low_below",
+          "ready_from"
+        ],
+        "title": "Cutoffs"
+      },
+      "DemoUser": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "clock_local": {
+            "type": "string",
+            "title": "Clock Local"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "clock_local"
+        ],
+        "title": "DemoUser"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthAutoExportResult": {
+        "properties": {
+          "samples": {
+            "type": "integer",
+            "title": "Samples"
+          },
+          "sleep_stages": {
+            "type": "integer",
+            "title": "Sleep Stages"
+          },
+          "new": {
+            "type": "integer",
+            "title": "New"
+          },
+          "unreadable": {
+            "type": "integer",
+            "title": "Unreadable"
+          },
+          "ignored_metrics": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ignored Metrics"
+          }
+        },
+        "type": "object",
+        "required": [
+          "samples",
+          "sleep_stages",
+          "new",
+          "unreadable",
+          "ignored_metrics"
+        ],
+        "title": "HealthAutoExportResult"
+      },
+      "HealthCheck": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "title": "HealthCheck"
+      },
+      "ImportJob": {
+        "properties": {
+          "import_id": {
+            "type": "string",
+            "title": "Import Id"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "processing",
+              "done",
+              "error"
+            ],
+            "title": "State"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Counts"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "file_name": {
+            "type": "string",
+            "title": "File Name"
+          },
+          "file_bytes": {
+            "type": "integer",
+            "title": "File Bytes"
+          },
+          "read_fraction": {
+            "type": "number",
+            "title": "Read Fraction"
+          },
+          "reading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reading"
+          },
+          "nights_ready": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nights Ready"
+          }
+        },
+        "type": "object",
+        "required": [
+          "import_id",
+          "state",
+          "user_id",
+          "counts",
+          "error",
+          "file_name",
+          "file_bytes",
+          "read_fraction",
+          "reading",
+          "nights_ready"
+        ],
+        "title": "ImportJob",
+        "description": "Where an Apple Health export import is up to."
+      },
+      "MetricRow": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "z": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Z"
+          },
+          "usual_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usual Low"
+          },
+          "usual_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usual High"
+          },
+          "usual_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usual Mean"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "better",
+                  "usual",
+                  "worse"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction"
+          },
+          "placeholder": {
+            "type": "boolean",
+            "title": "Placeholder"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "unit",
+          "value",
+          "z",
+          "usual_low",
+          "usual_high",
+          "usual_mean",
+          "direction",
+          "placeholder"
+        ],
+        "title": "MetricRow",
+        "description": "One row of \"Last night vs your usual\"."
+      },
+      "ProcessingRun": {
+        "properties": {
+          "processed": {
+            "type": "boolean",
+            "title": "Processed"
+          },
+          "new_nights": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "New Nights"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "processed",
+          "new_nights",
+          "message"
+        ],
+        "title": "ProcessingRun"
+      },
+      "Profile": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/Settings"
+          },
+          "nights_total": {
+            "type": "integer",
+            "title": "Nights Total"
+          },
+          "nights_usable": {
+            "type": "integer",
+            "title": "Nights Usable"
+          },
+          "first_night": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Night"
+          },
+          "last_night": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Night"
+          },
+          "baseline_window_nights": {
+            "type": "integer",
+            "title": "Baseline Window Nights"
+          },
+          "baseline_min_nights": {
+            "type": "integer",
+            "title": "Baseline Min Nights"
+          },
+          "usual_ranges": {
+            "items": {
+              "$ref": "#/components/schemas/UsualRange"
+            },
+            "type": "array",
+            "title": "Usual Ranges"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "last_update_local": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Update Local"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "settings",
+          "nights_total",
+          "nights_usable",
+          "first_night",
+          "last_night",
+          "baseline_window_nights",
+          "baseline_min_nights",
+          "usual_ranges",
+          "sources",
+          "last_update_local"
+        ],
+        "title": "Profile"
+      },
+      "Readiness": {
+        "properties": {
+          "score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "low",
+              "moderate",
+              "ready",
+              "building_baseline",
+              "short_sleep",
+              "no_data"
+            ],
+            "title": "Status"
+          },
+          "z_count": {
+            "type": "integer",
+            "title": "Z Count"
+          },
+          "placeholder": {
+            "type": "boolean",
+            "title": "Placeholder"
+          }
+        },
+        "type": "object",
+        "required": [
+          "score",
+          "status",
+          "z_count",
+          "placeholder"
+        ],
+        "title": "Readiness"
+      },
+      "ReadingsBatch": {
+        "properties": {
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "samples": {
+            "items": {
+              "$ref": "#/components/schemas/Sample"
+            },
+            "type": "array",
+            "title": "Samples",
+            "default": []
+          },
+          "sleep": {
+            "items": {
+              "$ref": "#/components/schemas/SleepStage"
+            },
+            "type": "array",
+            "title": "Sleep",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "ReadingsBatch"
+      },
+      "ReadingsResult": {
+        "properties": {
+          "received": {
+            "type": "integer",
+            "title": "Received"
+          },
+          "new": {
+            "type": "integer",
+            "title": "New"
+          }
+        },
+        "type": "object",
+        "required": [
+          "received",
+          "new"
+        ],
+        "title": "ReadingsResult"
+      },
+      "Sample": {
+        "properties": {
+          "uuid": {
+            "type": "string",
+            "title": "Uuid"
+          },
+          "metric": {
+            "type": "string",
+            "title": "Metric"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value"
+          },
+          "start_ms": {
+            "type": "integer",
+            "title": "Start Ms"
+          },
+          "end_ms": {
+            "type": "integer",
+            "title": "End Ms"
+          },
+          "tz_offset_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tz Offset Min"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "uuid",
+          "metric",
+          "value",
+          "start_ms",
+          "end_ms"
+        ],
+        "title": "Sample"
+      },
+      "Settings": {
+        "properties": {
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
+          },
+          "update_time": {
+            "type": "string",
+            "title": "Update Time"
+          },
+          "age": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age"
+          },
+          "training": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Training"
+          },
+          "training_days": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Training Days"
+          },
+          "units": {
+            "type": "string",
+            "enum": [
+              "metric",
+              "imperial"
+            ],
+            "title": "Units"
+          }
+        },
+        "type": "object",
+        "required": [
+          "timezone",
+          "update_time",
+          "age",
+          "training",
+          "training_days",
+          "units"
+        ],
+        "title": "Settings"
+      },
+      "SettingsUpdate": {
+        "properties": {
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
+          },
+          "update_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Update Time"
+          },
+          "age": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age"
+          },
+          "training": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Training"
+          },
+          "training_days": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Training Days"
+          },
+          "units": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "metric",
+                  "imperial"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Units"
+          }
+        },
+        "type": "object",
+        "title": "SettingsUpdate",
+        "description": "Only the fields sent are changed."
+      },
+      "SleepBlock": {
+        "properties": {
+          "onset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Onset"
+          },
+          "wake": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wake"
+          },
+          "total_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Min"
+          },
+          "deep_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deep Min"
+          },
+          "core_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Core Min"
+          },
+          "rem_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rem Min"
+          },
+          "unspecified_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unspecified Min"
+          },
+          "awake_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Awake Min"
+          },
+          "in_bed_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Bed Min"
+          },
+          "efficiency_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Efficiency Pct"
+          }
+        },
+        "type": "object",
+        "required": [
+          "onset",
+          "wake",
+          "total_min",
+          "deep_min",
+          "core_min",
+          "rem_min",
+          "unspecified_min",
+          "awake_min",
+          "in_bed_min",
+          "efficiency_pct"
+        ],
+        "title": "SleepBlock"
+      },
+      "SleepStage": {
+        "properties": {
+          "uuid": {
+            "type": "string",
+            "title": "Uuid"
+          },
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          },
+          "start_ms": {
+            "type": "integer",
+            "title": "Start Ms"
+          },
+          "end_ms": {
+            "type": "integer",
+            "title": "End Ms"
+          },
+          "start_tz_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Tz Min"
+          },
+          "end_tz_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Tz Min"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          }
+        },
+        "type": "object",
+        "required": [
+          "uuid",
+          "stage",
+          "start_ms",
+          "end_ms"
+        ],
+        "title": "SleepStage"
+      },
+      "Today": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "now_local": {
+            "type": "string",
+            "title": "Now Local"
+          },
+          "update_time": {
+            "type": "string",
+            "title": "Update Time"
+          },
+          "next_update": {
+            "type": "string",
+            "title": "Next Update"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "can_update_now": {
+            "type": "boolean",
+            "title": "Can Update Now"
+          },
+          "readiness_method": {
+            "type": "string",
+            "title": "Readiness Method"
+          },
+          "cutoffs": {
+            "$ref": "#/components/schemas/Cutoffs"
+          },
+          "night_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Night Date"
+          },
+          "is_last_night": {
+            "type": "boolean",
+            "title": "Is Last Night"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "readiness": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Readiness"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/MetricRow"
+            },
+            "type": "array",
+            "title": "Metrics"
+          },
+          "sleep": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SleepBlock"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quality_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quality Notes"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "text_placeholder": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Placeholder"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "now_local",
+          "update_time",
+          "next_update",
+          "updated_at",
+          "can_update_now",
+          "readiness_method",
+          "cutoffs",
+          "night_date",
+          "is_last_night",
+          "message",
+          "readiness",
+          "metrics",
+          "sleep",
+          "quality_notes"
+        ],
+        "title": "Today"
+      },
+      "TrendRow": {
+        "properties": {
+          "night_date": {
+            "type": "string",
+            "title": "Night Date"
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/Readiness"
+          },
+          "usable_sleep": {
+            "type": "boolean",
+            "title": "Usable Sleep"
+          },
+          "quality_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quality Notes"
+          },
+          "deep_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deep Min"
+          },
+          "core_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Core Min"
+          },
+          "rem_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rem Min"
+          },
+          "unspecified_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unspecified Min"
+          },
+          "hrv": {
+            "$ref": "#/components/schemas/TrendValue"
+          },
+          "rhr": {
+            "$ref": "#/components/schemas/TrendValue"
+          },
+          "sleep": {
+            "$ref": "#/components/schemas/TrendValue"
+          },
+          "efficiency": {
+            "$ref": "#/components/schemas/TrendValue"
+          },
+          "fragmentation": {
+            "$ref": "#/components/schemas/TrendValue"
+          }
+        },
+        "type": "object",
+        "required": [
+          "night_date",
+          "readiness",
+          "usable_sleep",
+          "quality_notes",
+          "deep_min",
+          "core_min",
+          "rem_min",
+          "unspecified_min",
+          "hrv",
+          "rhr",
+          "sleep",
+          "efficiency",
+          "fragmentation"
+        ],
+        "title": "TrendRow"
+      },
+      "TrendValue": {
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "z": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Z"
+          },
+          "usual_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usual Low"
+          },
+          "usual_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usual High"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "z",
+          "usual_low",
+          "usual_high"
+        ],
+        "title": "TrendValue"
+      },
+      "Trends": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "nights": {
+            "type": "integer",
+            "title": "Nights"
+          },
+          "cutoffs": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Cutoffs"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "placeholder": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Placeholder"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/TrendRow"
+            },
+            "type": "array",
+            "title": "Rows"
+          },
+          "summaries": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summaries"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "nights",
+          "rows"
+        ],
+        "title": "Trends"
+      },
+      "Upload": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "samples": {
+            "items": {
+              "$ref": "#/components/schemas/Sample"
+            },
+            "type": "array",
+            "title": "Samples",
+            "default": []
+          },
+          "sleep": {
+            "items": {
+              "$ref": "#/components/schemas/SleepStage"
+            },
+            "type": "array",
+            "title": "Sleep",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id"
+        ],
+        "title": "Upload",
+        "description": "The old POST /upload body, where the user id had to be in the body."
+      },
+      "UsualRange": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "usual_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usual Low"
+          },
+          "usual_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usual High"
+          },
+          "baseline_nights": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Nights"
+          },
+          "placeholder": {
+            "type": "boolean",
+            "title": "Placeholder"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "unit",
+          "usual_low",
+          "usual_high",
+          "baseline_nights",
+          "placeholder"
+        ],
+        "title": "UsualRange"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

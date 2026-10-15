@@ -1,0 +1,52 @@
+import { router } from 'expo-router';
+import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+
+import { Button } from '../../components/Button';
+import { SetupFrame } from '../../components/SetupFrame';
+import { Text } from '../../components/Text';
+import { useSession } from '../../state/session';
+import { useTheme } from '../../theme/theme';
+import { TestBuild } from '../test-build/TestBuild';
+
+const STEPS = ['Wear your watch to bed.', 'Open the app in the morning.', 'Get a score and a plain reason.'];
+
+/** Setup 1: Welcome. The Test build section picks the server and tester until real accounts exist. */
+export default function WelcomeScreen() {
+  const { colors } = useTheme();
+  const { serverUrl, userId } = useSession();
+  const [note, setNote] = useState<string | null>(null);
+
+  return (
+    <SetupFrame step={0} actions={
+      <>
+        <Button title="Get started" onPress={() => (serverUrl && userId ? router.push('/setup/health')
+          : setNote('First pick a tester or a demo person in Test build below.'))} />
+        {note ? <Text variant="bodySmall" color="low">{note}</Text> : null}
+        <TestBuild next="/setup/health" />
+      </>
+    }>
+      <Text variant="labelSmall" color="textSecondary">Recovery</Text>
+      <Text variant="h1" accessibilityRole="header" style={styles.headline}>Train when your body is ready.</Text>
+      <Text variant="bodyLarge" color="textSecondary" style={styles.intro}>
+        Recovery reads your Apple Watch overnight and tells you each morning how ready you are to train, and why.
+      </Text>
+      <View style={[styles.steps, { borderBottomColor: colors.border }]}>
+        {STEPS.map((s, i) => (
+          <View key={s} style={[styles.step, { borderTopColor: colors.border }]}>
+            <Text variant="scoreMetric" style={styles.number}>{i + 1}</Text>
+            <Text variant="bodyEmphasis">{s}</Text>
+          </View>
+        ))}
+      </View>
+    </SetupFrame>
+  );
+}
+
+const styles = StyleSheet.create({
+  headline: { fontSize: 40, lineHeight: 44, marginTop: 72 },
+  intro: { marginTop: 16 },
+  steps: { marginTop: 24, borderBottomWidth: 1 },
+  step: { flexDirection: 'row', alignItems: 'center', gap: 16, minHeight: 54, borderTopWidth: 1 },
+  number: { fontSize: 24, width: 18 },
+});

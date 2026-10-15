@@ -4,13 +4,14 @@ from fastapi import APIRouter
 
 from app.core import db
 from app.core.urls import USER
+from app.schemas.processing import ProcessingRun
 from app.services import processing
 from app.services.users import require_user
 
 router = APIRouter(prefix=USER, tags=["processing"])
 
 
-@router.post("/processing-runs")
+@router.post("/processing-runs", response_model=ProcessingRun)
 def create_processing_run(user_id: str):
     with db.connect() as conn:
         require_user(conn, user_id)

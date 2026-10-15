@@ -8,7 +8,7 @@ import { IBMPlexSansCondensed_600SemiBold } from '@expo-google-fonts/ibm-plex-sa
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { SessionProvider, useSession } from '../state/session';
@@ -18,7 +18,7 @@ function Shell() {
   const { colors, isDark } = useTheme();
   const { loaded } = useSession();
   // Wait for the saved session too, so the app doesn't flash Setup before it knows who's signed in.
-  if (!loaded) return <View style={{ flex: 1, backgroundColor: colors.canvas }} />;
+  if (!loaded) return <View style={[styles.fill, { backgroundColor: colors.canvas }]} />;
   return (
     <>
       <StatusBar style={isDark ? 'light' : 'dark'} />
@@ -48,3 +48,7 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  fill: { flex: 1 },
+});

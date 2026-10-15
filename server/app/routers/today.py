@@ -13,6 +13,7 @@ from app.core.urls import USER
 from app.readiness import explain
 from app.readiness.scoring import LOW_BELOW, READINESS_METHOD, READY_FROM, readiness
 from app.readiness.usual import metric_rows
+from app.schemas.today import Today
 from app.services import processing
 from app.services.update_schedule import can_update_now, next_update
 from app.services.users import last_run, night_rows, require_user
@@ -36,7 +37,7 @@ def sleep_block(row) -> dict:
     }
 
 
-@router.get("/today")
+@router.get("/today", response_model=Today, response_model_exclude_unset=True)
 def today(user_id: str):
     processing.ensure_processed(user_id)
     with db.connect() as conn:

@@ -6,7 +6,7 @@
  * Missing nights leave a gap instead of being joined or drawn as zero.
  */
 import { ReactNode, useState } from 'react';
-import { LayoutChangeEvent, View } from 'react-native';
+import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
 import { useTheme } from '../theme/theme';
@@ -28,7 +28,7 @@ function useWidth(): [number, (e: LayoutChangeEvent) => void] {
 /** Date labels under a chart: first night on the left, "Last night" on the right. */
 function Axis({ first, lastLabel = 'Last night' }: { first?: string; lastLabel?: string }) {
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
+    <View style={styles.axis}>
       <Text variant="labelSmall" color="textMuted">{first ? shortDate(first) : ''}</Text>
       <Text variant="labelSmall" color="textMuted">{lastLabel}</Text>
     </View>
@@ -55,7 +55,7 @@ export function TrendLine({ points, height = 90, label, color, lastLabel }: {
   const { colors } = useTheme();
   const nums = points.flatMap((p) => [p.value, p.usualLow, p.usualHigh]).filter((v): v is number => v !== null);
   if (points.length === 0 || nums.length === 0) {
-    return <Text color="textMuted" style={{ paddingVertical: 24 }}>Not enough nights yet.</Text>;
+    return <Text color="textMuted" style={styles.empty}>Not enough nights yet.</Text>;
   }
   let lo = Math.min(...nums);
   let hi = Math.max(...nums);
@@ -121,10 +121,10 @@ export function TrendLine({ points, height = 90, label, color, lastLabel }: {
 export type HistoryBar = { date: string; score: number | null; status: string };
 
 export function ReadinessHistory({ bars, cutoffs, height = 100 }: {
-  bars: HistoryBar[]; cutoffs: { low_below: number; ready_from: number }; height?: number;
+  bars: HistoryBar[]; cutoffs?: { low_below: number; ready_from: number } | null; height?: number;
 }) {
   const { colors, statusColor } = useTheme();
-  if (bars.length === 0) return <Text color="textMuted" style={{ paddingVertical: 24 }}>No nights yet.</Text>;
+  if (bars.length === 0) return <Text color="textMuted" style={styles.empty}>No nights yet.</Text>;
   return (
     <View>
       <Frame height={height} label={`Readiness for the last ${bars.length} nights`}>
@@ -134,7 +134,7 @@ export function ReadinessHistory({ bars, cutoffs, height = 100 }: {
           const y = (s: number) => height - (s / 100) * height;
           return (
             <Svg width={w} height={height}>
-              {[cutoffs.low_below, cutoffs.ready_from].map((c) => (
+              {(cutoffs ? [cutoffs.low_below, cutoffs.ready_from] : []).map((c) => (
                 <Line key={c} x1={0} x2={w} y1={y(c)} y2={y(c)} stroke={colors.border} strokeWidth={1} />
               ))}
               <Line x1={0} x2={w} y1={height - 0.5} y2={height - 0.5} stroke={colors.borderStrong} strokeWidth={1} />
@@ -157,7 +157,7 @@ export type SleepNight = { date: string; deep: number | null; core: number | nul
 
 export function SleepStages({ nights, height = 110 }: { nights: SleepNight[]; height?: number }) {
   const { colors } = useTheme();
-  if (nights.length === 0) return <Text color="textMuted" style={{ paddingVertical: 24 }}>No nights yet.</Text>;
+  if (nights.length === 0) return <Text color="textMuted" style={styles.empty}>No nights yet.</Text>;
   const total = (n: SleepNight) => (n.deep ?? 0) + (n.core ?? 0) + (n.rem ?? 0) + (n.other ?? 0);
   const top = Math.max(60, ...nights.map(total));
   const hasOther = nights.some((n) => (n.other ?? 0) > 0);
@@ -192,10 +192,10 @@ export function SleepStages({ nights, height = 110 }: { nights: SleepNight[]; he
         }}
       </Frame>
       <Axis first={nights[0]?.date} />
-      <View style={{ flexDirection: 'row', gap: 16, marginTop: 10 }}>
+      <View style={styles.legend}>
         {legend.map((l) => (
-          <View key={l.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <View style={{ width: 10, height: 10, backgroundColor: l.color }} />
+          <View key={l.label} style={styles.legendItem}>
+            <View style={[styles.swatch, { backgroundColor: l.color }]} />
             <Text variant="labelSmall" color="textSecondary">{l.label}</Text>
           </View>
         ))}
@@ -203,3 +203,11 @@ export function SleepStages({ nights, height = 110 }: { nights: SleepNight[]; he
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  axis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+  empty: { paddingVertical: 24 },
+  legend: { flexDirection: 'row', gap: 16, marginTop: 10 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  swatch: { width: 10, height: 10 },
+});

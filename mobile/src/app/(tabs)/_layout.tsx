@@ -1,5 +1,5 @@
 import { Redirect, Slot, usePathname } from 'expo-router';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Sidebar, TabBar } from '../../components/Navigation';
@@ -20,9 +20,9 @@ export default function TabsLayout() {
   if (isWide) {
     return (
       <HealthSyncProvider>
-        <View style={{ flex: 1, flexDirection: 'row', backgroundColor: colors.canvas }}>
+        <View style={[styles.wide, { backgroundColor: colors.canvas }]}>
           <Sidebar footer={`Tester: ${userId}`} />
-          <View style={{ flex: 1 }}>
+          <View style={styles.fill}>
             <Slot />
           </View>
         </View>
@@ -31,8 +31,8 @@ export default function TabsLayout() {
   }
   return (
     <HealthSyncProvider>
-      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.canvas }}>
-        <View style={{ flex: 1 }}>
+      <SafeAreaView edges={['top']} style={[styles.fill, { backgroundColor: colors.canvas }]}>
+        <View style={styles.fill}>
           <Slot />
         </View>
         {subPage ? null : <TabBar />}
@@ -40,3 +40,8 @@ export default function TabsLayout() {
     </HealthSyncProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  fill: { flex: 1 },
+  wide: { flex: 1, flexDirection: 'row' },
+});

@@ -1,0 +1,49 @@
+"""Pieces shared by several responses: the readiness block, metric rows and sleep."""
+
+from typing import Literal
+
+from pydantic import BaseModel
+
+ReadinessStatus = Literal["low", "moderate", "ready", "building_baseline", "short_sleep", "no_data"]
+Direction = Literal["better", "usual", "worse"]
+
+
+class Readiness(BaseModel):
+    score: int | None
+    status: ReadinessStatus
+    z_count: int
+    placeholder: bool
+
+
+class Cutoffs(BaseModel):
+    low_below: int
+    ready_from: int
+    placeholder: bool | None = None  # only Today says this
+
+
+class MetricRow(BaseModel):
+    """One row of "Last night vs your usual"."""
+
+    key: str
+    label: str
+    unit: str
+    value: float | None
+    z: float | None
+    usual_low: float | None
+    usual_high: float | None
+    usual_mean: float | None
+    direction: Direction | None
+    placeholder: bool
+
+
+class SleepBlock(BaseModel):
+    onset: str | None
+    wake: str | None
+    total_min: float | None
+    deep_min: float | None
+    core_min: float | None
+    rem_min: float | None
+    unspecified_min: float | None
+    awake_min: float | None
+    in_bed_min: float | None
+    efficiency_pct: float | None

@@ -75,12 +75,32 @@ If the phone blocks the app on first launch, trust it in Settings > General > VP
 
 | Folder | What it is |
 |---|---|
-| `src/app/` | Screens (Expo Router): `(tabs)/` Today, Trends, Profile, Muscles, Train. `setup/` the 4 Setup steps |
-| `src/components/` | The Figma components: readiness summary and scale, metric row, charts, list rows, tab bar, sidebar ... |
+| `src/app/` | Routes only (Expo Router). Each file is one line that points at a screen in `src/features/`, plus the `_layout.tsx` files |
+| `src/features/` | The screens, one folder each: `today/`, `trends/`, `profile/` (with Update time), `imports/` (screen and `useImportJob`), `setup/` (the 4 steps), `settings/` (`useSettingsEditor`, shared by Profile and Setup), `test-build/`, `coming-soon/`, `gallery/` |
+| `src/components/` | The Figma components shared by screens: readiness summary and scale, metric row, charts, list rows, tab bar, sidebar ... |
 | `src/theme/` | Colors, fonts and text styles from Figma (`tokens.ts`), Light / Dark switching (`theme.tsx`) |
-| `src/api/` | Talks to the server |
+| `src/api/` | Talks to the server. `schema.ts` is generated from the server (see below), `client.ts` names its types and makes the calls |
 | `src/state/` | Server address, tester and appearance, remembered on the device |
-| `src/lib/` | Formatting, and the file picker for imports on the web |
+| `src/lib/` | Formatting, `useLoad` for loading screen data, and the file picker for imports on the web |
+
+Styles live in `StyleSheet.create` at the bottom of each file. Only colors from the theme, and sizes worked out
+from data, are set inline.
+
+## API types
+
+The app's types for every server reply come from the server itself, so they can't drift apart. After changing an
+endpoint or a schema on the server:
+
+```bash
+cd server
+.venv\Scripts\python export_openapi.py
+cd ..\mobile
+npm run api-types
+```
+
+The first writes `server/openapi.json`, the second turns it into `src/api/schema.ts`. CI fails if either is out
+of date. `openapi-typescript` officially wants TypeScript 5, so `package.json` has an `overrides` entry letting it
+use the app's TypeScript 6. Remove it once a release supports 6.
 
 ## Checks
 

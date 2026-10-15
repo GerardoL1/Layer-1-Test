@@ -1,4 +1,4 @@
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme/theme';
 import { Text } from './Text';
@@ -10,12 +10,12 @@ const RANGES: Range[] = [14, 28, 90];
 export function RangeSwitch({ value, onChange }: { value: Range; onChange: (r: Range) => void }) {
   const { colors } = useTheme();
   return (
-    <View accessibilityRole="tablist" style={{ flexDirection: 'row', gap: 20 }}>
+    <View accessibilityRole="tablist" style={styles.tabs}>
       {RANGES.map((r) => {
         const on = r === value;
         return (
           <Pressable key={r} onPress={() => onChange(r)} accessibilityRole="tab" accessibilityState={{ selected: on }}
-            style={{ paddingBottom: 5, borderBottomWidth: 2, borderBottomColor: on ? colors.borderStrong : 'transparent' }}>
+            style={[styles.tab, { borderBottomColor: on ? colors.borderStrong : 'transparent' }]}>
             <Text variant="labelMedium" color={on ? 'textPrimary' : 'textMuted'}>{r} nights</Text>
           </Pressable>
         );
@@ -23,3 +23,8 @@ export function RangeSwitch({ value, onChange }: { value: Range; onChange: (r: R
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  tabs: { flexDirection: 'row', gap: 20 },
+  tab: { paddingBottom: 5, borderBottomWidth: 2 },
+});

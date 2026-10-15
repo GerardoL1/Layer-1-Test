@@ -31,6 +31,19 @@ class ReadingsBatch(BaseModel):
     sleep: list[SleepStage] = []
 
 
+class ReadingsResult(BaseModel):
+    received: int
+    new: int  # the rest were repeats
+
+
+class HealthAutoExportResult(BaseModel):
+    samples: int
+    sleep_stages: int
+    new: int
+    unreadable: int  # rows whose dates couldn't be read
+    ignored_metrics: list[str]  # things we don't use, like steps
+
+
 class Upload(ReadingsBatch):
     """The old POST /upload body, where the user id had to be in the body."""
 

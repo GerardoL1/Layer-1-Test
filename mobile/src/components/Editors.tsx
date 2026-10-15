@@ -3,7 +3,7 @@
  * Kept simple on purpose: chips to pick from, and a text box where a list doesn't fit.
  */
 import { useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { WEEKDAYS } from '../lib/format';
 import { useTheme } from '../theme/theme';
@@ -18,8 +18,8 @@ function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () 
   const { colors } = useTheme();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{ selected: on }}
-      style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.sm, borderWidth: 1,
-        borderColor: on ? colors.borderStrong : colors.border, backgroundColor: on ? colors.inverse : 'transparent' }}>
+      style={[styles.chip, { borderColor: on ? colors.borderStrong : colors.border,
+        backgroundColor: on ? colors.inverse : 'transparent' }]}>
       <Text variant="body" style={{ color: on ? colors.canvas : colors.textPrimary }}>{label}</Text>
     </Pressable>
   );
@@ -29,7 +29,7 @@ export function Chips<T extends string | number>({ options, value, onPick, label
   options: { value: T; label: string }[]; value: T | null; onPick: (v: T) => void; label?: (v: T) => string;
 }) {
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+    <View style={styles.chips}>
       {options.map((o) => <Chip key={String(o.value)} label={label ? label(o.value) : o.label} on={o.value === value}
         onPress={() => onPick(o.value)} />)}
     </View>
@@ -38,7 +38,7 @@ export function Chips<T extends string | number>({ options, value, onPick, label
 
 export function DaysPicker({ value, onChange }: { value: number[]; onChange: (days: number[]) => void }) {
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+    <View style={styles.chips}>
       {WEEKDAYS.map((d, i) => (
         <Chip key={d} label={d} on={value.includes(i)}
           onPress={() => onChange(value.includes(i) ? value.filter((x) => x !== i) : [...value, i].sort())} />
@@ -55,12 +55,11 @@ export function TextEditor({ initial, placeholder, keyboard, onSave, hint }: {
   const [text, setText] = useState(initial);
   const [busy, setBusy] = useState(false);
   return (
-    <View style={{ gap: 8 }}>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
+    <View style={styles.editor}>
+      <View style={styles.inputRow}>
         <TextInput value={text} onChangeText={setText} placeholder={placeholder} keyboardType={keyboard}
           autoCapitalize="none" autoCorrect={false} placeholderTextColor={colors.textMuted}
-          style={{ ...type.body, flex: 1, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border,
-            borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 10 }} />
+          style={[styles.input, { color: colors.textPrimary, borderColor: colors.border }]} />
         <Button title="Save" busy={busy} onPress={async () => {
           setBusy(true);
           try {
@@ -83,7 +82,7 @@ export function EditRow({ label, value, children, open, onToggle, error }: {
     <View>
       <ListRow label={label} value={value} onPress={onToggle} />
       {open ? (
-        <View style={{ paddingBottom: 16, gap: 8 }}>
+        <View style={styles.opened}>
           {children}
           {error ? <Text variant="bodySmall" color="low">{error}</Text> : null}
         </View>
@@ -91,3 +90,12 @@ export function EditRow({ label, value, children, open, onToggle, error }: {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.sm, borderWidth: 1 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  editor: { gap: 8 },
+  inputRow: { flexDirection: 'row', gap: 8 },
+  input: { ...type.body, flex: 1, borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 10 },
+  opened: { paddingBottom: 16, gap: 8 },
+});

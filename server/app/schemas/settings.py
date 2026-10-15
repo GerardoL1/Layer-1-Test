@@ -1,18 +1,31 @@
-"""The settings a person can change from Setup and Profile."""
+"""A person's settings, and the changes Setup and Profile can send."""
 
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, field_validator
 
+Units = Literal["metric", "imperial"]
+
 
 class Settings(BaseModel):
+    timezone: str | None
+    update_time: str
+    age: int | None
+    training: str | None
+    training_days: list[int]
+    units: Units
+
+
+class SettingsUpdate(BaseModel):
+    """Only the fields sent are changed."""
+
     timezone: str | None = None
     update_time: str | None = None
     age: int | None = None
     training: str | None = None
     training_days: list[int] | None = None
-    units: Literal["metric", "imperial"] | None = None
+    units: Units | None = None
 
     @field_validator("timezone")
     @classmethod

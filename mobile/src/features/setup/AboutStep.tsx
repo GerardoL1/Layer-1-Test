@@ -1,0 +1,51 @@
+import { router } from 'expo-router';
+import { StyleSheet } from 'react-native';
+
+import { useApi } from '../../api/useApi';
+import { Button } from '../../components/Button';
+import { Chips, DaysPicker, EditRow, TextEditor, TRAINING } from '../../components/Editors';
+import { SetupFrame } from '../../components/SetupFrame';
+import { Text } from '../../components/Text';
+import { WEEKDAYS } from '../../lib/format';
+import { useLoad } from '../../lib/useLoad';
+import { useSettingsEditor } from '../settings/useSettingsEditor';
+
+/** Setup 3: a little about you. Everything can be skipped and changed later in Profile. */
+export default function AboutStep() {
+  const api = useApi();
+  const { data: s, reload } = useLoad(() => api.settings().catch(() => null), api);
+  const { isOpen, toggle, save, error } = useSettingsEditor(reload);
+
+  return (
+    <SetupFrame step={2} actions={
+      <>
+        <Button title="Continue" onPress={() => router.push('/setup/baseline')} />
+        <Button title="Skip for now" kind="secondary" onPress={() => router.push('/setup/baseline')} />
+      </>
+    }>
+      <Text variant="h1" accessibilityRole="header">A little about you</Text>
+      <Text variant="bodyLarge" color="textSecondary" style={styles.intro}>
+        This helps explain your scores. It doesn&apos;t change the numbers from your watch.
+      </Text>
+      <EditRow label="Age" value={s?.age ? String(s.age) : 'Choose'} open={isOpen('age')} onToggle={() => toggle('age')}
+        error={error}>
+        <TextEditor initial={s?.age ? String(s.age) : ''} keyboard="number-pad" placeholder="Age"
+          onSave={(t) => save({ age: t ? Number(t) : null })} />
+      </EditRow>
+      <EditRow label="Main training" value={s?.training ?? 'Choose'} open={isOpen('training')}
+        onToggle={() => toggle('training')} error={error}>
+        <Chips options={TRAINING.map((t) => ({ value: t, label: t }))} value={s?.training ?? null}
+          onPick={(t) => save({ training: t })} />
+      </EditRow>
+      <EditRow label="Training days"
+        value={s?.training_days.length ? s.training_days.map((d) => WEEKDAYS[d]).join(' · ') : 'Choose'}
+        open={isOpen('days')} onToggle={() => toggle('days')} error={error}>
+        <DaysPicker value={s?.training_days ?? []} onChange={(days) => save({ training_days: days }, false)} />
+      </EditRow>
+    </SetupFrame>
+  );
+}
+
+const styles = StyleSheet.create({
+  intro: { marginTop: 12, marginBottom: 20 },
+});

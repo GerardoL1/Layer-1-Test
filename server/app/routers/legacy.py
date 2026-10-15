@@ -17,7 +17,7 @@ from fastapi.responses import PlainTextResponse
 from app.core.urls import API_V1, USER
 from app.routers import demo, imports, processing_runs, profile, readings, settings, today, trends
 from app.schemas.readings import Upload
-from app.schemas.settings import Settings
+from app.schemas.settings import SettingsUpdate
 from app.services import import_jobs
 
 log = logging.getLogger("recovery.deprecated")
@@ -110,7 +110,7 @@ def get_settings(user_id: str):
 
 
 @router.put("/api/settings")
-def put_settings(user_id: str, changes: Settings):
+def put_settings(user_id: str, changes: SettingsUpdate):
     return settings.update_settings(user_id, changes)
 
 

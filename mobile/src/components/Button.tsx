@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleProp, StyleSheet, ViewStyle } from 'react-native';
 
 import { useTheme } from '../theme/theme';
 import { radius } from '../theme/tokens';
@@ -11,7 +11,7 @@ type Props = {
   /** Figma's State = Disabled, for actions that aren't available (like "Coming soon"). */
   disabled?: boolean;
   busy?: boolean;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 };
 
 /**
@@ -32,13 +32,15 @@ export function Button({ title, onPress, kind = 'primary', disabled, busy, style
   return (
     <Pressable accessibilityRole="button" accessibilityState={{ disabled: !!off, busy: !!busy }}
       onPress={off ? undefined : onPress}
-      style={({ pressed }) => [{
-        minHeight: 46, paddingHorizontal: 18, borderRadius: radius.sm, alignItems: 'center',
-        justifyContent: 'center', borderWidth: 1, backgroundColor: look.fill, borderColor: look.border,
-        opacity: pressed && !off ? 0.85 : 1,
-      }, style]}>
+      style={({ pressed }) => [styles.button, { backgroundColor: look.fill, borderColor: look.border,
+        opacity: pressed && !off ? 0.85 : 1 }, style]}>
       {busy ? <ActivityIndicator color={look.text} />
         : <Text variant="button" style={{ color: look.text }}>{title}</Text>}
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  button: { minHeight: 46, paddingHorizontal: 18, borderRadius: radius.sm, alignItems: 'center',
+    justifyContent: 'center', borderWidth: 1 },
+});

@@ -1,4 +1,4 @@
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme/theme';
 import { Text } from './Text';
@@ -25,12 +25,12 @@ export function ListRow({ label, value, onPress, comingSoon, danger, valueColor 
       accessibilityRole={link ? 'button' : undefined}
       accessibilityState={comingSoon ? { disabled: true } : undefined}
       accessibilityHint={comingSoon ? 'Coming soon' : undefined}
-      style={({ pressed }) => ({ borderTopWidth: 1, borderTopColor: colors.border, minHeight: 51,
-        flexDirection: 'row', alignItems: 'center', gap: 12, opacity: comingSoon ? 0.55 : pressed ? 0.7 : 1 })}>
-      <Text variant="bodyLarge" color={danger ? 'low' : 'textPrimary'} style={{ flex: 1 }}>{label}</Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 }}>
+      style={({ pressed }) => [styles.row, { borderTopColor: colors.border,
+        opacity: comingSoon ? 0.55 : pressed ? 0.7 : 1 }]}>
+      <Text variant="bodyLarge" color={danger ? 'low' : 'textPrimary'} style={styles.label}>{label}</Text>
+      <View style={styles.right}>
         <Text variant="body" color={comingSoon ? 'textMuted' : valueColor ?? 'textSecondary'}
-          numberOfLines={1} style={{ textAlign: 'right' }}>
+          numberOfLines={1} style={styles.value}>
           {comingSoon ? 'Coming soon' : value ?? ''}
         </Text>
         {link || (onPress && comingSoon) ? <Text variant="body" color="textSecondary">→</Text> : null}
@@ -38,3 +38,10 @@ export function ListRow({ label, value, onPress, comingSoon, danger, valueColor 
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  row: { borderTopWidth: 1, minHeight: 51, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  label: { flex: 1 },
+  right: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+  value: { textAlign: 'right' },
+});

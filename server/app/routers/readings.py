@@ -13,7 +13,7 @@ from fastapi.responses import PlainTextResponse
 
 from app.core import db
 from app.core.urls import USER
-from app.schemas.readings import ReadingsBatch
+from app.schemas.readings import HealthAutoExportResult, ReadingsBatch, ReadingsResult
 from app.services import health_auto_export, shortcuts
 from app.services.readings import save_readings
 
@@ -38,7 +38,7 @@ def require_offset(minutes, what: str) -> int:
     return minutes
 
 
-@router.post("")
+@router.post("", response_model=ReadingsResult)
 def add_readings(user_id: str, payload: ReadingsBatch, background: BackgroundTasks):
     if payload.user_id is not None and payload.user_id != user_id:
         raise HTTPException(400, f"The body is for '{payload.user_id}' but the URL is for '{user_id}'.")
@@ -65,7 +65,7 @@ def add_readings(user_id: str, payload: ReadingsBatch, background: BackgroundTas
 # ---------------------------------------------------------------- 2. Health Auto Export
 
 
-@router.post("/health-auto-export")
+@router.post("/health-auto-export", response_model=HealthAutoExportResult)
 async def add_health_auto_export(user_id: str, request: Request, background: BackgroundTasks):
     """
     Receiver for the Health Auto Export app (REST API automation, JSON format).

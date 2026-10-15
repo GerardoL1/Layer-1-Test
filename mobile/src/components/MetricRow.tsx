@@ -1,4 +1,4 @@
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Direction } from '../api/client';
 import { useTheme } from '../theme/theme';
@@ -21,18 +21,25 @@ export function MetricRow({ label, shortLabel, value, unit, delta, direction }: 
   const deltaColor = direction === 'worse' ? colors.low : direction === 'better' ? colors.ready : colors.textMuted;
   return (
     <View accessible accessibilityLabel={`${label}: ${value} ${unit ?? ''}${delta ? `, ${delta}` : ''}`}
-      style={{ borderTopWidth: 1, borderTopColor: colors.border, minHeight: 58, flexDirection: 'row',
-        alignItems: 'center' }}>
-      <Text variant="bodyLarge" style={{ flex: 1 }}>{isNarrow && shortLabel ? shortLabel : label}</Text>
-      <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', minWidth: 96 }}>
+      style={[styles.row, { borderTopColor: colors.border }]}>
+      <Text variant="bodyLarge" style={styles.label}>{isNarrow && shortLabel ? shortLabel : label}</Text>
+      <View style={styles.reading}>
         <Text variant="scoreMetric">{value}</Text>
-        <Text variant="bodySmall" color="textMuted" numberOfLines={1} style={{ marginLeft: 4, width: 28 }}>
+        <Text variant="bodySmall" color="textMuted" numberOfLines={1} style={styles.unit}>
           {unit ?? ''}
         </Text>
       </View>
-      <Text variant="labelSmall" style={{ width: isNarrow ? 70 : 84, textAlign: 'right', color: deltaColor }}>
+      <Text variant="labelSmall" style={[styles.delta, { width: isNarrow ? 70 : 84, color: deltaColor }]}>
         {delta ?? ''}
       </Text>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  row: { borderTopWidth: 1, minHeight: 58, flexDirection: 'row', alignItems: 'center' },
+  label: { flex: 1 },
+  reading: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', minWidth: 96 },
+  unit: { marginLeft: 4, width: 28 },
+  delta: { textAlign: 'right' },
+});

@@ -2,7 +2,7 @@
 #   lint           ruff (format and lint) and mypy (types) over the Python code
 #   preprocessing  Layer 1 pipeline unit tests, then a quick Layer 1 tester run
 #   server         API, processing and scenario tests
-#   app            typecheck, lint and the HealthKit conversion checks (no iPhone needed)
+#   app            API types up to date, typecheck, lint and the HealthKit conversion checks (no iPhone needed)
 # Python packages come from the lock files, so CI uses exactly the versions developers use.
 name: CI
 
@@ -86,6 +86,10 @@ jobs:
           cache: npm
           cache-dependency-path: mobile/package-lock.json
       - run: npm ci
+      - name: API types match the server (run npm run api-types if this fails)
+        run: |
+          npm run api-types
+          git diff --exit-code src/api/schema.ts
       - name: Typecheck
         run: npx tsc --noEmit
       - name: Lint

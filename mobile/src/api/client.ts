@@ -1,119 +1,29 @@
 /**
- * Talks to the recovery server (server/app/routers/). Types mirror its JSON responses.
+ * Talks to the recovery server (server/app/routers/).
+ * The types come from the server's own description of its API (src/api/schema.ts, generated).
+ * After changing the server, run `python export_openapi.py` in server/ and `npm run api-types` here.
  */
+import type { components } from './schema';
 
-export type ReadinessStatus = 'low' | 'moderate' | 'ready' | 'building_baseline' | 'short_sleep' | 'no_data';
+type Schemas = components['schemas'];
 
-export type Readiness = { score: number | null; status: ReadinessStatus; z_count: number; placeholder: boolean };
-
-export type Direction = 'better' | 'usual' | 'worse' | null;
-
-export type MetricRow = {
-  key: string;
-  label: string;
-  unit: string;
-  value: number | null;
-  z: number | null;
-  usual_low: number | null;
-  usual_high: number | null;
-  usual_mean?: number | null;
-  direction: Direction;
-  placeholder: boolean;
-};
-
-export type SleepBlock = {
-  onset: string | null;
-  wake: string | null;
-  total_min: number | null;
-  deep_min: number | null;
-  core_min: number | null;
-  rem_min: number | null;
-  unspecified_min: number | null;
-  awake_min: number | null;
-  in_bed_min: number | null;
-  efficiency_pct: number | null;
-};
-
-export type Today = {
-  user_id: string;
-  now_local: string;
-  update_time: string;
-  next_update: string;
-  updated_at: string | null;
-  can_update_now: boolean;
-  night_date: string | null;
-  is_last_night: boolean;
-  message: string | null;
-  readiness: Readiness | null;
-  metrics: MetricRow[];
-  sleep: SleepBlock | null;
-  quality_notes: string | null;
-  cutoffs: { low_below: number; ready_from: number; placeholder: boolean };
-  verdict?: string | null;
-  reason?: string | null;
-};
-
-export type TrendValue = { value: number | null; z: number | null; usual_low: number | null; usual_high: number | null };
-
-export type TrendRow = {
-  night_date: string;
-  readiness: Readiness;
-  usable_sleep: boolean;
-  quality_notes: string | null;
-  deep_min: number | null;
-  core_min: number | null;
-  rem_min: number | null;
-  unspecified_min: number | null;
-  [metric: string]: TrendValue | unknown;
-};
-
-export type Trends = {
-  user_id: string;
-  nights: 14 | 28 | 90;
-  cutoffs: { low_below: number; ready_from: number };
-  rows: TrendRow[];
-  summaries?: Record<string, string | null>;
-};
-
-export type Settings = {
-  timezone: string | null;
-  update_time: string;
-  age: number | null;
-  training: string | null;
-  training_days: number[];
-  units: 'metric' | 'imperial';
-};
-
-export type Profile = {
-  user_id: string;
-  settings: Settings;
-  nights_total: number;
-  nights_usable: number;
-  first_night: string | null;
-  last_night: string | null;
-  baseline_window_nights: number;
-  baseline_min_nights: number;
-  usual_ranges: { key: string; label: string; unit: string; usual_low: number | null; usual_high: number | null;
-    baseline_nights: number | null; placeholder: boolean }[];
-  sources: string[];
-  last_update_local: string | null;
-};
-
-export type ImportStatus = {
-  import_id?: string;
-  state: 'idle' | 'queued' | 'running' | 'processing' | 'done' | 'error';
-  user_id?: string;
-  counts?: Partial<Record<'heart_rate' | 'resting_heart_rate' | 'hrv_sdnn' | 'sleep_stages' | 'new' | 'skipped', number>>;
-  error?: string | null;
-  file_name?: string;
-  file_bytes?: number;
-  read_fraction?: number;    // how far through export.xml the server has read, 0 to 1
-  reading?: string | null;   // what kind of record it's on, e.g. "sleep"
-  nights_ready?: number | null;
-};
-
-/** An import the server knows about, so it always has an id. */
-export type ImportJob = ImportStatus & { import_id: string };
+export type Today = Schemas['Today'];
+export type Readiness = Schemas['Readiness'];
+export type ReadinessStatus = Readiness['status'];
+export type MetricRow = Schemas['MetricRow'];
+export type Direction = MetricRow['direction'];
+export type SleepBlock = Schemas['SleepBlock'];
+export type Trends = Schemas['Trends'];
+export type TrendRow = Schemas['TrendRow'];
+export type TrendValue = Schemas['TrendValue'];
+/** The metrics each Trends row has a value for. */
+export type TrendMetric = 'hrv' | 'rhr' | 'sleep' | 'efficiency' | 'fragmentation';
+export type Profile = Schemas['Profile'];
+export type Settings = Schemas['Settings'];
+export type SettingsUpdate = Schemas['SettingsUpdate'];
+export type ImportJob = Schemas['ImportJob'];
+export type ProcessingRun = Schemas['ProcessingRun'];
+export type DemoUser = Schemas['DemoUser'];
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -153,16 +63,15 @@ export function makeApi(serverUrl: string, userId: string) {
   });
 
   return {
-    health: () => call<{ ok: boolean }>('/health'),
+    health: () => call<Schemas['HealthCheck']>('/health'),
     today: () => call<Today>(`${user}/today`),
     trends: (nights: 14 | 28 | 90) => call<Trends>(`${user}/trends?nights=${nights}`),
     profile: () => call<Profile>(`${user}/profile`),
     settings: () => call<Settings>(`${user}/settings`),
-    saveSettings: (changes: Partial<Settings>) => call<Settings>(`${user}/settings`, json('PATCH', changes)),
-    updateNow: () => call<{ processed: boolean; new_nights: string[]; message: string }>(
-      `${user}/processing-runs`, json('POST')),
+    saveSettings: (changes: SettingsUpdate) => call<Settings>(`${user}/settings`, json('PATCH', changes)),
+    updateNow: () => call<ProcessingRun>(`${user}/processing-runs`, json('POST')),
     loadDemo: (person: 'sam' | 'alex' | 'jordan') =>
-      call<{ user_id: string; clock_local: string }>(`/api/v1/demo-users/${person}`, json('POST')),
+      call<DemoUser>(`/api/v1/demo-users/${person}`, json('POST')),
     /** Uploads a Health export and returns the new import. onProgress(0..1) reports how much has been sent. */
     importExport: (file: Blob, name: string, onProgress?: (share: number) => void) => {
       const form = new FormData();

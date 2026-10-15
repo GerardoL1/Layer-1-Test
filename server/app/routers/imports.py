@@ -12,6 +12,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Response, UploadFile
 
 from app.core.urls import USER
+from app.schemas.imports import ImportJob
 from app.services import import_jobs
 from app.services.apple_export import ExportTooLarge, check_unzipped_size
 
@@ -43,7 +44,7 @@ def start_import(background: BackgroundTasks, user_id: str, file: UploadFile, si
     return job
 
 
-@router.post("", status_code=202)
+@router.post("", status_code=202, response_model=ImportJob)
 def create_import(
     user_id: str,
     background: BackgroundTasks,
@@ -61,13 +62,13 @@ def create_import(
     return job
 
 
-@router.get("")
+@router.get("", response_model=list[ImportJob])
 def list_imports(user_id: str):
     """This person's latest import, if the server still remembers it. Used to pick an import up again."""
     return import_jobs.for_user(user_id)
 
 
-@router.get("/{import_id}")
+@router.get("/{import_id}", response_model=ImportJob)
 def get_import(user_id: str, import_id: str):
     job = import_jobs.find(user_id, import_id)
     if job is None:

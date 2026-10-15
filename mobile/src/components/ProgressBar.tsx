@@ -1,4 +1,4 @@
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme/theme';
 
@@ -8,8 +8,12 @@ export function ProgressBar({ share }: { share: number }) {
   const pct = Math.round(Math.min(1, Math.max(0, share)) * 100);
   return (
     <View accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: pct }}
-      style={{ height: 4, backgroundColor: colors.surfaceMuted }}>
-      <View style={{ height: 4, width: `${pct}%`, backgroundColor: colors.textPrimary }} />
+      style={[styles.bar, { backgroundColor: colors.surfaceMuted }]}>
+      <View style={[styles.bar, { width: `${pct}%`, backgroundColor: colors.textPrimary }]} />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  bar: { height: 4 },
+});

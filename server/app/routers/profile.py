@@ -6,6 +6,7 @@ from app.core import db
 from app.core.json_values import clean
 from app.core.urls import USER
 from app.readiness.usual import BASE_COLUMN, METRICS, usual_range
+from app.schemas.profile import Profile
 from app.services import processing
 from app.services.users import last_run, night_rows, read_settings, require_user
 from layer1 import config as C
@@ -13,7 +14,7 @@ from layer1 import config as C
 router = APIRouter(prefix=USER, tags=["profile"])
 
 
-@router.get("/profile")
+@router.get("/profile", response_model=Profile)
 def profile(user_id: str):
     processing.ensure_processed(user_id)
     with db.connect() as conn:

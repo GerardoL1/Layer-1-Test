@@ -4,7 +4,7 @@
  * a dark bar on its left edge.
  */
 import { Href, Link, usePathname } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '../theme/theme';
@@ -23,16 +23,14 @@ export function TabBar() {
   const path = usePathname();
   const insets = useSafeAreaInsets();
   return (
-    <View style={{ borderTopWidth: 1, borderTopColor: colors.borderStrong, flexDirection: 'row',
-      paddingBottom: Math.max(insets.bottom, 12), backgroundColor: colors.canvas }}>
+    <View style={[styles.tabBar, { borderTopColor: colors.borderStrong, paddingBottom: Math.max(insets.bottom, 12),
+      backgroundColor: colors.canvas }]}>
       {TABS.map((tab) => {
         const active = path.startsWith(tab.path);
         return (
           <Link key={tab.path} href={tab.href} asChild>
-            <Pressable accessibilityRole="tab" accessibilityState={{ selected: active }}
-              style={{ flex: 1, alignItems: 'center', paddingTop: 16 }}>
-              <View style={{ position: 'absolute', top: -1, height: 3, width: 32,
-                backgroundColor: active ? colors.borderStrong : 'transparent' }} />
+            <Pressable accessibilityRole="tab" accessibilityState={{ selected: active }} style={styles.tab}>
+              <View style={[styles.tabMark, { backgroundColor: active ? colors.borderStrong : 'transparent' }]} />
               <Text variant="labelSmall" color={active ? 'textPrimary' : 'textMuted'}>{tab.label}</Text>
             </Pressable>
           </Link>
@@ -46,16 +44,14 @@ export function Sidebar({ footer }: { footer?: string | null }) {
   const { colors } = useTheme();
   const path = usePathname();
   return (
-    <View style={{ width: 232, borderRightWidth: 1, borderRightColor: colors.borderStrong,
-      paddingTop: 40, paddingHorizontal: 24, paddingBottom: 24 }}>
-      <Text variant="h1" style={{ fontSize: 28, marginBottom: 40 }}>Recovery</Text>
+    <View style={[styles.sidebar, { borderRightColor: colors.borderStrong }]}>
+      <Text variant="h1" style={styles.brand}>Recovery</Text>
       {TABS.map((tab) => {
         const active = path.startsWith(tab.path);
         return (
           <Link key={tab.path} href={tab.href} asChild>
             <Pressable accessibilityRole="link" accessibilityState={{ selected: active }}
-              style={{ paddingVertical: 10, paddingLeft: 14, borderLeftWidth: 2, marginBottom: 6,
-                borderLeftColor: active ? colors.borderStrong : 'transparent' }}>
+              style={[styles.link, { borderLeftColor: active ? colors.borderStrong : 'transparent' }]}>
               <Text variant={active ? 'bodyEmphasis' : 'body'} color={active ? 'textPrimary' : 'textSecondary'}>
                 {tab.label}
               </Text>
@@ -63,8 +59,18 @@ export function Sidebar({ footer }: { footer?: string | null }) {
           </Link>
         );
       })}
-      <View style={{ flex: 1 }} />
+      <View style={styles.spacer} />
       {footer ? <Text variant="bodySmall" color="textSecondary">{footer}</Text> : null}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: { borderTopWidth: 1, flexDirection: 'row' },
+  tab: { flex: 1, alignItems: 'center', paddingTop: 16 },
+  tabMark: { position: 'absolute', top: -1, height: 3, width: 32 },
+  sidebar: { width: 232, borderRightWidth: 1, paddingTop: 40, paddingHorizontal: 24, paddingBottom: 24 },
+  brand: { fontSize: 28, marginBottom: 40 },
+  link: { paddingVertical: 10, paddingLeft: 14, borderLeftWidth: 2, marginBottom: 6 },
+  spacer: { flex: 1 },
+});

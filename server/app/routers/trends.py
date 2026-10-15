@@ -10,6 +10,7 @@ from app.core.urls import USER
 from app.readiness import explain
 from app.readiness.scoring import LOW_BELOW, READY_FROM, readiness
 from app.readiness.usual import METRICS, usual_range
+from app.schemas.trends import Trends
 from app.services import processing
 from app.services.users import night_rows, require_user
 
@@ -18,7 +19,7 @@ router = APIRouter(prefix=USER, tags=["trends"])
 TREND_RANGES = (14, 28, 90)
 
 
-@router.get("/trends")
+@router.get("/trends", response_model=Trends, response_model_exclude_unset=True)
 def trends(user_id: str, nights: int = 14):
     if nights not in TREND_RANGES:
         raise HTTPException(422, f"nights must be one of {', '.join(map(str, TREND_RANGES))}")
