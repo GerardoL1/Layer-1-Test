@@ -4,16 +4,16 @@ time, and the phone and server agreeing on names.
 
     python -m pytest -q tests/test_edges.py
 """
+
 import re
 import threading
 from datetime import date, datetime, timezone
-
-from fastapi.testclient import TestClient
 
 import db
 import main
 import processing
 from conftest import ROOT
+from fastapi.testclient import TestClient
 
 client = TestClient(main.app)
 
@@ -26,11 +26,29 @@ def ms(*args) -> int:
 
 def night_payload(user, start_ms, end_ms, start_tz, end_tz, prefix="n"):
     """One night the way the iPhone app sends it: a sleep stage plus heart rate every 5 minutes."""
-    hr = [{"uuid": f"{prefix}-hr-{t}", "metric": "heart_rate", "value": 52.0, "start_ms": t, "end_ms": t,
-           "tz_offset_min": start_tz if t < (start_ms + end_ms) // 2 else end_tz, "source": "Sam’s Apple Watch"}
-          for t in range(start_ms, end_ms, 5 * 60 * 1000)]
-    sleep = [{"uuid": f"{prefix}-core", "stage": "core", "start_ms": start_ms, "end_ms": end_ms,
-              "start_tz_min": start_tz, "end_tz_min": end_tz, "source": "Sam’s Apple Watch"}]
+    hr = [
+        {
+            "uuid": f"{prefix}-hr-{t}",
+            "metric": "heart_rate",
+            "value": 52.0,
+            "start_ms": t,
+            "end_ms": t,
+            "tz_offset_min": start_tz if t < (start_ms + end_ms) // 2 else end_tz,
+            "source": "Sam’s Apple Watch",
+        }
+        for t in range(start_ms, end_ms, 5 * 60 * 1000)
+    ]
+    sleep = [
+        {
+            "uuid": f"{prefix}-core",
+            "stage": "core",
+            "start_ms": start_ms,
+            "end_ms": end_ms,
+            "start_tz_min": start_tz,
+            "end_tz_min": end_tz,
+            "source": "Sam’s Apple Watch",
+        }
+    ]
     return {"user_id": user, "samples": hr, "sleep": sleep}
 
 
@@ -43,7 +61,7 @@ def test_night_across_the_clock_change():
     assert r.status_code == 200
     with db.connect() as conn:
         night = processing.load_nights(conn, user).set_index("night_date").loc[date(2026, 10, 31)]
-    assert night["tst_min"] == 540                          # real time asleep, not 8 clock hours
+    assert night["tst_min"] == 540  # real time asleep, not 8 clock hours
     assert str(night["sleep_onset"]) == "2026-10-31 22:00:00"
     assert str(night["final_wake"]) == "2026-11-01 06:00:00"
 
@@ -58,7 +76,7 @@ def test_two_runs_at_once_dont_clash():
     def run():
         try:
             processing.process_user(user, force=True)
-        except Exception as e:   # collected so the test can report it
+        except Exception as e:  # collected so the test can report it
             errors.append(e)
 
     threads = [threading.Thread(target=run) for _ in range(4)]
@@ -70,8 +88,8 @@ def test_two_runs_at_once_dont_clash():
     with db.connect() as conn:
         runs = [r[0] for r in conn.execute("SELECT run FROM runs WHERE user_id = ? ORDER BY run", (user,))]
         nights = processing.load_nights(conn, user)
-    assert runs == list(range(1, len(runs) + 1))           # numbered in order, none lost or doubled
-    assert len(nights) == len(set(nights["night_date"]))    # one row per night
+    assert runs == list(range(1, len(runs) + 1))  # numbered in order, none lost or doubled
+    assert len(nights) == len(set(nights["night_date"]))  # one row per night
 
 
 def test_changing_the_update_time():
@@ -86,9 +104,9 @@ def test_changing_the_update_time():
             conn.execute("UPDATE users SET clock_local = ? WHERE user_id = ?", (clock, user))
             return processing.needs_processing(conn, user)
 
-    assert needs_at("2026-10-02T08:30:00")        # passed the default 8:00
+    assert needs_at("2026-10-02T08:30:00")  # passed the default 8:00
     client.put("/api/settings", params={"user_id": user}, json={"update_time": "10:00"})
-    assert not needs_at("2026-10-02T08:30:00")    # now waits until 10:00
+    assert not needs_at("2026-10-02T08:30:00")  # now waits until 10:00
     assert needs_at("2026-10-02T10:05:00")
 
 
@@ -106,12 +124,13 @@ def test_same_phone_two_tester_names():
     body = night_payload("first_name", ms(2026, 9, 20, 5), ms(2026, 9, 20, 13), -420, -420, prefix="same")
     assert client.post("/upload", json=body).json()["new"] > 0
     body["user_id"] = "second_name"
-    assert client.post("/upload", json=body).json()["new"] > 0     # stored again for the new name
-    assert client.post("/upload", json=body).json()["new"] == 0    # but repeats are still ignored
+    assert client.post("/upload", json=body).json()["new"] > 0  # stored again for the new name
+    assert client.post("/upload", json=body).json()["new"] == 0  # but repeats are still ignored
 
 
 def test_old_database_is_upgraded(tmp_path, monkeypatch):
     import sqlite3
+
     path = tmp_path / "old.db"
     old = sqlite3.connect(path)
     old.executescript("""

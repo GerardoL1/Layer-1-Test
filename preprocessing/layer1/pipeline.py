@@ -13,6 +13,7 @@ run_pipeline(). All tunable numbers come from config.py.
     6. add_baselines      rolling personal baselines and z-scores (previous nights only)
     7. build_ml_table     final feature table + column dictionary
 """
+
 from __future__ import annotations
 
 import math
@@ -21,28 +22,30 @@ import zipfile
 from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
-from typing import IO
+from typing import IO, Any
 
 import numpy as np
 import pandas as pd
 
-import config as C
+from layer1 import config as C
 
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S %z"
 
 
 # ======================================================================= 1. Load
 
+
 def _open_xml(source) -> IO[bytes]:
     """Accepts a path or file-like object pointing at export.zip or export.xml."""
     name = getattr(source, "name", str(source))
     if str(name).lower().endswith(".zip"):
         zf = zipfile.ZipFile(source)
-        inner = next((n for n in zf.namelist() if n.endswith("export.xml")
-                      and not n.endswith("export_cda.xml")), None)
+        inner = next((n for n in zf.namelist() if n.endswith("export.xml") and not n.endswith("export_cda.xml")), None)
         if inner is None:
-            raise ValueError("No export.xml inside this zip. Use the zip made by the Health app "
-                             "(Health > profile picture > Export All Health Data).")
+            raise ValueError(
+                "No export.xml inside this zip. Use the zip made by the Health app "
+                "(Health > profile picture > Export All Health Data)."
+            )
         return zf.open(inner)
     if isinstance(source, (str, Path)):
         return open(source, "rb")
@@ -57,23 +60,45 @@ def load_export(source, days: int | None = C.DEFAULT_DAYS) -> tuple[pd.DataFrame
       records      one row per kept record, with UTC and local timestamps
       type_counts  how many records of every type were in the file (kept or not)
     """
-    rows, counts = [], {}
+    rows: list[tuple] = []
+    counts: dict[str, int] = {}
     with _open_xml(source) as f:
         for _, elem in ET.iterparse(f, events=("end",)):
             if elem.tag == "Record":
                 rtype = elem.get("type", "")
                 counts[rtype] = counts.get(rtype, 0) + 1
                 if rtype in C.QUANTITY_TYPES:
-                    rows.append(("quantity", C.QUANTITY_TYPES[rtype], elem.get("value"), elem.get("unit"),
-                                 elem.get("sourceName", ""), elem.get("startDate"), elem.get("endDate")))
+                    rows.append(
+                        (
+                            "quantity",
+                            C.QUANTITY_TYPES[rtype],
+                            elem.get("value"),
+                            elem.get("unit"),
+                            elem.get("sourceName", ""),
+                            elem.get("startDate"),
+                            elem.get("endDate"),
+                        )
+                    )
                 elif rtype == C.SLEEP_TYPE:
-                    rows.append(("sleep", "sleep_analysis", elem.get("value"), None,
-                                 elem.get("sourceName", ""), elem.get("startDate"), elem.get("endDate")))
+                    rows.append(
+                        (
+                            "sleep",
+                            "sleep_analysis",
+                            elem.get("value"),
+                            None,
+                            elem.get("sourceName", ""),
+                            elem.get("startDate"),
+                            elem.get("endDate"),
+                        )
+                    )
             if elem.tag in ("Record", "Workout", "Correlation", "ActivitySummary", "ClinicalRecord"):
                 elem.clear()
 
-    type_counts = (pd.DataFrame(sorted(counts.items(), key=lambda kv: -kv[1]), columns=["type", "records"])
-                   if counts else pd.DataFrame(columns=["type", "records"]))
+    type_counts = (
+        pd.DataFrame(sorted(counts.items(), key=lambda kv: -kv[1]), columns=["type", "records"])
+        if counts
+        else pd.DataFrame(columns=["type", "records"])
+    )
     type_counts["kept"] = type_counts["type"].isin(list(C.QUANTITY_TYPES) + [C.SLEEP_TYPE])
 
     records = pd.DataFrame(rows, columns=["kind", "metric", "raw_value", "unit", "source", "start_str", "end_str"])
@@ -88,8 +113,9 @@ def load_export(source, days: int | None = C.DEFAULT_DAYS) -> tuple[pd.DataFrame
         records[f"{side}_local"] = pd.to_datetime(txt.str.slice(0, 19), format="%Y-%m-%d %H:%M:%S", errors="coerce")
     records = records.dropna(subset=["start_utc", "end_utc"]).copy()
 
-    records["value"] = np.where(records["kind"] == "quantity",
-                                pd.to_numeric(records["raw_value"], errors="coerce"), np.nan)
+    records["value"] = np.where(
+        records["kind"] == "quantity", pd.to_numeric(records["raw_value"], errors="coerce"), np.nan
+    )
     records["stage"] = records["raw_value"].map(C.SLEEP_VALUES).where(records["kind"] == "sleep")
 
     if days:
@@ -101,6 +127,7 @@ def load_export(source, days: int | None = C.DEFAULT_DAYS) -> tuple[pd.DataFrame
 
 
 # ======================================================================= 2. Clean
+
 
 def _is_watch(source: pd.Series) -> pd.Series:
     mask = pd.Series(False, index=source.index)
@@ -164,14 +191,21 @@ def clean(records: pd.DataFrame) -> tuple[dict[str, pd.DataFrame], pd.DataFrame,
         "in_bed": df[df["stage"] == "in_bed"],
     }
     out = {k: v.reset_index(drop=True) for k, v in out.items()}
-    removal_log = (pd.DataFrame(log, columns=["reason", "data", "removed"])
-                   if log else pd.DataFrame(columns=["reason", "data", "removed"]))
-    removed_rows = (pd.concat(removed_parts, ignore_index=True) if removed_parts
-                    else records.iloc[0:0].assign(reason=pd.Series(dtype=str)))
+    removal_log = (
+        pd.DataFrame(log, columns=["reason", "data", "removed"])
+        if log
+        else pd.DataFrame(columns=["reason", "data", "removed"])
+    )
+    removed_rows = (
+        pd.concat(removed_parts, ignore_index=True)
+        if removed_parts
+        else records.iloc[0:0].assign(reason=pd.Series(dtype=str))
+    )
     return out, removal_log, removed_rows
 
 
 # ======================================================================= 3. Sleep window
+
 
 def resolve_overlaps(stages: pd.DataFrame) -> pd.DataFrame:
     """
@@ -197,7 +231,7 @@ def resolve_overlaps(stages: pd.DataFrame) -> pd.DataFrame:
 
     rank = [C.SLEEP_STAGE_PRIORITY.get(s, len(C.SLEEP_STAGE_PRIORITY)) for s in st["stage"]]
     bounds = sorted(set(starts) | set(ends))
-    pieces = []          # (row index, start, end) of the parts each piece keeps
+    pieces: list[tuple[int, Any, Any]] = []  # (row index, start, end) of the parts each piece keeps
     active, nxt = [], 0  # pieces covering the current stretch, next piece to start
     for lo, hi in zip(bounds[:-1], bounds[1:]):
         while nxt < len(st) and starts[nxt] <= lo:
@@ -245,8 +279,18 @@ def find_sleep_windows(stages: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame
     st = resolve_overlaps(stages).sort_values("start_utc").reset_index(drop=True).copy()
     if st.empty:
         st["session_id"] = pd.Series(dtype=int)
-        return pd.DataFrame(columns=["session_id", "night_date", "onset_utc", "wake_utc", "onset_local",
-                                     "wake_local", "asleep_min", "is_main"]), st
+        return pd.DataFrame(
+            columns=[
+                "session_id",
+                "night_date",
+                "onset_utc",
+                "wake_utc",
+                "onset_local",
+                "wake_local",
+                "asleep_min",
+                "is_main",
+            ]
+        ), st
 
     gap = pd.Timedelta(minutes=C.SESSION_GAP_MIN)
     session_ids, current, latest_end = [], 0, None
@@ -260,15 +304,22 @@ def find_sleep_windows(stages: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame
     rows = []
     for sid, g in st.groupby("session_id"):
         asleep = g[g["stage"].isin(C.ASLEEP_STAGES)]
-        if asleep.empty:          # a session of only "awake" pieces is not sleep
+        if asleep.empty:  # a session of only "awake" pieces is not sleep
             continue
         first, last = asleep.loc[asleep["start_utc"].idxmin()], asleep.loc[asleep["end_utc"].idxmax()]
         asleep_min = (asleep["end_utc"] - asleep["start_utc"]).dt.total_seconds().sum() / 60
         night = (first["start_local"] - timedelta(hours=C.NIGHT_SHIFT_HOURS)).date()
-        rows.append({"session_id": sid, "night_date": night,
-                     "onset_utc": first["start_utc"], "wake_utc": last["end_utc"],
-                     "onset_local": first["start_local"], "wake_local": last["end_local"],
-                     "asleep_min": asleep_min})
+        rows.append(
+            {
+                "session_id": sid,
+                "night_date": night,
+                "onset_utc": first["start_utc"],
+                "wake_utc": last["end_utc"],
+                "onset_local": first["start_local"],
+                "wake_local": last["end_local"],
+                "asleep_min": asleep_min,
+            }
+        )
     sessions = pd.DataFrame(rows)
     sessions["is_main"] = False
     main_idx = sessions.groupby("night_date")["asleep_min"].idxmax()
@@ -277,6 +328,7 @@ def find_sleep_windows(stages: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame
 
 
 # ======================================================================= 4. Nightly metrics
+
 
 def _clip_minutes(df: pd.DataFrame, lo, hi) -> pd.Series:
     """Minutes of each row that fall inside [lo, hi]."""
@@ -288,7 +340,7 @@ def _clip_minutes(df: pd.DataFrame, lo, hi) -> pd.Series:
 def count_awakenings(awake: pd.DataFrame, lo, hi) -> tuple[int, float]:
     """Awake pieces inside the window, with touching pieces merged. Returns (count, total minutes)."""
     a = awake[(awake["end_utc"] > lo) & (awake["start_utc"] < hi)].sort_values("start_utc")
-    bouts = []
+    bouts: list[list[pd.Timestamp]] = []
     for s, e in zip(a["start_utc"].clip(lower=lo), a["end_utc"].clip(upper=hi)):
         if bouts and s <= bouts[-1][1] + pd.Timedelta(seconds=60):
             bouts[-1][1] = max(bouts[-1][1], e)
@@ -320,10 +372,32 @@ def overnight_rhr(hr: pd.DataFrame, lo, hi) -> dict:
     return result
 
 
-NIGHT_COLUMNS = ["night_date", "sleep_onset", "final_wake", "sleep_window_min", "tst_min", "core_min", "deep_min",
-                 "rem_min", "unspecified_min", "waso_min", "awakenings", "tib_min", "tib_source",
-                 "sleep_latency_min", "sleep_efficiency_pct", "fragmentation_per_hr", "waso_pct_of_tib",
-                 "hrv_night_ms", "hrv_ln", "hrv_count", "rhr_night_bpm", "hr_night_count", "apple_rhr_bpm", "naps"]
+NIGHT_COLUMNS = [
+    "night_date",
+    "sleep_onset",
+    "final_wake",
+    "sleep_window_min",
+    "tst_min",
+    "core_min",
+    "deep_min",
+    "rem_min",
+    "unspecified_min",
+    "waso_min",
+    "awakenings",
+    "tib_min",
+    "tib_source",
+    "sleep_latency_min",
+    "sleep_efficiency_pct",
+    "fragmentation_per_hr",
+    "waso_pct_of_tib",
+    "hrv_night_ms",
+    "hrv_ln",
+    "hrv_count",
+    "rhr_night_bpm",
+    "hr_night_count",
+    "apple_rhr_bpm",
+    "naps",
+]
 
 
 def nightly_metrics(sessions: pd.DataFrame, stages: pd.DataFrame, cleaned: dict[str, pd.DataFrame]) -> pd.DataFrame:
@@ -339,15 +413,19 @@ def nightly_metrics(sessions: pd.DataFrame, stages: pd.DataFrame, cleaned: dict[
         g = stages[stages["session_id"] == s["session_id"]]
         mins = _clip_minutes(g, lo, hi)
         by_stage = mins.groupby(g["stage"]).sum()
-        stage = lambda k: float(by_stage.get(k, 0.0))
-        tst = sum(stage(k) for k in C.ASLEEP_STAGES)
+        minutes = {k: float(by_stage.get(k, 0.0)) for k in ("core", "deep", "rem", "asleep_unspecified")}
+        tst = sum(minutes[k] for k in C.ASLEEP_STAGES)
         awakenings, waso = count_awakenings(g[g["stage"] == "awake"], lo, hi)
         window_min = (hi - lo).total_seconds() / 60
 
         # Time in bed: iPhone "In Bed" if it overlaps this night, else the sleep window itself.
         ib = in_bed[(in_bed["end_utc"] > lo - match) & (in_bed["start_utc"] < hi + match)]
         if not ib.empty:
-            tib_start, tib_end, tib_source = min(ib["start_utc"].min(), lo), max(ib["end_utc"].max(), hi), "iphone_in_bed"
+            tib_start, tib_end, tib_source = (
+                min(ib["start_utc"].min(), lo),
+                max(ib["end_utc"].max(), hi),
+                "iphone_in_bed",
+            )
         else:
             tib_start, tib_end, tib_source = lo, hi, "sleep_window"
         tib = (tib_end - tib_start).total_seconds() / 60
@@ -357,36 +435,39 @@ def nightly_metrics(sessions: pd.DataFrame, stages: pd.DataFrame, cleaned: dict[
         hrv_mean = float(night_hrv.mean()) if len(night_hrv) else np.nan
         rhr = overnight_rhr(hr, lo, hi)
 
-        rows.append({
-            "night_date": s["night_date"],
-            "sleep_onset": s["onset_local"],
-            "final_wake": s["wake_local"],
-            "sleep_window_min": window_min,
-            "tst_min": tst,
-            "core_min": stage("core"),
-            "deep_min": stage("deep"),
-            "rem_min": stage("rem"),
-            "unspecified_min": stage("asleep_unspecified"),
-            "waso_min": waso,
-            "awakenings": awakenings,
-            "tib_min": tib,
-            "tib_source": tib_source,
-            "sleep_latency_min": (lo - tib_start).total_seconds() / 60 if tib_source == "iphone_in_bed" else np.nan,
-            "sleep_efficiency_pct": tst / tib * 100 if tib > 0 else np.nan,
-            "fragmentation_per_hr": awakenings / (tst / 60) if tst > 0 else np.nan,
-            "waso_pct_of_tib": waso / tib * 100 if tib > 0 else np.nan,
-            "hrv_night_ms": hrv_mean,
-            "hrv_ln": math.log(hrv_mean) if C.HRV_LOG_TRANSFORM and hrv_mean > 0 else hrv_mean,
-            "hrv_count": int(len(night_hrv)),
-            "rhr_night_bpm": rhr["rhr_night_bpm"],
-            "hr_night_count": rhr["hr_night_count"],
-            "apple_rhr_bpm": apple_rhr_by_day.get(s["wake_local"].date(), np.nan),
-            "naps": int(((sessions["night_date"] == s["night_date"]) & ~sessions["is_main"]).sum()),
-        })
+        rows.append(
+            {
+                "night_date": s["night_date"],
+                "sleep_onset": s["onset_local"],
+                "final_wake": s["wake_local"],
+                "sleep_window_min": window_min,
+                "tst_min": tst,
+                "core_min": minutes["core"],
+                "deep_min": minutes["deep"],
+                "rem_min": minutes["rem"],
+                "unspecified_min": minutes["asleep_unspecified"],
+                "waso_min": waso,
+                "awakenings": awakenings,
+                "tib_min": tib,
+                "tib_source": tib_source,
+                "sleep_latency_min": (lo - tib_start).total_seconds() / 60 if tib_source == "iphone_in_bed" else np.nan,
+                "sleep_efficiency_pct": tst / tib * 100 if tib > 0 else np.nan,
+                "fragmentation_per_hr": awakenings / (tst / 60) if tst > 0 else np.nan,
+                "waso_pct_of_tib": waso / tib * 100 if tib > 0 else np.nan,
+                "hrv_night_ms": hrv_mean,
+                "hrv_ln": math.log(hrv_mean) if C.HRV_LOG_TRANSFORM and hrv_mean > 0 else hrv_mean,
+                "hrv_count": int(len(night_hrv)),
+                "rhr_night_bpm": rhr["rhr_night_bpm"],
+                "hr_night_count": rhr["hr_night_count"],
+                "apple_rhr_bpm": apple_rhr_by_day.get(s["wake_local"].date(), np.nan),
+                "naps": int(((sessions["night_date"] == s["night_date"]) & ~sessions["is_main"]).sum()),
+            }
+        )
     return pd.DataFrame(rows, columns=NIGHT_COLUMNS)
 
 
 # ======================================================================= 5. Missing data / quality
+
 
 def flag_quality(nights: pd.DataFrame, first_night=None, last_night=None) -> pd.DataFrame:
     """
@@ -405,7 +486,9 @@ def flag_quality(nights: pd.DataFrame, first_night=None, last_night=None) -> pd.
     has_sleep = df["tst_min"].notna()
     df["flag_no_sleep_data"] = ~has_sleep
     df["flag_short_sleep"] = has_sleep & (df["tst_min"] < C.MIN_TST_FOR_USABLE_MIN)
-    df["flag_no_stages"] = has_sleep & (df["unspecified_min"].fillna(0) >= df["tst_min"].fillna(0)) & (df["tst_min"] > 0)
+    df["flag_no_stages"] = (
+        has_sleep & (df["unspecified_min"].fillna(0) >= df["tst_min"].fillna(0)) & (df["tst_min"] > 0)
+    )
     df["flag_no_hrv"] = has_sleep & (df["hrv_count"].fillna(0) == 0)
     hr_per_hour = df["hr_night_count"] / (df["tst_min"] / 60)
     df["flag_low_hr_coverage"] = has_sleep & (hr_per_hour.fillna(0) < C.MIN_HR_SAMPLES_PER_SLEEP_HOUR)
@@ -415,14 +498,20 @@ def flag_quality(nights: pd.DataFrame, first_night=None, last_night=None) -> pd.
     df["usable_hrv"] = df["usable_sleep"] & ~df["flag_no_hrv"]
     df["usable_rhr"] = df["usable_sleep"] & ~df["flag_low_hr_coverage"] & ~df["flag_no_rhr"]
 
-    labels = {"flag_no_sleep_data": "no sleep recorded", "flag_short_sleep": "short sleep",
-              "flag_no_stages": "no sleep stages", "flag_no_hrv": "no HRV",
-              "flag_low_hr_coverage": "few heart rate readings", "flag_no_rhr": "no overnight resting HR"}
+    labels = {
+        "flag_no_sleep_data": "no sleep recorded",
+        "flag_short_sleep": "short sleep",
+        "flag_no_stages": "no sleep stages",
+        "flag_no_hrv": "no HRV",
+        "flag_low_hr_coverage": "few heart rate readings",
+        "flag_no_rhr": "no overnight resting HR",
+    }
     df["quality_notes"] = df.apply(lambda r: "; ".join(t for c, t in labels.items() if r[c]), axis=1)
     return df
 
 
 # ======================================================================= 6. Baselines and z-scores
+
 
 def add_baselines(nights: pd.DataFrame, only_dates=None) -> pd.DataFrame:
     """
@@ -437,8 +526,7 @@ def add_baselines(nights: pd.DataFrame, only_dates=None) -> pd.DataFrame:
     """
     df = nights.copy()
     dates = pd.to_datetime(df["night_date"])
-    rows = range(len(df)) if only_dates is None else \
-        [i for i, d in enumerate(df["night_date"]) if d in set(only_dates)]
+    rows = range(len(df)) if only_dates is None else [i for i, d in enumerate(df["night_date"]) if d in set(only_dates)]
     for col, (zcol, _label, gate) in C.ZSCORE_METRICS.items():
         usable = df[col].where(df[gate].fillna(False).astype(bool))
         for name in (f"{col}_base_mean", f"{col}_base_sd", f"{col}_base_n", zcol):
@@ -472,7 +560,9 @@ ML_COLUMNS = {
     "weekday": "Day of week of night_date (0 = Monday)",
     # sleep architecture
     "tst_min": "Total sleep time: core + deep + REM (+ unspecified) minutes",
-    "core_min": "Core sleep minutes", "deep_min": "Deep sleep minutes", "rem_min": "REM sleep minutes",
+    "core_min": "Core sleep minutes",
+    "deep_min": "Deep sleep minutes",
+    "rem_min": "REM sleep minutes",
     "waso_min": "Awake minutes after sleep onset, before final awakening",
     "awakenings": f"Awake stretches of at least {C.MIN_AWAKENING_MIN:g} min inside the sleep window",
     "tib_min": "Time in bed (iPhone In Bed if available, else onset to final awakening)",
@@ -488,12 +578,16 @@ ML_COLUMNS = {
     "rhr_night_bpm": f"Lowest {C.RHR_WINDOW_MIN}-min average heart rate during sleep",
     "apple_rhr_bpm": "Apple's own resting heart rate for the wake-up day (for comparison)",
     # personal baselines
-    **{z: f"z-score of {label} vs previous {C.BASELINE_WINDOW_NIGHTS} nights (needs {C.BASELINE_MIN_NIGHTS})"
-       for _, (z, label, _g) in C.ZSCORE_METRICS.items()},
-    "hrv_ln_base_n": "Nights in the HRV baseline", "rhr_night_bpm_base_n": "Nights in the resting HR baseline",
+    **{
+        z: f"z-score of {label} vs previous {C.BASELINE_WINDOW_NIGHTS} nights (needs {C.BASELINE_MIN_NIGHTS})"
+        for _, (z, label, _g) in C.ZSCORE_METRICS.items()
+    },
+    "hrv_ln_base_n": "Nights in the HRV baseline",
+    "rhr_night_bpm_base_n": "Nights in the resting HR baseline",
     # quality
     "usable_sleep": "Night has enough sleep data to use",
-    "usable_hrv": "HRV value usable", "usable_rhr": "Overnight resting HR usable",
+    "usable_hrv": "HRV value usable",
+    "usable_rhr": "Overnight resting HR usable",
     "quality_notes": "Why a night is incomplete (empty when complete)",
     # label placeholder
     "readiness_label": "EMPTY placeholder for the training label (e.g. morning readiness rating)",
@@ -527,6 +621,7 @@ def column_dictionary() -> pd.DataFrame:
 
 # ======================================================================= Run everything
 
+
 @dataclass
 class PipelineResult:
     person_id: str
@@ -537,7 +632,7 @@ class PipelineResult:
     removed_rows: pd.DataFrame
     sessions: pd.DataFrame
     stages: pd.DataFrame
-    nights: pd.DataFrame          # metrics + flags + baselines (everything)
+    nights: pd.DataFrame  # metrics + flags + baselines (everything)
     ml_table: pd.DataFrame
     notes: list = field(default_factory=list)
 
@@ -552,11 +647,13 @@ def run_pipeline(source, person_id: str = "tester1", days: int | None = C.DEFAUL
         notes.append("No sleep sessions found. Is sleep tracking on (iPhone Watch app > Sleep)?")
         first = cleaned["heart_rate"]["start_local"].min()
         last = cleaned["heart_rate"]["start_local"].max()
-        nights = flag_quality(metrics, first.date() if pd.notna(first) else None,
-                              last.date() if pd.notna(last) else None)
+        nights = flag_quality(
+            metrics, first.date() if pd.notna(first) else None, last.date() if pd.notna(last) else None
+        )
     else:
         nights = flag_quality(metrics)
     nights = add_baselines(nights) if not nights.empty else nights
     ml = build_ml_table(nights, person_id) if not nights.empty else pd.DataFrame(columns=list(ML_COLUMNS))
-    return PipelineResult(person_id, type_counts, records, cleaned, removal_log, removed_rows,
-                          sessions, stages, nights, ml, notes)
+    return PipelineResult(
+        person_id, type_counts, records, cleaned, removal_log, removed_rows, sessions, stages, nights, ml, notes
+    )

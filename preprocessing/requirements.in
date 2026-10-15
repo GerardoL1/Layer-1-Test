@@ -1,0 +1,5 @@
+# The Layer 1 preprocessing with its Streamlit test platform, plus pytest.
+# Rebuild with (from this folder, using any Python that has pip-tools):
+#   pip-compile requirements.in -o requirements.txt
+-e .[app]
+pytest>=8.0

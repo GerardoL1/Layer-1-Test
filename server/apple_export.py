@@ -5,13 +5,14 @@ and loads Layer 1 data into the platform database.
 The file can be several GB, so it is streamed record by record instead of
 loaded into memory.
 """
+
 import sqlite3
 import xml.etree.ElementTree as ET
 import zipfile
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Iterator
 
 import db
 import limits
@@ -29,9 +30,12 @@ def check_unzipped_size(path: str | Path) -> None:
     with zipfile.ZipFile(path) as zf:
         total = sum(info.file_size for info in zf.infolist())
     if total > limits.MAX_UNZIPPED_BYTES:
-        raise ExportTooLarge(f"This export unzips to {limits.size_text(total)}, over the "
-                             f"{limits.size_text(limits.MAX_UNZIPPED_BYTES)} limit. Import a shorter export, "
-                             "or unzip it and upload export.xml.")
+        raise ExportTooLarge(
+            f"This export unzips to {limits.size_text(total)}, over the "
+            f"{limits.size_text(limits.MAX_UNZIPPED_BYTES)} limit. Import a shorter export, "
+            "or unzip it and upload export.xml."
+        )
+
 
 # HealthKit type -> our metric name
 QUANTITY_TYPES = {
@@ -70,7 +74,10 @@ def parse_date(date_str: str) -> tuple[int, int]:
     Returns UTC milliseconds and the UTC offset in minutes.
     """
     dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S %z")
-    return int(dt.timestamp() * 1000), int(dt.utcoffset().total_seconds() // 60)
+    offset = dt.utcoffset()
+    if offset is None:
+        raise ValueError(f"date has no UTC offset: {date_str}")
+    return int(dt.timestamp() * 1000), int(offset.total_seconds() // 60)
 
 
 def xml_size(path: str | Path) -> int:
@@ -137,9 +144,9 @@ def import_export(
     if since_days:
         cutoff_ms = int((datetime.now().timestamp() - since_days * 86400) * 1000)
 
-    counts = {"heart_rate": 0, "resting_heart_rate": 0, "hrv_sdnn": 0, "sleep_stages": 0,
-              "skipped": 0, "new": 0}
-    samples, stages = [], []
+    counts = {"heart_rate": 0, "resting_heart_rate": 0, "hrv_sdnn": 0, "sleep_stages": 0, "skipped": 0, "new": 0}
+    samples: list[tuple] = []
+    stages: list[tuple] = []
 
     def flush():
         counts["new"] += db.add_readings(conn, user_id, samples, stages)
@@ -169,8 +176,17 @@ def import_export(
                 if stage is None:
                     counts["skipped"] += 1
                     continue
-                stages.append((db.sleep_id(user_id, stage, start_ms, end_ms, source),
-                               stage, start_ms, end_ms, start_tz, end_tz, source))
+                stages.append(
+                    (
+                        db.sleep_id(user_id, stage, start_ms, end_ms, source),
+                        stage,
+                        start_ms,
+                        end_ms,
+                        start_tz,
+                        end_tz,
+                        source,
+                    )
+                )
                 counts["sleep_stages"] += 1
             else:
                 metric = QUANTITY_TYPES[r["type"]]
@@ -179,8 +195,17 @@ def import_export(
                 except (KeyError, ValueError):
                     counts["skipped"] += 1
                     continue
-                samples.append((db.sample_id(user_id, metric, start_ms, end_ms, value, source),
-                                metric, value, start_ms, end_ms, start_tz, source))
+                samples.append(
+                    (
+                        db.sample_id(user_id, metric, start_ms, end_ms, value, source),
+                        metric,
+                        value,
+                        start_ms,
+                        end_ms,
+                        start_tz,
+                        source,
+                    )
+                )
                 counts[metric] += 1
 
             if len(samples) + len(stages) >= BATCH:

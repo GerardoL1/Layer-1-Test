@@ -14,23 +14,28 @@ Run:
     pip install -r requirements.txt
     uvicorn main:app --host 0.0.0.0 --port 8000
 """
+
 import json
+import logging
 import shutil
 import tempfile
 import zipfile
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel
-
 import api
 import db
 import limits
 import processing
 from apple_export import ExportTooLarge, check_unzipped_size, import_export, parse_date
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel
+
+# One log format for the whole server. Each line shows the time, level and which part wrote it.
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+log = logging.getLogger("recovery.ingest")
 
 app = FastAPI(title="Recovery platform")
 app.include_router(api.router)
@@ -58,8 +63,13 @@ class LimitRequestSize:
 
         async def refuse():
             body = json.dumps({"detail": limits.too_large_message(scope["path"], limit)}).encode()
-            await send({"type": "http.response.start", "status": 413,
-                        "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode())]})
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 413,
+                    "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode())],
+                }
+            )
             await send({"type": "http.response.body", "body": body})
 
         declared = dict(scope.get("headers") or []).get(b"content-length")
@@ -110,6 +120,7 @@ def health():
 
 # ---------------------------------------------------------------- 1. our iPhone app
 
+
 class Sample(BaseModel):
     uuid: str
     metric: str
@@ -118,12 +129,12 @@ class Sample(BaseModel):
     end_ms: int
     tz_offset_min: int | None = None  # minutes ahead of UTC when the reading was taken
     source: str | None = None
-    unit: str | None = None           # ignored, each metric has one fixed unit
+    unit: str | None = None  # ignored, each metric has one fixed unit
 
 
 class SleepStage(BaseModel):
     uuid: str
-    stage: str                        # in_bed, awake, core, deep, rem, asleep_unspecified
+    stage: str  # in_bed, awake, core, deep, rem, asleep_unspecified
     start_ms: int
     end_ms: int
     start_tz_min: int | None = None
@@ -140,8 +151,11 @@ class Upload(BaseModel):
 def require_offset(minutes, what: str) -> int:
     # Without the offset we can't tell which night a reading belongs to, so refuse it.
     if minutes is None:
-        raise HTTPException(400, f"{what} is missing its UTC offset (tz_offset_min). "
-                                 "Update the app so it sends the time zone with every reading.")
+        raise HTTPException(
+            400,
+            f"{what} is missing its UTC offset (tz_offset_min). "
+            "Update the app so it sends the time zone with every reading.",
+        )
     if not db.valid_offset(minutes):
         raise HTTPException(400, f"{what} has an impossible UTC offset: {minutes} minutes.")
     return minutes
@@ -149,25 +163,26 @@ def require_offset(minutes, what: str) -> int:
 
 @app.post("/upload")
 def upload(payload: Upload, background: BackgroundTasks):
-    samples, stages = [], []
-    for s in payload.samples:
-        if s.metric not in db.METRICS:
-            raise HTTPException(400, f"Unknown metric '{s.metric}'. Use one of: {', '.join(db.METRICS)}")
-        tz = require_offset(s.tz_offset_min, f"{s.metric} sample {s.uuid}")
-        samples.append((s.uuid, s.metric, s.value, s.start_ms, s.end_ms, tz, s.source))
-    for s in payload.sleep:
-        if s.stage not in db.STAGES:
-            raise HTTPException(400, f"Unknown sleep stage '{s.stage}'. Use one of: {', '.join(db.STAGES)}")
-        start_tz = require_offset(s.start_tz_min, f"sleep stage {s.uuid}")
-        end_tz = require_offset(s.end_tz_min, f"sleep stage {s.uuid}")
-        stages.append((s.uuid, s.stage, s.start_ms, s.end_ms, start_tz, end_tz, s.source))
+    samples: list[tuple] = []
+    stages: list[tuple] = []
+    for q in payload.samples:
+        if q.metric not in db.METRICS:
+            raise HTTPException(400, f"Unknown metric '{q.metric}'. Use one of: {', '.join(db.METRICS)}")
+        tz = require_offset(q.tz_offset_min, f"{q.metric} sample {q.uuid}")
+        samples.append((q.uuid, q.metric, q.value, q.start_ms, q.end_ms, tz, q.source))
+    for st in payload.sleep:
+        if st.stage not in db.STAGES:
+            raise HTTPException(400, f"Unknown sleep stage '{st.stage}'. Use one of: {', '.join(db.STAGES)}")
+        start_tz = require_offset(st.start_tz_min, f"sleep stage {st.uuid}")
+        end_tz = require_offset(st.end_tz_min, f"sleep stage {st.uuid}")
+        stages.append((st.uuid, st.stage, st.start_ms, st.end_ms, start_tz, end_tz, st.source))
 
     with db.connect() as conn:
         added = db.add_readings(conn, payload.user_id, samples, stages)
     if added:
         background.add_task(processing.process_user, payload.user_id)
     received = len(samples) + len(stages)
-    print(f"[upload] {payload.user_id}: received {received}, new {added}")
+    log.info("upload %s: received %d, new %d", payload.user_id, received, added)
     return {"received": received, "new": added}
 
 
@@ -179,8 +194,13 @@ HAE_METRICS = {
     "heart_rate_variability": "hrv_sdnn",
 }
 HAE_SLEEP_STAGES = {
-    "in bed": "in_bed", "inbed": "in_bed", "awake": "awake", "core": "core",
-    "deep": "deep", "rem": "rem", "asleep": "asleep_unspecified",
+    "in bed": "in_bed",
+    "inbed": "in_bed",
+    "awake": "awake",
+    "core": "core",
+    "deep": "deep",
+    "rem": "rem",
+    "asleep": "asleep_unspecified",
 }
 
 
@@ -212,8 +232,9 @@ async def health_auto_export(request: Request, background: BackgroundTasks, user
                     bad += 1
                     continue
                 source = row.get("source")
-                samples.append((db.sample_id(user_id, metric, t, t, value, source),
-                                metric, float(value), t, t, tz, source))
+                samples.append(
+                    (db.sample_id(user_id, metric, t, t, value, source), metric, float(value), t, t, tz, source)
+                )
 
         elif name == "sleep_analysis":
             # Unaggregated sleep phases have a start, end and a stage name.
@@ -236,11 +257,22 @@ async def health_auto_export(request: Request, background: BackgroundTasks, user
     if added:
         background.add_task(processing.process_user, user_id)
 
-    print(f"[hae] {user_id}: {len(samples)} samples, {len(stages)} sleep stages, {added} new"
-          f"{', ' + str(bad) + ' unreadable dates' if bad else ''}"
-          f"{' ignored: ' + ', '.join(sorted(ignored)) if ignored else ''}")
-    return {"samples": len(samples), "sleep_stages": len(stages), "new": added,
-            "unreadable": bad, "ignored_metrics": sorted(ignored)}
+    log.info(
+        "health-auto-export %s: %d samples, %d sleep stages, %d new, %d unreadable dates, ignored: %s",
+        user_id,
+        len(samples),
+        len(stages),
+        added,
+        bad,
+        ", ".join(sorted(ignored)) or "none",
+    )
+    return {
+        "samples": len(samples),
+        "sleep_stages": len(stages),
+        "new": added,
+        "unreadable": bad,
+        "ignored_metrics": sorted(ignored),
+    }
 
 
 # ---------------------------------------------------------------- 3. Apple Shortcuts
@@ -259,25 +291,32 @@ def shortcut_date(text: str) -> tuple[int, int]:
     if len(text) >= 5 and text[-5] in "+-" and text[-3] != ":":  # -0700 -> -07:00
         text = text[:-2] + ":" + text[-2:]
     dt = datetime.fromisoformat(text)
-    if dt.tzinfo is None:
+    offset = dt.utcoffset()
+    if offset is None:
         raise ValueError("date has no time zone, set the date format to ISO 8601 with time")
-    return int(dt.timestamp() * 1000), int(dt.utcoffset().total_seconds() // 60)
+    return int(dt.timestamp() * 1000), int(offset.total_seconds() // 60)
 
 
 def sleep_stage(value: str) -> str | None:
     v = value.strip().lower()
     if v in SLEEP_NUMBERS:
         return SLEEP_NUMBERS[v]
-    for word, stage in (("in bed", "in_bed"), ("inbed", "in_bed"), ("awake", "awake"), ("core", "core"),
-                        ("deep", "deep"), ("rem", "rem"), ("asleep", "asleep_unspecified")):
+    for word, stage in (
+        ("in bed", "in_bed"),
+        ("inbed", "in_bed"),
+        ("awake", "awake"),
+        ("core", "core"),
+        ("deep", "deep"),
+        ("rem", "rem"),
+        ("asleep", "asleep_unspecified"),
+    ):
         if word in v:
             return stage
     return None
 
 
 @app.post("/api/shortcut", response_class=PlainTextResponse)
-def apple_shortcut(background: BackgroundTasks, user: str = Form(...), metric: str = Form(...),
-                   rows: str = Form("")):
+def apple_shortcut(background: BackgroundTasks, user: str = Form(...), metric: str = Form(...), rows: str = Form("")):
     """
     Receiver for the Apple Shortcuts automation. Form fields:
       user    tester name
@@ -327,9 +366,9 @@ def apple_shortcut(background: BackgroundTasks, user: str = Form(...), metric: s
         background.add_task(processing.process_user, user)
 
     received = len(samples) + len(stages)
-    print(f"[shortcut] {user} {metric}: {received} rows, {added} new, {len(bad)} unreadable")
+    log.info("shortcut %s %s: %d rows, %d new, %d unreadable", user, metric, received, added, len(bad))
     if bad:
-        print("  first unreadable line:", bad[0][:200])
+        log.warning("shortcut %s: first unreadable line: %s", user, bad[0][:200])
     msg = f"{metric}: received {received}, new {added}"
     if bad:
         msg += f", {len(bad)} lines could not be read (first one: {bad[0][:80]})"
@@ -345,10 +384,14 @@ def run_import(path: str, user_id: str, since_days: int | None):
     IMPORT_STATUS.update(state="running", user_id=user_id, counts={}, error=None, read_fraction=0.0, reading=None)
     try:
         conn = db.connect()
-        counts = import_export(path, conn, user_id, since_days,
-                               progress=lambda c: IMPORT_STATUS.update(counts=c),
-                               on_position=lambda share, reading: IMPORT_STATUS.update(read_fraction=round(share, 3),
-                                                                                       reading=reading))
+        counts = import_export(
+            path,
+            conn,
+            user_id,
+            since_days,
+            progress=lambda c: IMPORT_STATUS.update(counts=c),
+            on_position=lambda share, reading: IMPORT_STATUS.update(read_fraction=round(share, 3), reading=reading),
+        )
         conn.close()
         if counts.get("new"):
             IMPORT_STATUS.update(state="processing")
@@ -371,23 +414,34 @@ async def import_upload(
 ):
     if IMPORT_STATUS.get("state") in ("queued", "running", "processing"):
         raise HTTPException(409, "An import is already running. Wait for it to finish.")
-    if not file.filename.lower().endswith((".zip", ".xml")):
+    filename = file.filename or ""
+    if not filename.lower().endswith((".zip", ".xml")):
         raise HTTPException(400, "Upload the export.zip (or export.xml) from the Health app.")
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix)
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=Path(filename).suffix)
     with tmp:
         shutil.copyfileobj(file.file, tmp)
     try:
         check_unzipped_size(tmp.name)
     except ExportTooLarge as e:
         Path(tmp.name).unlink(missing_ok=True)
-        raise HTTPException(413, str(e))
+        raise HTTPException(413, str(e)) from None
     except zipfile.BadZipFile:
         Path(tmp.name).unlink(missing_ok=True)
-        raise HTTPException(400, "That zip file can't be opened. Upload the export.zip made by the Health app.")
+        raise HTTPException(
+            400, "That zip file can't be opened. Upload the export.zip made by the Health app."
+        ) from None
     IMPORT_STATUS.clear()
-    IMPORT_STATUS.update(state="queued", user_id=user_id, counts={}, error=None, file_name=file.filename,
-                         file_bytes=Path(tmp.name).stat().st_size, read_fraction=0.0, reading=None,
-                         nights_ready=None)
+    IMPORT_STATUS.update(
+        state="queued",
+        user_id=user_id,
+        counts={},
+        error=None,
+        file_name=filename,
+        file_bytes=Path(tmp.name).stat().st_size,
+        read_fraction=0.0,
+        reading=None,
+        nights_ready=None,
+    )
     background.add_task(run_import, tmp.name, user_id, since_days or None)
     return {"started": True}
 

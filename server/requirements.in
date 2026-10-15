@@ -1,0 +1,7 @@
+# What the server needs to run. Edit this, then rebuild the lock file:
+#   pip-compile requirements.in -o requirements.txt
+fastapi>=0.110
+uvicorn>=0.29
+python-multipart>=0.0.9
+# The Layer 1 preprocessing (brings pandas and numpy)
+-e ../preprocessing

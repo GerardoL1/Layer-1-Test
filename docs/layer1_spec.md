@@ -1,7 +1,7 @@
 # Layer 1 spec: Systemic Recovery & Readiness (Apple Watch)
 
 Source of truth for the preprocessing in `preprocessing/` and for anyone (person or agent) testing it.
-Settings live in `preprocessing/config.py`; if this document and the config disagree, raise it.
+Settings live in `preprocessing/layer1/config.py`; if this document and the config disagree, raise it.
 
 **Objective:** track global autonomic recovery and sleep architecture overnight.
 **Timing:** consolidated overnight sleep.

@@ -4,21 +4,21 @@ Run the preprocessing without the visual platform.
     python run_pipeline.py path/to/export.zip --person alex --out alex_features.csv
     python run_pipeline.py --save-expected      # refresh expected/ from the sample files
 """
+
 import argparse
 from pathlib import Path
 
-import pipeline as P
+from layer1 import pipeline as P
+from layer1.samples import EXPECTED_DIR, SAMPLES, sample_path
 
 HERE = Path(__file__).parent
-SAMPLES = {"sam": "mock_export_sam_steady.zip", "alex": "mock_export_alex_overreach.zip",
-           "jordan": "mock_export_jordan_messy.zip"}
 
 
 def save_expected():
-    out = HERE / "expected"
+    out = EXPECTED_DIR
     out.mkdir(exist_ok=True)
-    for person, fname in SAMPLES.items():
-        r = P.run_pipeline(HERE / "sample_data" / fname, person, days=None)
+    for person in SAMPLES:
+        r = P.run_pipeline(sample_path(person), person, days=None)
         r.ml_table.to_csv(out / f"{person}_features.csv", index=False)
         print(f"expected/{person}_features.csv  ({len(r.ml_table)} nights)")
 

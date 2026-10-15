@@ -4,23 +4,27 @@ be counted twice.
 
     python -m pytest -q tests/test_overlaps.py
 """
-import sys
-from datetime import datetime
+
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
+from agent_testing.scenario_builder import build, load_spec
+from layer1 import pipeline as P
+from layer1.samples import SAMPLES
+
 HERE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(HERE))
-sys.path.insert(0, str(HERE / "agent_testing"))
-import pipeline as P  # noqa: E402
-from run_pipeline import SAMPLES  # noqa: E402
-from scenario_builder import build, load_spec  # noqa: E402
 
 WATCH = "Sam’s Apple Watch"
-HK = {"core": "AsleepCore", "deep": "AsleepDeep", "rem": "AsleepREM", "asleep_unspecified": "AsleepUnspecified",
-      "awake": "Awake", "in_bed": "InBed"}
+HK = {
+    "core": "AsleepCore",
+    "deep": "AsleepDeep",
+    "rem": "AsleepREM",
+    "asleep_unspecified": "AsleepUnspecified",
+    "awake": "Awake",
+    "in_bed": "InBed",
+}
 
 
 def records(pieces, offset="-0500"):
@@ -47,8 +51,12 @@ def night(pieces):
     return P.nightly_metrics(sessions, stages, cleaned).iloc[0]
 
 
-BASE = [("core", "2026-09-01 23:00", "2026-09-02 02:00"), ("deep", "2026-09-02 02:00", "2026-09-02 03:00"),
-        ("awake", "2026-09-02 03:00", "2026-09-02 03:10"), ("rem", "2026-09-02 03:10", "2026-09-02 06:00")]
+BASE = [
+    ("core", "2026-09-01 23:00", "2026-09-02 02:00"),
+    ("deep", "2026-09-02 02:00", "2026-09-02 03:00"),
+    ("awake", "2026-09-02 03:00", "2026-09-02 03:10"),
+    ("rem", "2026-09-02 03:10", "2026-09-02 06:00"),
+]
 
 
 def test_unspecified_on_top_of_core_does_not_change_tst():
@@ -68,8 +76,8 @@ def test_second_watch_recording_the_same_night():
 
 def test_overlapping_specific_stages_go_to_the_one_that_started_first():
     n = night([("core", "2026-09-01 23:00", "2026-09-02 01:00"), ("deep", "2026-09-02 00:30", "2026-09-02 02:00")])
-    assert n["core_min"] == pytest.approx(120)    # core started first, keeps 23:00-01:00
-    assert n["deep_min"] == pytest.approx(60)     # deep keeps only 01:00-02:00
+    assert n["core_min"] == pytest.approx(120)  # core started first, keeps 23:00-01:00
+    assert n["deep_min"] == pytest.approx(60)  # deep keeps only 01:00-02:00
     assert n["tst_min"] == pytest.approx(180)
 
 
@@ -80,12 +88,22 @@ def test_asleep_beats_awake_under_it():
 
 
 def test_split_pieces_keep_their_local_times():
-    st = P.resolve_overlaps(P.clean(records([("asleep_unspecified", "2026-09-01 23:00", "2026-09-02 01:00"),
-                                             ("core", "2026-09-02 00:00", "2026-09-02 00:30")]))[0]["sleep_stages"])
+    st = P.resolve_overlaps(
+        P.clean(
+            records(
+                [
+                    ("asleep_unspecified", "2026-09-01 23:00", "2026-09-02 01:00"),
+                    ("core", "2026-09-02 00:00", "2026-09-02 00:30"),
+                ]
+            )
+        )[0]["sleep_stages"]
+    )
     got = [(r.stage, str(r.start_local), str(r.end_local)) for r in st.sort_values("start_utc").itertuples()]
-    assert got == [("asleep_unspecified", "2026-09-01 23:00:00", "2026-09-02 00:00:00"),
-                   ("core", "2026-09-02 00:00:00", "2026-09-02 00:30:00"),
-                   ("asleep_unspecified", "2026-09-02 00:30:00", "2026-09-02 01:00:00")]
+    assert got == [
+        ("asleep_unspecified", "2026-09-01 23:00:00", "2026-09-02 00:00:00"),
+        ("core", "2026-09-02 00:00:00", "2026-09-02 00:30:00"),
+        ("asleep_unspecified", "2026-09-02 00:30:00", "2026-09-02 01:00:00"),
+    ]
 
 
 def test_no_overlap_is_left_untouched():

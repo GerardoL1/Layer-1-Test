@@ -8,23 +8,21 @@ Each scenario must
 
     python -m pytest -q tests/test_scenarios.py
 """
-import sys
-from datetime import date, datetime, timedelta
-from pathlib import Path
 
-import pytest
+from datetime import date, datetime, timedelta
 
 import db
-import incremental as I
-import pipeline as P
 import processing
+import pytest
 from apple_export import import_export
 from conftest import ROOT
 
+from agent_testing.checks import expectation_checks, spec_checks, truth_checks, zscore_oracle
+from agent_testing.scenario_builder import build, load_spec
+from layer1 import incremental as I
+from layer1 import pipeline as P
+
 TESTER = ROOT / "preprocessing" / "agent_testing"
-sys.path.insert(0, str(TESTER))
-from checks import expectation_checks, spec_checks, truth_checks, zscore_oracle  # noqa: E402
-from scenario_builder import build, load_spec  # noqa: E402
 
 SCENARIOS = sorted((TESTER / "scenarios").glob("*.json"))
 
@@ -47,8 +45,9 @@ def test_scenario_through_server(path, tmp_path):
 
     with db.connect() as conn:
         server_nights = processing.load_nights(conn, user)
-        ready = conn.execute("SELECT ready_through FROM runs WHERE user_id = ? ORDER BY run DESC LIMIT 1",
-                             (user,)).fetchone()["ready_through"]
+        ready = conn.execute(
+            "SELECT ready_through FROM runs WHERE user_id = ? ORDER BY run DESC LIMIT 1", (user,)
+        ).fetchone()["ready_through"]
     server_ml = P.build_ml_table(server_nights, user)
 
     # 1. Same as processing everything at once (up to the same last night).
@@ -61,8 +60,12 @@ def test_scenario_through_server(path, tmp_path):
     last_data_night = P.run_pipeline(zip_path, user, days=None).nights["night_date"].max()
     nights = server_nights[server_nights["night_date"] <= last_data_night].reset_index(drop=True)
     ml = P.build_ml_table(nights, user)
-    results = (truth_checks(sc, nights) + spec_checks(nights, ml) + zscore_oracle(nights)
-               + expectation_checks(spec.get("expect", []), sc.truth, nights))
+    results = (
+        truth_checks(sc, nights)
+        + spec_checks(nights, ml)
+        + zscore_oracle(nights)
+        + expectation_checks(spec.get("expect", []), sc.truth, nights)
+    )
     failed = [f"{r.check}: {r.detail}" for r in results if r.status == "fail"]
     assert not failed, "\n".join(failed)
     assert results, "no checks ran"

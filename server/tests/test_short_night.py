@@ -4,10 +4,8 @@ not "No sleep recorded". A night with no sleep data at all stays "no_data".
 
     python -m pytest -q tests/test_short_night.py
 """
-import sys
-from datetime import date, datetime, timedelta
 
-from fastapi.testclient import TestClient
+from datetime import date, datetime, timedelta
 
 import api
 import db
@@ -16,9 +14,9 @@ import main
 import processing
 from apple_export import import_export
 from conftest import ROOT
+from fastapi.testclient import TestClient
 
-sys.path.insert(0, str(ROOT / "preprocessing" / "agent_testing"))
-from scenario_builder import build, load_spec  # noqa: E402
+from agent_testing.scenario_builder import build, load_spec
 
 client = TestClient(main.app)
 SCENARIOS = ROOT / "preprocessing" / "agent_testing" / "scenarios"
@@ -44,8 +42,9 @@ def test_short_night_gets_its_own_status_and_wording(tmp_path):
     assert t["night_date"] == night_date and t["is_last_night"]
     assert t["readiness"]["status"] == "short_sleep" and t["readiness"]["score"] is None
     assert t["verdict"] == "Short night."
-    assert t["reason"] == (f"You slept {explain.sleep_length(truth['tst_min'])}, too little to compare "
-                           "with your usual. Keep today light.")
+    assert t["reason"] == (
+        f"You slept {explain.sleep_length(truth['tst_min'])}, too little to compare with your usual. Keep today light."
+    )
     assert t["reason"].startswith("You slept 2 h 30 min")
     assert "No sleep recorded" not in t["verdict"]
 
@@ -73,7 +72,10 @@ def test_night_without_sleep_is_still_no_data(tmp_path):
 def test_readiness_status_rules():
     assert api.readiness({"usable_sleep": True})["status"] == "building_baseline"
     assert api.readiness({"usable_sleep": False, "tst_min": 150.0, "flag_short_sleep": True})["status"] == "short_sleep"
-    assert api.readiness({"usable_sleep": False, "tst_min": float("nan"), "flag_short_sleep": False})["status"] == "no_data"
+    assert (
+        api.readiness({"usable_sleep": False, "tst_min": float("nan"), "flag_short_sleep": False})["status"]
+        == "no_data"
+    )
 
 
 def test_sleep_length_wording():

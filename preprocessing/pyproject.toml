@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "recovery-layer1"
+version = "0.1.0"
+description = "Layer 1 preprocessing: Apple Watch heart rate, HRV and sleep turned into one row per night"
+requires-python = ">=3.10"
+dependencies = ["pandas>=2.2", "numpy>=1.26"]
+
+[project.optional-dependencies]
+# The Streamlit test platform (app.py).
+app = ["streamlit>=1.40", "plotly>=5.20"]
+
+[tool.setuptools]
+# layer1 is the preprocessing itself, agent_testing is the Layer 1 tester that checks it.
+packages = ["layer1", "agent_testing"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

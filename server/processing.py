@@ -8,23 +8,20 @@ lives in the database: the nightly rows in `nights` and what each run did in `ru
 A run happens after new data arrives, and before the app reads results, but only
 when something changed: new readings, or the clock passing the user's update time.
 """
+
 import json
 import math
-import sys
 import threading
 from datetime import date, datetime, timedelta, timezone
-from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+import db
 import numpy as np
 import pandas as pd
 
-import db
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "preprocessing"))
-import config as C  # noqa: E402
-import incremental as I  # noqa: E402
-import pipeline as P  # noqa: E402
+from layer1 import config as C
+from layer1 import incremental as I
+from layer1 import pipeline as P
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS nights (
@@ -69,6 +66,7 @@ def init_db():
 
 # ---------------------------------------------------------------- the user's clock
 
+
 def parse_update_time(text: str | None) -> tuple[int, int]:
     try:
         h, m = (int(x) for x in str(text).split(":"))
@@ -96,7 +94,9 @@ def local_now(conn, user_id: str, now_utc: datetime) -> datetime:
     latest = conn.execute(
         "SELECT tz FROM (SELECT start_ms, tz_offset_min AS tz FROM samples WHERE user_id = ? "
         "UNION ALL SELECT start_ms, end_tz_min FROM sleep_stages WHERE user_id = ?) "
-        "ORDER BY start_ms DESC LIMIT 1", (user_id, user_id)).fetchone()
+        "ORDER BY start_ms DESC LIMIT 1",
+        (user_id, user_id),
+    ).fetchone()
     offset = latest["tz"] if latest else 0
     return (now_utc + timedelta(minutes=offset)).replace(tzinfo=None)
 
@@ -106,6 +106,7 @@ def utc_now() -> datetime:
 
 
 # ---------------------------------------------------------------- saving and loading nightly rows
+
 
 def _to_json_value(v):
     if v is None or (isinstance(v, float) and math.isnan(v)) or v is pd.NaT:
@@ -164,6 +165,7 @@ def ml_table(conn, user_id: str) -> pd.DataFrame:
 
 # ---------------------------------------------------------------- deciding when to run
 
+
 def _last_run(conn, user_id: str):
     return conn.execute("SELECT * FROM runs WHERE user_id = ? ORDER BY run DESC LIMIT 1", (user_id,)).fetchone()
 
@@ -177,7 +179,7 @@ def needs_processing(conn, user_id: str, now_utc: datetime | None = None) -> boo
     if last is None or (last["data_changed_ms"] or 0) < user["data_changed_ms"]:
         return True
     if last["ready_through"] is None:
-        return False   # nothing to process until sleep data arrives
+        return False  # nothing to process until sleep data arrives
     sync = local_now(conn, user_id, now_utc or utc_now())
     ready = I.scheduled_ready_night(sync, parse_update_time(user["update_time"]))
     return ready > date.fromisoformat(last["ready_through"])
@@ -185,12 +187,14 @@ def needs_processing(conn, user_id: str, now_utc: datetime | None = None) -> boo
 
 # ---------------------------------------------------------------- one run
 
+
 def _dates(text) -> list:
     return [date.fromisoformat(d) for d in json.loads(text or "[]")]
 
 
-def process_user(user_id: str, now_utc: datetime | None = None, update_now: bool = False,
-                 force: bool = False) -> I.RunReport | None:
+def process_user(
+    user_id: str, now_utc: datetime | None = None, update_now: bool = False, force: bool = False
+) -> I.RunReport | None:
     """
     Process a user's ready nights with DailyProcessor and save the result.
     Skips the work when nothing changed, unless update_now or force is set.
@@ -214,10 +218,23 @@ def process_user(user_id: str, now_utc: datetime | None = None, update_now: bool
             # DailyProcessor redoes the nights its previous run added for the first time.
             # The server may run several times a day, so remember the last run that added
             # nights, not just the last run. That only ever redoes more, never less.
-            added = conn.execute("SELECT new_nights FROM runs WHERE user_id = ? AND new_nights != '[]' "
-                                 "ORDER BY run DESC LIMIT 1", (user_id,)).fetchone()
-            proc.reports = [I.RunReport(last["run"], datetime.fromisoformat(last["sync_local"]), {}, 0, 0,
-                                        _dates(added["new_nights"]) if added else [], [], {}, None)]
+            added = conn.execute(
+                "SELECT new_nights FROM runs WHERE user_id = ? AND new_nights != '[]' ORDER BY run DESC LIMIT 1",
+                (user_id,),
+            ).fetchone()
+            proc.reports = [
+                I.RunReport(
+                    last["run"],
+                    datetime.fromisoformat(last["sync_local"]),
+                    {},
+                    0,
+                    0,
+                    _dates(added["new_nights"]) if added else [],
+                    [],
+                    {},
+                    None,
+                )
+            ]
 
         sync = local_now(conn, user_id, now_utc)
         # All saved readings go in as one batch. The processor cleans them and keeps
@@ -227,13 +244,21 @@ def process_user(user_id: str, now_utc: datetime | None = None, update_now: bool
         if len(proc.nights):
             save_nights(conn, user_id, proc.nights)
         run = (last["run"] + 1) if last is not None else 1
-        conn.execute("INSERT INTO runs VALUES (?,?,?,?,?,?,?,?,?,?)", (
-            user_id, run, int(now_utc.timestamp() * 1000), sync.isoformat(), int(update_now),
-            report.ready_through.isoformat() if report.ready_through else None,
-            json.dumps([d.isoformat() for d in report.new_nights]),
-            json.dumps([d.isoformat() for d in report.recomputed_nights]),
-            json.dumps({d.isoformat(): cols for d, cols in report.changed.items()}),
-            seen_change))
+        conn.execute(
+            "INSERT INTO runs VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (
+                user_id,
+                run,
+                int(now_utc.timestamp() * 1000),
+                sync.isoformat(),
+                int(update_now),
+                report.ready_through.isoformat() if report.ready_through else None,
+                json.dumps([d.isoformat() for d in report.new_nights]),
+                json.dumps([d.isoformat() for d in report.recomputed_nights]),
+                json.dumps({d.isoformat(): cols for d, cols in report.changed.items()}),
+                seen_change,
+            ),
+        )
         report.run = run
         return report
 

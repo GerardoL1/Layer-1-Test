@@ -3,19 +3,19 @@ Daily updates must give exactly the same table as processing everything at once.
 
     python -m pytest -q tests/test_incremental.py
 """
-import sys
+
 from datetime import datetime, time, timedelta
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
+from layer1 import config as C
+from layer1 import incremental as I
+from layer1 import pipeline as P
+from layer1.samples import SAMPLES
+
 HERE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(HERE))
-import config as C  # noqa: E402
-import incremental as I  # noqa: E402
-import pipeline as P  # noqa: E402
-from run_pipeline import SAMPLES  # noqa: E402
 
 
 def replay(person, late_hrv=False, recompute=C.RECOMPUTE_NIGHTS, first_load_days=24, step_days=1):
@@ -25,8 +25,11 @@ def replay(person, late_hrv=False, recompute=C.RECOMPUTE_NIGHTS, first_load_days
     first_day = recs["start_local"].min().date()
     end = recs["end_local"].max().date() + timedelta(days=1)
     proc = I.DailyProcessor(person, recompute)
-    prev, sync, problems = None, datetime.combine(first_day + timedelta(days=first_load_days),
-                                                  time(C.SIM_SYNC_HOUR)), []
+    prev, sync, problems = (
+        None,
+        datetime.combine(first_day + timedelta(days=first_load_days), time(C.SIM_SYNC_HOUR)),
+        [],
+    )
     while sync.date() <= end:
         new = (arrive <= sync) if prev is None else ((arrive > prev) & (arrive <= sync))
         report = proc.sync(recs[new], sync)
@@ -61,7 +64,7 @@ def test_late_hrv_is_fixed_by_recomputing_recent_nights():
 
 def test_late_hrv_is_missed_without_recompute():
     _, problems = replay("alex", late_hrv=True, recompute=1)
-    assert problems                                    # proves the redo rule matters
+    assert problems  # proves the redo rule matters
 
 
 def _morning(day_offset=10):
@@ -69,9 +72,11 @@ def _morning(day_offset=10):
     recs, _ = P.load_export(HERE / "sample_data" / SAMPLES["sam"], days=None)
     morning = recs["start_local"].min().date() + timedelta(days=day_offset)
     night = morning - timedelta(days=1)
-    sleep = recs[recs["stage"].notna()
-                 & (recs["start_local"] >= pd.Timestamp(datetime.combine(night, time(18))))
-                 & (recs["start_local"] <= pd.Timestamp(datetime.combine(morning, time(14))))]
+    sleep = recs[
+        recs["stage"].notna()
+        & (recs["start_local"] >= pd.Timestamp(datetime.combine(night, time(18))))
+        & (recs["start_local"] <= pd.Timestamp(datetime.combine(morning, time(14))))
+    ]
     return recs, night, sleep["end_local"].max().to_pydatetime()
 
 
@@ -96,7 +101,7 @@ def test_night_waits_for_the_update_time():
 def test_update_now_processes_last_night_early():
     recs, night, woke = _morning()
     when = woke + timedelta(minutes=5)
-    assert when < _at(night + timedelta(days=1), C.DEFAULT_UPDATE_TIME)      # before the update time
+    assert when < _at(night + timedelta(days=1), C.DEFAULT_UPDATE_TIME)  # before the update time
     _, normal = _sync_at(recs, when)
     assert night not in normal.new_nights
     _, tapped = _sync_at(recs, when, update_now=True)
@@ -105,15 +110,15 @@ def test_update_now_processes_last_night_early():
 
 def test_update_now_before_bed_does_not_create_tonight():
     recs, night, _ = _morning()
-    evening = _at(night + timedelta(days=1), (21, 0))     # the next evening, not asleep yet
+    evening = _at(night + timedelta(days=1), (21, 0))  # the next evening, not asleep yet
     _, report = _sync_at(recs, evening, update_now=True)
-    assert report.ready_through == night                   # last night yes, tonight no
+    assert report.ready_through == night  # last night yes, tonight no
 
 
 def test_users_own_update_time():
     recs, night, _ = _morning()
     morning = night + timedelta(days=1)
-    _, noon = _sync_at(recs, _at(morning, (12, 0)), update_time=(17, 0))   # e.g. a night-shift worker
+    _, noon = _sync_at(recs, _at(morning, (12, 0)), update_time=(17, 0))  # e.g. a night-shift worker
     assert night not in noon.new_nights
     _, five = _sync_at(recs, _at(morning, (17, 0)), update_time=(17, 0))
     assert night in five.new_nights
@@ -126,7 +131,7 @@ def test_night_without_sleep_gets_a_row_at_the_update_time():
     no_sleep = recs[~(recs["stage"].notna() & (recs["start_local"] >= lo) & (recs["start_local"] < hi))]
     proc, report = _sync_at(no_sleep, _at(night + timedelta(days=1), C.DEFAULT_UPDATE_TIME))
     assert night in report.new_nights
-    assert not proc.nights.set_index("night_date").loc[night, "usable_sleep"]   # flagged, not filled in
+    assert not proc.nights.set_index("night_date").loc[night, "usable_sleep"]  # flagged, not filled in
 
 
 def test_resending_the_same_data_changes_nothing():

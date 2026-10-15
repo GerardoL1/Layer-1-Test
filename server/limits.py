@@ -32,6 +32,8 @@ def size_text(n: int) -> str:
 
 def too_large_message(path: str, limit: int) -> str:
     if path == "/api/import":
-        return (f"This file is too big. The limit is {size_text(limit)}. Unzip the export and upload "
-                "export.xml instead, or run import_export.py on the server.")
+        return (
+            f"This file is too big. The limit is {size_text(limit)}. Unzip the export and upload "
+            "export.xml instead, or run import_export.py on the server."
+        )
     return f"This request is too big. The limit is {size_text(limit)}. Send less data at a time."

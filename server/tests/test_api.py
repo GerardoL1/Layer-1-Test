@@ -3,17 +3,18 @@ App endpoints: Today, Trends, Profile, Settings, Update now and demo mode.
 
     python -m pytest -q tests
 """
-from datetime import datetime, timedelta, timezone
 
-import pandas as pd
-import pytest
-from fastapi.testclient import TestClient
+from datetime import datetime, timedelta
 
 import api
 import db
 import main
-import pipeline as P
+import pandas as pd
+import pytest
 from conftest import SAMPLE_DATA, SAMPLES
+from fastapi.testclient import TestClient
+
+from layer1 import pipeline as P
 
 client = TestClient(main.app)
 
@@ -23,8 +24,10 @@ def demo():
     """Load all three demo people once."""
     for person in ("sam", "alex", "jordan"):
         assert client.post(f"/api/demo/{person}").status_code == 200
-    return {p: P.run_pipeline(SAMPLE_DATA / SAMPLES[p], f"demo-{p}", days=None).ml_table.set_index("night_date")
-            for p in ("sam", "alex", "jordan")}
+    return {
+        p: P.run_pipeline(SAMPLE_DATA / SAMPLES[p], f"demo-{p}", days=None).ml_table.set_index("night_date")
+        for p in ("sam", "alex", "jordan")
+    }
 
 
 def test_demo_today_shows_last_night(demo):
@@ -44,7 +47,7 @@ def test_overreach_scores_lower_than_steady(demo):
     assert alex["readiness"]["score"] < sam["score"]
     assert alex["readiness"]["status"] == "low"
     rhr = next(m for m in alex["metrics"] if m["key"] == "rhr")
-    assert rhr["direction"] == "worse"   # resting HR climbed during the hard block
+    assert rhr["direction"] == "worse"  # resting HR climbed during the hard block
 
 
 def test_readiness_placeholder_math():
@@ -63,7 +66,7 @@ def test_trends_ranges(demo, n):
     first = pd.Timestamp(demo["jordan"].index[0])
     assert len(rows) == min(n, (pd.Timestamp("2026-09-30") - first).days + 1)
     missing = [r for r in rows if not r["usable_sleep"]]
-    assert missing and all(r["quality_notes"] for r in missing)   # jordan has gaps, and they say why
+    assert missing and all(r["quality_notes"] for r in missing)  # jordan has gaps, and they say why
 
 
 def test_trends_rejects_other_ranges(demo):
@@ -81,16 +84,36 @@ def test_profile(demo):
 
 def test_settings_round_trip_and_validation():
     user = "settings_user"
-    r = client.put("/api/settings", params={"user_id": user},
-                   json={"timezone": "America/Chicago", "update_time": "7:5", "age": 21,
-                         "training": "strength", "training_days": [4, 0, 2, 2], "units": "imperial"})
+    r = client.put(
+        "/api/settings",
+        params={"user_id": user},
+        json={
+            "timezone": "America/Chicago",
+            "update_time": "7:5",
+            "age": 21,
+            "training": "strength",
+            "training_days": [4, 0, 2, 2],
+            "units": "imperial",
+        },
+    )
     assert r.status_code == 200
-    assert r.json() == {"timezone": "America/Chicago", "update_time": "07:05", "age": 21, "training": "strength",
-                        "training_days": [0, 2, 4], "units": "imperial"}
+    assert r.json() == {
+        "timezone": "America/Chicago",
+        "update_time": "07:05",
+        "age": 21,
+        "training": "strength",
+        "training_days": [0, 2, 4],
+        "units": "imperial",
+    }
     # Only the fields sent change.
     assert client.put("/api/settings", params={"user_id": user}, json={"age": 22}).json()["update_time"] == "07:05"
-    for bad in ({"timezone": "Mars/Base"}, {"update_time": "25:00"}, {"age": 5},
-                {"training_days": [7]}, {"units": "stones"}):
+    for bad in (
+        {"timezone": "Mars/Base"},
+        {"update_time": "25:00"},
+        {"age": 5},
+        {"training_days": [7]},
+        {"units": "stones"},
+    ):
         assert client.put("/api/settings", params={"user_id": user}, json=bad).status_code == 422
 
 
@@ -106,14 +129,17 @@ def test_update_now_from_the_app():
     recs, _ = P.load_export(SAMPLE_DATA / SAMPLES["sam"], days=None)
     day = recs["start_local"].min().date() + timedelta(days=10)
     night = day - timedelta(days=1)
-    sleep = recs[recs["stage"].notna() & (recs["start_local"].dt.date == night)
-                 & (recs["start_local"].dt.hour >= 18)]
-    woke = recs[recs["stage"].notna() & (recs["start_local"] >= sleep["start_local"].min())
-                & (recs["start_local"] <= pd.Timestamp(day) + pd.Timedelta(hours=14))]["end_local"].max()
+    sleep = recs[recs["stage"].notna() & (recs["start_local"].dt.date == night) & (recs["start_local"].dt.hour >= 18)]
+    woke = recs[
+        recs["stage"].notna()
+        & (recs["start_local"] >= sleep["start_local"].min())
+        & (recs["start_local"] <= pd.Timestamp(day) + pd.Timedelta(hours=14))
+    ]["end_local"].max()
     clock = (woke + pd.Timedelta(minutes=10)).to_pydatetime()
     assert clock.hour < 8
 
     from apple_export import import_export
+
     with db.connect() as conn:
         conn.execute("INSERT INTO users (user_id, clock_local) VALUES (?, ?)", (user, clock.isoformat()))
         import_export(SAMPLE_DATA / SAMPLES["sam"], conn, user)
@@ -143,7 +169,9 @@ def test_demo_reload_starts_fresh(demo):
 def test_today_has_deltas_awakenings_and_placeholder_text(demo):
     t = client.get("/api/today", params={"user_id": "demo-alex"}).json()
     rows = {m["key"]: m for m in t["metrics"]}
-    assert rows["hrv"]["usual_mean"] and rows["hrv"]["usual_low"] < rows["hrv"]["usual_mean"] < rows["hrv"]["usual_high"]
+    assert (
+        rows["hrv"]["usual_mean"] and rows["hrv"]["usual_low"] < rows["hrv"]["usual_mean"] < rows["hrv"]["usual_high"]
+    )
     assert rows["awakenings"]["value"] == demo["alex"].loc["2026-09-30", "awakenings"]
     assert t["verdict"] == "Take a recovery day." and t["text_placeholder"]
     assert "resting heart rate" in t["reason"] and t["reason"].endswith("an early night.")
@@ -159,11 +187,14 @@ def test_trend_summaries(demo):
 
 def test_explain_templates():
     import explain
+
     verdict, reason = explain.today_text("building_baseline", [], 3, 7)
     assert verdict == "Still learning your normal." and "3 of 7" in reason
     _, reason = explain.today_text("ready", [{"key": "hrv", "direction": "usual"}], 20, 7)
     assert reason == "Your numbers are within your usual range. Your body looks recovered."
-    _, reason = explain.today_text("low", [{"key": "hrv", "direction": "worse"}, {"key": "sleep", "direction": "worse"}], 20, 7)
+    _, reason = explain.today_text(
+        "low", [{"key": "hrv", "direction": "worse"}, {"key": "sleep", "direction": "worse"}], 20, 7
+    )
     assert reason.startswith("Your HRV is below your usual and you slept less than usual.")
     rows = [{"readiness": {"score": s, "status": st}} for s, st in [(80, "ready")] * 5 + [(30, "low")] * 3]
     assert explain.readiness_summary(rows) == "Slid from Ready into Low over the last 3 nights."

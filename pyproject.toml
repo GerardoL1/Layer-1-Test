@@ -1,0 +1,32 @@
+# Tool settings shared by the whole repo (Python parts: preprocessing/ and server/).
+# Run from the repo root:
+#   ruff format .         tidy the layout
+#   ruff check .          find mistakes and unused code
+#   mypy                  check types
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = ["mobile", "**/.venv"]
+
+[tool.ruff.lint]
+# E/W style, F real mistakes, I import order, B common bugs, UP newer Python syntax
+select = ["E", "W", "F", "I", "B", "UP"]
+ignore = [
+    "E741",   # names like I and l are used on purpose (I = incremental)
+    "B008",   # FastAPI declares File(...) and Form(...) as default arguments by design
+    "B905",   # zip() over lists that are equal length by construction, strict= would only add noise
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["layer1", "agent_testing"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["preprocessing/layer1", "preprocessing/agent_testing", "server"]
+exclude = ["/tests/", "/mock/", "\\.venv"]
+ignore_missing_imports = true
+# The server folder isn't a package yet, so let mypy find its modules by folder.
+explicit_package_bases = true
+mypy_path = ["server", "preprocessing"]
+warn_unused_ignores = true

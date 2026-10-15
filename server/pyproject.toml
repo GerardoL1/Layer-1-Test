@@ -1,0 +1,6 @@
+# The server isn't installed as a package (yet), this only holds tool settings.
+
+[tool.pytest.ini_options]
+# Tests import the server's modules (db, main, api ...) from this folder.
+pythonpath = ["."]
+testpaths = ["tests"]

@@ -39,9 +39,9 @@ IN_BED_ANY_SOURCE = True
 
 # Values outside these ranges are physically implausible and are dropped.
 VALID_RANGES = {
-    "heart_rate": (30, 220),          # bpm
+    "heart_rate": (30, 220),  # bpm
     "resting_heart_rate": (30, 120),  # bpm
-    "hrv_sdnn": (5, 300),             # ms
+    "hrv_sdnn": (5, 300),  # ms
 }
 # Sleep segments shorter than this are treated as noise; longer than this are errors.
 MIN_SLEEP_SEGMENT_SEC = 30
@@ -68,13 +68,13 @@ RHR_MIN_SAMPLES_IN_WINDOW = 3
 HRV_LOG_TRANSFORM = True
 
 # ---------------------------------------------------------------- 5. Missing data / quality
-MIN_TST_FOR_USABLE_MIN = 180        # nights with less sleep are flagged short_sleep
-MIN_HR_SAMPLES_PER_SLEEP_HOUR = 2   # fewer readings than this -> low_hr_coverage
+MIN_TST_FOR_USABLE_MIN = 180  # nights with less sleep are flagged short_sleep
+MIN_HR_SAMPLES_PER_SLEEP_HOUR = 2  # fewer readings than this -> low_hr_coverage
 
 # ---------------------------------------------------------------- 6. Baselines and z-scores
 # Personal baseline = previous nights only (tonight is never in its own baseline).
-BASELINE_WINDOW_NIGHTS = 28         # look back this many calendar nights (spec: 14 to 30)
-BASELINE_MIN_NIGHTS = 7             # need at least this many usable values before a z-score is shown
+BASELINE_WINDOW_NIGHTS = 28  # look back this many calendar nights (spec: 14 to 30)
+BASELINE_MIN_NIGHTS = 7  # need at least this many usable values before a z-score is shown
 # Metrics that get a baseline and z-score: column -> (z-score column, label, which usable flag gates it).
 # z = (tonight - baseline mean) / baseline SD. For resting HR and fragmentation, higher is worse;
 # the sign is left as-is here, and flipping happens when the readiness score is built.

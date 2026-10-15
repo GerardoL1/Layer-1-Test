@@ -4,29 +4,31 @@ database, several times a day, gives the same table as processing everything at 
 
     python -m pytest -q tests
 """
+
 from datetime import datetime, time, timedelta, timezone
 
+import db
+import main
 import pandas as pd
+import processing
 import pytest
+from conftest import SAMPLE_DATA, SAMPLES
 from fastapi.testclient import TestClient
 
-import db
-import incremental as I
-import main
-import pipeline as P
-import processing
-from conftest import SAMPLE_DATA, SAMPLES
+from layer1 import incremental as I
+from layer1 import pipeline as P
 
 client = TestClient(main.app)
 
 
 def store(user: str, recs: pd.DataFrame):
     """Put pipeline-style records into the database, keeping each one's UTC offset."""
+
     def ms(col):
         return (recs[col] - pd.Timestamp(0, tz="UTC")) // pd.Timedelta(milliseconds=1)
 
     def offset(side):
-        return ((recs[f"{side}_local"] - recs[f"{side}_utc"].dt.tz_localize(None)) // pd.Timedelta(minutes=1))
+        return (recs[f"{side}_local"] - recs[f"{side}_utc"].dt.tz_localize(None)) // pd.Timedelta(minutes=1)
 
     start, end, s_tz, e_tz = ms("start_utc"), ms("end_utc"), offset("start"), offset("end")
     samples, stages = [], []
@@ -36,15 +38,16 @@ def store(user: str, recs: pd.DataFrame):
             if isinstance(r.stage, str):
                 stages.append((db.sleep_id(user, r.stage, a, b, r.source), r.stage, a, b, sz, ez, r.source))
         elif pd.notna(r.value):
-            samples.append((db.sample_id(user, r.metric, a, b, r.value, r.source),
-                            r.metric, float(r.value), a, b, sz, r.source))
+            samples.append(
+                (db.sample_id(user, r.metric, a, b, r.value, r.source), r.metric, float(r.value), a, b, sz, r.source)
+            )
     with db.connect() as conn:
         db.add_readings(conn, user, samples, stages)
 
 
 def load(person, offset_hours=None):
     recs, _ = P.load_export(SAMPLE_DATA / SAMPLES[person], days=None)
-    if offset_hours is not None:   # same moments, but lived in another time zone
+    if offset_hours is not None:  # same moments, but lived in another time zone
         for side in ("start", "end"):
             recs[f"{side}_local"] = recs[f"{side}_utc"].dt.tz_localize(None) + pd.Timedelta(hours=offset_hours)
     return recs
@@ -56,8 +59,9 @@ def to_utc(local: datetime, offset_min: int) -> datetime:
 
 def last_ready(user):
     with db.connect() as conn:
-        row = conn.execute("SELECT ready_through FROM runs WHERE user_id = ? ORDER BY run DESC LIMIT 1",
-                           (user,)).fetchone()
+        row = conn.execute(
+            "SELECT ready_through FROM runs WHERE user_id = ? ORDER BY run DESC LIMIT 1", (user,)
+        ).fetchone()
     return datetime.fromisoformat(row["ready_through"]).date() if row and row["ready_through"] else None
 
 
@@ -69,7 +73,7 @@ def saved_table(user):
 def replay(person, user, late_hrv=False, hours=(8, 16, 23), first_load_days=24):
     recs = load(person)
     arrive = I.arrival_times(recs, late_hrv)
-    offset = -420   # mock data is Los Angeles summer time
+    offset = -420  # mock data is Los Angeles summer time
     day = recs["start_local"].min().date() + timedelta(days=first_load_days)
     end = recs["end_local"].max().date() + timedelta(days=1)
     prev, problems, runs = None, [], 0
@@ -121,17 +125,20 @@ def test_update_time_and_update_now():
     recs = load("sam")
     day = recs["start_local"].min().date() + timedelta(days=10)
     night = day - timedelta(days=1)
-    sleep = recs[recs["stage"].notna() & (recs["start_local"] >= pd.Timestamp(datetime.combine(night, time(18))))
-                 & (recs["start_local"] <= pd.Timestamp(datetime.combine(day, time(14))))]
+    sleep = recs[
+        recs["stage"].notna()
+        & (recs["start_local"] >= pd.Timestamp(datetime.combine(night, time(18))))
+        & (recs["start_local"] <= pd.Timestamp(datetime.combine(day, time(14))))
+    ]
     woke = sleep["end_local"].max().to_pydatetime()
     store(user, recs[recs["end_local"] <= pd.Timestamp(woke)])
     with db.connect() as conn:
         conn.execute("UPDATE users SET update_time = '17:00' WHERE user_id = ?", (user,))
 
     early = processing.process_user(user, to_utc(woke + timedelta(minutes=5), -420))
-    assert night not in early.new_nights                 # before 17:00, last night waits
+    assert night not in early.new_nights  # before 17:00, last night waits
     now = processing.process_user(user, to_utc(woke + timedelta(minutes=6), -420), update_now=True)
-    assert night in now.new_nights                       # "Update now" after waking processes it
+    assert night in now.new_nights  # "Update now" after waking processes it
 
 
 def test_nights_follow_the_users_time_zone():
@@ -150,8 +157,11 @@ def test_nights_follow_the_users_time_zone():
 
 def test_new_data_starts_processing():
     with open(SAMPLE_DATA / SAMPLES["jordan"], "rb") as f:
-        client.post("/api/import", files={"file": ("export.zip", f, "application/zip")},
-                    data={"user_id": "auto", "since_days": "0"})
+        client.post(
+            "/api/import",
+            files={"file": ("export.zip", f, "application/zip")},
+            data={"user_id": "auto", "since_days": "0"},
+        )
     assert client.get("/api/import/status").json()["state"] == "done"
     # The real clock is past the mock data, so every night is ready. Nights after the data ends
     # get flagged empty rows, just like the full pipeline run up to the same night.

@@ -14,6 +14,7 @@ Each profile tells a different story:
                    plus noise to clean: duplicate records, sensor glitches,
                    heart rate / sleep written by other apps, and afternoon naps
 """
+
 import argparse
 import math
 import random
@@ -31,10 +32,10 @@ PHONE = "{name}’s iPhone"
 @dataclass
 class Profile:
     name: str
-    rhr: float            # baseline resting heart rate (bpm)
-    hrv: float            # baseline overnight SDNN (ms)
-    sleep_hours: float    # typical time asleep
-    bedtime: float        # typical sleep onset, hours after midnight-of-evening (23.0 = 11pm)
+    rhr: float  # baseline resting heart rate (bpm)
+    hrv: float  # baseline overnight SDNN (ms)
+    sleep_hours: float  # typical time asleep
+    bedtime: float  # typical sleep onset, hours after midnight-of-evening (23.0 = 11pm)
     workouts_per_week: int
     seed: int
 
@@ -52,22 +53,35 @@ def fmt(dt: datetime) -> str:
 
 def record(rtype, source, start, end, value, unit=None) -> str:
     unit_attr = f' unit="{unit}"' if unit else ""
-    return (f'<Record type="{rtype}" sourceName="{source}" sourceVersion="12.0"{unit_attr} '
-            f'creationDate="{fmt(end)}" startDate="{fmt(start)}" endDate="{fmt(end)}" value="{value}"/>')
+    return (
+        f'<Record type="{rtype}" sourceName="{source}" sourceVersion="12.0"{unit_attr} '
+        f'creationDate="{fmt(end)}" startDate="{fmt(start)}" endDate="{fmt(end)}" value="{value}"/>'
+    )
 
 
 def day_state(profile_key: str, day_index: int, total_days: int, rng: random.Random) -> dict:
     """How 'recovered' this person is on a given day; drives HRV, RHR and sleep."""
     days_left = total_days - day_index
-    state = {"hrv_shift": 0.0, "rhr_shift": 0.0, "sleep_shift": 0.0, "wake_ups": 2,
-             "extra_workout": False, "skip_night": False, "no_hrv": False}
+    state = {
+        "hrv_shift": 0.0,
+        "rhr_shift": 0.0,
+        "sleep_shift": 0.0,
+        "wake_ups": 2,
+        "extra_workout": False,
+        "skip_night": False,
+        "no_hrv": False,
+    }
 
     if profile_key == "overreach" and days_left <= 9:
         # Hard block: gets steadily worse over the last 9 days.
         severity = (10 - days_left) / 9
-        state.update(hrv_shift=-0.35 * severity, rhr_shift=7 * severity,
-                     sleep_shift=-1.3 * severity, wake_ups=2 + round(4 * severity),
-                     extra_workout=True)
+        state.update(
+            hrv_shift=-0.35 * severity,
+            rhr_shift=7 * severity,
+            sleep_shift=-1.3 * severity,
+            wake_ups=2 + round(4 * severity),
+            extra_workout=True,
+        )
     if profile_key == "messy":
         state["skip_night"] = rng.random() < 0.15
         state["no_hrv"] = rng.random() < 0.25
@@ -89,19 +103,26 @@ def sleep_night(p: Profile, night: date, st: dict, rng: random.Random, records: 
         deep = max(0, rng.gauss(32 - 7 * cycle, 6))
         rem = max(5, rng.gauss(8 + 5 * cycle, 4))
         core = max(20, rng.gauss(50, 10))
-        for stage, mins in (("AsleepCore", core * 0.6), ("AsleepDeep", deep), ("AsleepCore", core * 0.4), ("AsleepREM", rem)):
+        for stage, mins in (
+            ("AsleepCore", core * 0.6),
+            ("AsleepDeep", deep),
+            ("AsleepCore", core * 0.4),
+            ("AsleepREM", rem),
+        ):
             if mins < 1 or asleep >= target:
                 continue
             mins = min(mins, target - asleep)
             end = t + timedelta(minutes=mins)
-            records.append(record("HKCategoryTypeIdentifierSleepAnalysis", src, t, end,
-                                  f"HKCategoryValueSleepAnalysis{stage}"))
+            records.append(
+                record("HKCategoryTypeIdentifierSleepAnalysis", src, t, end, f"HKCategoryValueSleepAnalysis{stage}")
+            )
             t, asleep = end, asleep + mins
         if cycle in wake_slots:
             awake = max(1, rng.gauss(6, 4))
             end = t + timedelta(minutes=awake)
-            records.append(record("HKCategoryTypeIdentifierSleepAnalysis", src, t, end,
-                                  "HKCategoryValueSleepAnalysisAwake"))
+            records.append(
+                record("HKCategoryTypeIdentifierSleepAnalysis", src, t, end, "HKCategoryValueSleepAnalysisAwake")
+            )
             t = end
     return onset, t
 
@@ -133,34 +154,56 @@ def heart_rate_day(p, day_start, day_end, sleep_windows, workouts, st, rng, reco
 
 def add_noise(p: Profile, day_start: datetime, records: list, rng: random.Random):
     """Things real exports contain that preprocessing has to remove."""
-    hr_lines = [r for r in records[-400:] if "HKQuantityTypeIdentifierHeartRate\"" in r]
+    hr_lines = [r for r in records[-400:] if 'HKQuantityTypeIdentifierHeartRate"' in r]
     # Exact duplicates (sync glitches, re-imports).
     for line in rng.sample(hr_lines, k=min(len(hr_lines), rng.randint(2, 6))):
         records.append(line)
     # Sensor glitches: impossible heart rates from a loose strap.
     if rng.random() < 0.4:
         when = day_start + timedelta(hours=rng.uniform(8, 20))
-        records.append(record("HKQuantityTypeIdentifierHeartRate", WATCH.format(name=p.name), when, when,
-                              rng.choice([12, 18, 238, 251]), "count/min"))
+        records.append(
+            record(
+                "HKQuantityTypeIdentifierHeartRate",
+                WATCH.format(name=p.name),
+                when,
+                when,
+                rng.choice([12, 18, 238, 251]),
+                "count/min",
+            )
+        )
     # Heart rate from another app (a chest strap app), which we exclude to keep one sensor.
     if rng.random() < 0.3:
         when = day_start + timedelta(hours=rng.uniform(17, 19))
         for k in range(5):
             t = when + timedelta(minutes=k)
-            records.append(record("HKQuantityTypeIdentifierHeartRate", "Polar Beat", t, t,
-                                  rng.randint(110, 150), "count/min"))
+            records.append(
+                record("HKQuantityTypeIdentifierHeartRate", "Polar Beat", t, t, rng.randint(110, 150), "count/min")
+            )
     # An afternoon nap picked up by the watch (preprocessing should ignore it).
     if rng.random() < 0.15:
         start = day_start + timedelta(hours=rng.uniform(13.5, 15.5))
         end = start + timedelta(minutes=rng.randint(20, 45))
-        records.append(record("HKCategoryTypeIdentifierSleepAnalysis", WATCH.format(name=p.name), start, end,
-                              "HKCategoryValueSleepAnalysisAsleepCore"))
+        records.append(
+            record(
+                "HKCategoryTypeIdentifierSleepAnalysis",
+                WATCH.format(name=p.name),
+                start,
+                end,
+                "HKCategoryValueSleepAnalysisAsleepCore",
+            )
+        )
     # A third-party sleep app writing its own "asleep" estimate over the same night.
     if rng.random() < 0.25:
         start = day_start - timedelta(hours=rng.uniform(0.5, 1.5))
-        records.append(record("HKCategoryTypeIdentifierSleepAnalysis", "AutoSleep", start,
-                              start + timedelta(hours=rng.uniform(6, 8)),
-                              "HKCategoryValueSleepAnalysisAsleepUnspecified"))
+        records.append(
+            record(
+                "HKCategoryTypeIdentifierSleepAnalysis",
+                "AutoSleep",
+                start,
+                start + timedelta(hours=rng.uniform(6, 8)),
+                "HKCategoryValueSleepAnalysisAsleepUnspecified",
+            )
+        )
 
 
 def build(profile_key: str, days: int, end_day: date) -> tuple[str, dict]:
@@ -170,7 +213,7 @@ def build(profile_key: str, days: int, end_day: date) -> tuple[str, dict]:
     stats = {"nights": 0, "hrv": 0, "workouts": 0}
     first_day = end_day - timedelta(days=days - 1)
     hr_days, all_sleep = [], []  # heart rate is generated after all sleep, so late-evening
-                                 # readings know that tonight's sleep has already started
+    # readings know that tonight's sleep has already started
 
     for i in range(days):
         day = first_day + timedelta(days=i)
@@ -186,23 +229,45 @@ def build(profile_key: str, days: int, end_day: date) -> tuple[str, dict]:
             stats["nights"] += 1
             if profile_key == "messy":
                 # iPhone Sleep Schedule writes "In Bed" from bedtime to alarm.
-                records.append(record("HKCategoryTypeIdentifierSleepAnalysis", PHONE.format(name=p.name),
-                                      onset - timedelta(minutes=20), wake + timedelta(minutes=10),
-                                      "HKCategoryValueSleepAnalysisInBed"))
+                records.append(
+                    record(
+                        "HKCategoryTypeIdentifierSleepAnalysis",
+                        PHONE.format(name=p.name),
+                        onset - timedelta(minutes=20),
+                        wake + timedelta(minutes=10),
+                        "HKCategoryValueSleepAnalysisInBed",
+                    )
+                )
 
             # HRV: a few readings during the night.
             if not st["no_hrv"]:
                 for _ in range(rng.choice([1, 2, 3, 3, 4])):
                     when = onset + (wake - onset) * rng.uniform(0.1, 0.9)
                     value = p.hrv * (1 + st["hrv_shift"]) * math.exp(rng.gauss(0, 0.18))
-                    records.append(record("HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
-                                          WATCH.format(name=p.name), when, when, round(value, 2), "ms"))
+                    records.append(
+                        record(
+                            "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+                            WATCH.format(name=p.name),
+                            when,
+                            when,
+                            round(value, 2),
+                            "ms",
+                        )
+                    )
                     stats["hrv"] += 1
 
             # Resting heart rate: one value per day.
             rhr = p.rhr + st["rhr_shift"] + rng.gauss(0, 1.2)
-            records.append(record("HKQuantityTypeIdentifierRestingHeartRate", WATCH.format(name=p.name),
-                                  day_start, day_end - timedelta(seconds=1), round(rhr), "count/min"))
+            records.append(
+                record(
+                    "HKQuantityTypeIdentifierRestingHeartRate",
+                    WATCH.format(name=p.name),
+                    day_start,
+                    day_end - timedelta(seconds=1),
+                    round(rhr),
+                    "count/min",
+                )
+            )
 
         # Workouts in the late afternoon.
         workouts = []
@@ -217,20 +282,32 @@ def build(profile_key: str, days: int, end_day: date) -> tuple[str, dict]:
         all_sleep.extend(sleep_windows)
 
         # Some data the importer should ignore (real exports are full of this).
-        records.append(record("HKQuantityTypeIdentifierStepCount", PHONE.format(name=p.name),
-                              day_start + timedelta(hours=12), day_start + timedelta(hours=13),
-                              rng.randint(800, 3000), "count"))
+        records.append(
+            record(
+                "HKQuantityTypeIdentifierStepCount",
+                PHONE.format(name=p.name),
+                day_start + timedelta(hours=12),
+                day_start + timedelta(hours=13),
+                rng.randint(800, 3000),
+                "count",
+            )
+        )
 
     for day_start, wear_end, workouts, st in hr_days:
         heart_rate_day(p, day_start, wear_end, all_sleep, workouts, st, rng, records)
         if profile_key == "messy":
             add_noise(p, day_start, records, rng)
 
-    xml = ('<?xml version="1.0" encoding="UTF-8"?>\n'
-           '<!DOCTYPE HealthData [\n<!ELEMENT HealthData (ExportDate,Me,(Record|Correlation|Workout|ActivitySummary)*)>\n]>\n'
-           f'<HealthData locale="en_US">\n<ExportDate value="{fmt(datetime.now(TZ))}"/>\n'
-           '<Me HKCharacteristicTypeIdentifierDateOfBirth="" HKCharacteristicTypeIdentifierBiologicalSex="HKBiologicalSexNotSet"/>\n'
-           + "\n".join(records) + "\n</HealthData>\n")
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        "<!DOCTYPE HealthData [\n"
+        "<!ELEMENT HealthData (ExportDate,Me,(Record|Correlation|Workout|ActivitySummary)*)>\n]>\n"
+        f'<HealthData locale="en_US">\n<ExportDate value="{fmt(datetime.now(TZ))}"/>\n'
+        '<Me HKCharacteristicTypeIdentifierDateOfBirth="" '
+        'HKCharacteristicTypeIdentifierBiologicalSex="HKBiologicalSexNotSet"/>\n'
+        + "\n".join(records)
+        + "\n</HealthData>\n"
+    )
     stats["records"] = len(records)
     return xml, stats
 
@@ -253,8 +330,10 @@ def main():
         path = out / f"mock_export_{name}_{key}.zip"
         with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.writestr("apple_health_export/export.xml", xml)
-        print(f"{path}  ({stats['records']} records, {stats['nights']} nights, "
-              f"{stats['hrv']} HRV readings, {stats['workouts']} workouts)")
+        print(
+            f"{path}  ({stats['records']} records, {stats['nights']} nights, "
+            f"{stats['hrv']} HRV readings, {stats['workouts']} workouts)"
+        )
 
 
 if __name__ == "__main__":

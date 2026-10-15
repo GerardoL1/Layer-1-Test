@@ -102,8 +102,8 @@ python agent_testing/run_layer1_tests.py
 
 ```bash
 cd server
-.venv\Scripts\python -m pip install pytest httpx
-.venv\Scripts\python -m pytest -q tests
+.venv\Scripts\python -m pip install -r requirements-dev.txt
+.venv\Scripts\python -m pytest -q
 ```
 
 ```bash
@@ -112,6 +112,25 @@ npx tsc --noEmit
 npx expo lint
 npm test
 ```
+
+**Code checks** (from the repo root, after installing `server/requirements-dev.txt`):
+
+```bash
+server\.venv\Scripts\ruff format .
+```
+```bash
+server\.venv\Scripts\ruff check .
+```
+```bash
+server\.venv\Scripts\mypy
+```
+
+`ruff format` tidies the layout, `ruff check` finds mistakes and unused code, `mypy` checks types. The settings
+for all three are in the root `pyproject.toml`.
+
+**Dependencies** are pinned in lock files (`server/requirements.txt`, `server/requirements-dev.txt`,
+`preprocessing/requirements.txt`), so everyone and CI get the same versions. To change one, edit the matching
+`requirements.in` and rebuild the lock with `pip-compile` (the command is at the top of each `.in` file).
 
 GitHub Actions runs all of these (with a quick Layer 1 tester run) on every push. Results are under the
 repo's **Actions** tab. Run the tests and the Layer 1 tester after every change to `preprocessing/`.

@@ -1,0 +1,9 @@
+# Everything for developing and testing the server: what it runs, plus test and check tools.
+# Rebuild with:
+#   pip-compile requirements-dev.in -o requirements-dev.txt
+-r requirements.in
+pytest>=8.0
+httpx>=0.27
+ruff>=0.6
+mypy>=1.10
+pip-tools>=7.4

@@ -22,7 +22,7 @@ Reports are written to `agent_testing/reports/` (Markdown + JSON). Exit code 1 m
 | Spec formulas | Efficiency, both fragmentation versions, ln(HRV), usable flags, notes, one row per night | Re-implemented from the spec, not imported from the pipeline |
 | Z-scores | Every baseline and z-score | Re-computed independently (28 previous nights, ≥ 7 values, SD floor) |
 | Story expectations | "HRV should drop in the last 5 nights", "night 12 is flagged" | Written in each scenario before running |
-| Daily updates | Day-by-day results equal one full run | `incremental.py` vs the full pipeline |
+| Daily updates | Day-by-day results equal one full run | `layer1/incremental.py` vs the full pipeline |
 | Unit tests | The 28 existing tests | `tests/` |
 
 The tester was checked by planting six bugs in the pipeline (baseline too short, awakenings off by one,

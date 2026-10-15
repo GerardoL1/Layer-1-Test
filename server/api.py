@@ -9,20 +9,20 @@ Two things here are PLACEHOLDERS until the team decides them:
   - the "usual range" (baseline mean plus or minus 1 SD) and the Worse / Usual / Better label
 Both are marked "placeholder": true in every response.
 """
+
 import json
 import math
 from datetime import date, datetime, time, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-import pandas as pd
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, field_validator
-
 import db
 import explain
+import pandas as pd
 import processing
+from fastapi import APIRouter, HTTPException
 from processing import C, I, P
+from pydantic import BaseModel, field_validator
 
 router = APIRouter(prefix="/api")
 
@@ -34,9 +34,11 @@ READINESS_CENTER, READINESS_POINTS_PER_SD = 50, 10
 LOW_BELOW, READY_FROM = 40, 70
 USUAL_RANGE_SD = 1.0
 
-READINESS_METHOD = ("Placeholder: 50 + 10 x the average of the available z-scores "
-                    "(HRV, sleep time and efficiency count up, resting HR and fragmentation count down), "
-                    "clipped to 0-100. Weights and cut-offs are not decided yet.")
+READINESS_METHOD = (
+    "Placeholder: 50 + 10 x the average of the available z-scores "
+    "(HRV, sleep time and efficiency count up, resting HR and fragmentation count down), "
+    "clipped to 0-100. Weights and cut-offs are not decided yet."
+)
 
 # The metric rows shown on Today and Profile, in order.
 METRICS = [
@@ -53,6 +55,7 @@ BASE_COLUMN = {"hrv_night_ms": "hrv_ln"}
 
 # ---------------------------------------------------------------- helpers
 
+
 def clean(v):
     """JSON can't hold NaN, so missing numbers become null."""
     if v is None or v is pd.NaT:
@@ -61,7 +64,7 @@ def clean(v):
         return None
     if isinstance(v, (pd.Timestamp, datetime, date)):
         return v.isoformat()
-    if hasattr(v, "item"):   # numpy numbers
+    if hasattr(v, "item"):  # numpy numbers
         return clean(v.item())
     return v
 
@@ -95,7 +98,7 @@ def usual_range(row, col) -> tuple:
     if pd.isna(mu) or pd.isna(sd):
         return None, None
     lo, hi = mu - USUAL_RANGE_SD * sd, mu + USUAL_RANGE_SD * sd
-    if base != col:   # back from the log scale
+    if base != col:  # back from the log scale
         lo, hi = math.exp(lo), math.exp(hi)
     return r1(lo), r1(hi)
 
@@ -120,23 +123,52 @@ def metric_rows(row) -> list:
     out = []
     for key, col, label, unit, zcol, up in METRICS:
         lo, hi = usual_range(row, col)
-        out.append({"key": key, "label": label, "unit": unit, "value": r1(row.get(col)),
-                    "z": r1(row.get(zcol)), "usual_low": lo, "usual_high": hi, "usual_mean": usual_mean(row, col),
-                    "direction": direction(row.get(zcol), up), "placeholder": True})
+        out.append(
+            {
+                "key": key,
+                "label": label,
+                "unit": unit,
+                "value": r1(row.get(col)),
+                "z": r1(row.get(zcol)),
+                "usual_low": lo,
+                "usual_high": hi,
+                "usual_mean": usual_mean(row, col),
+                "direction": direction(row.get(zcol), up),
+                "placeholder": True,
+            }
+        )
     # The count people understand. Its Worse / Usual / Better comes from the per-hour z-score,
     # since that's the measure the baseline is kept on (no usual range for the count itself).
-    out.append({"key": "awakenings", "label": "Awakenings", "unit": "", "value": clean(row.get("awakenings")),
-                "z": r1(row.get("z_frag")), "usual_low": None, "usual_high": None, "usual_mean": None,
-                "direction": direction(row.get("z_frag"), False), "placeholder": True})
+    out.append(
+        {
+            "key": "awakenings",
+            "label": "Awakenings",
+            "unit": "",
+            "value": clean(row.get("awakenings")),
+            "z": r1(row.get("z_frag")),
+            "usual_low": None,
+            "usual_high": None,
+            "usual_mean": None,
+            "direction": direction(row.get("z_frag"), False),
+            "placeholder": True,
+        }
+    )
     return out
 
 
 def sleep_block(row) -> dict:
-    return {"onset": clean(row.get("sleep_onset")), "wake": clean(row.get("final_wake")),
-            "total_min": r1(row.get("tst_min")), "deep_min": r1(row.get("deep_min")),
-            "core_min": r1(row.get("core_min")), "rem_min": r1(row.get("rem_min")),
-            "unspecified_min": r1(row.get("unspecified_min")), "awake_min": r1(row.get("waso_min")),
-            "in_bed_min": r1(row.get("tib_min")), "efficiency_pct": r1(row.get("sleep_efficiency_pct"))}
+    return {
+        "onset": clean(row.get("sleep_onset")),
+        "wake": clean(row.get("final_wake")),
+        "total_min": r1(row.get("tst_min")),
+        "deep_min": r1(row.get("deep_min")),
+        "core_min": r1(row.get("core_min")),
+        "rem_min": r1(row.get("rem_min")),
+        "unspecified_min": r1(row.get("unspecified_min")),
+        "awake_min": r1(row.get("waso_min")),
+        "in_bed_min": r1(row.get("tib_min")),
+        "efficiency_pct": r1(row.get("sleep_efficiency_pct")),
+    }
 
 
 def night_rows(user_id: str) -> pd.DataFrame:
@@ -162,11 +194,11 @@ def next_update(now: datetime, update_time: tuple) -> datetime:
 
 def can_update_now(conn, user_id: str, now: datetime, update_time: tuple, ready_through) -> bool:
     """True when "Update now" would process a night that isn't processed yet."""
-    since = int((now - timedelta(days=3)).timestamp() * 1000)   # rough, local vs UTC doesn't matter here
+    since = int((now - timedelta(days=3)).timestamp() * 1000)  # rough, local vs UTC doesn't matter here
     recent = db.load_records(conn, user_id, since_ms=since, sleep_only=True)
     if recent.empty:
         return False
-    stages = P.clean(recent)[0]["sleep_stages"]   # same cleaning as processing (watch only, no In Bed)
+    stages = P.clean(recent)[0]["sleep_stages"]  # same cleaning as processing (watch only, no In Bed)
     if stages.empty:
         return False
     newest = I.latest_ready_night(now, stages, update_time, update_now=True)
@@ -174,6 +206,7 @@ def can_update_now(conn, user_id: str, now: datetime, update_time: tuple, ready_
 
 
 # ---------------------------------------------------------------- Today
+
 
 @router.get("/today")
 def today(user_id: str):
@@ -187,36 +220,58 @@ def today(user_id: str):
         update_now_ok = can_update_now(conn, user_id, now, update_time, ready_through)
     nights = night_rows(user_id)
 
-    last_night = now.date() - timedelta(days=1)   # the night that started yesterday evening
-    base = {"user_id": user_id, "now_local": now.isoformat(timespec="minutes"),
-            "update_time": f"{update_time[0]:02d}:{update_time[1]:02d}",
-            "next_update": next_update(now, update_time).isoformat(timespec="minutes"),
-            "updated_at": run["sync_local"] if run else None, "can_update_now": update_now_ok,
-            "readiness_method": READINESS_METHOD,
-            "cutoffs": {"low_below": LOW_BELOW, "ready_from": READY_FROM, "placeholder": True}}
+    last_night = now.date() - timedelta(days=1)  # the night that started yesterday evening
+    base = {
+        "user_id": user_id,
+        "now_local": now.isoformat(timespec="minutes"),
+        "update_time": f"{update_time[0]:02d}:{update_time[1]:02d}",
+        "next_update": next_update(now, update_time).isoformat(timespec="minutes"),
+        "updated_at": run["sync_local"] if run else None,
+        "can_update_now": update_now_ok,
+        "readiness_method": READINESS_METHOD,
+        "cutoffs": {"low_below": LOW_BELOW, "ready_from": READY_FROM, "placeholder": True},
+    }
     if nights.empty:
-        return {**base, "night_date": None, "is_last_night": False, "message": "No nights processed yet.",
-                "readiness": None, "metrics": [], "sleep": None, "quality_notes": None}
+        return {
+            **base,
+            "night_date": None,
+            "is_last_night": False,
+            "message": "No nights processed yet.",
+            "readiness": None,
+            "metrics": [],
+            "sleep": None,
+            "quality_notes": None,
+        }
 
     row = nights.iloc[-1].to_dict()
     shown = row["night_date"]
     message = None
     if shown < last_night:
-        message = (f"Last night updates at {base['update_time']}"
-                   + (", or tap Update now." if update_now_ok else "."))
+        message = f"Last night updates at {base['update_time']}" + (", or tap Update now." if update_now_ok else ".")
     ready = readiness(row)
     metrics = metric_rows(row)
-    verdict, reason = explain.today_text(ready["status"], metrics, clean(row.get("tst_min_base_n")),
-                                         C.BASELINE_MIN_NIGHTS, clean(row.get("tst_min")))
-    return {**base, "night_date": shown.isoformat(), "is_last_night": shown == last_night, "message": message,
-            "readiness": ready, "metrics": metrics, "sleep": sleep_block(row),
-            "quality_notes": row.get("quality_notes") or None,
-            "verdict": verdict, "reason": reason, "text_placeholder": True}
+    verdict, reason = explain.today_text(
+        ready["status"], metrics, clean(row.get("tst_min_base_n")), C.BASELINE_MIN_NIGHTS, clean(row.get("tst_min"))
+    )
+    return {
+        **base,
+        "night_date": shown.isoformat(),
+        "is_last_night": shown == last_night,
+        "message": message,
+        "readiness": ready,
+        "metrics": metrics,
+        "sleep": sleep_block(row),
+        "quality_notes": row.get("quality_notes") or None,
+        "verdict": verdict,
+        "reason": reason,
+        "text_placeholder": True,
+    }
 
 
 # ---------------------------------------------------------------- Trends
 
 TREND_RANGES = (14, 28, 90)
+
 
 @router.get("/trends")
 def trends(user_id: str, nights: int = 14):
@@ -232,19 +287,32 @@ def trends(user_id: str, nights: int = 14):
     table = table[table["night_date"] > last - timedelta(days=nights)]
     rows = []
     for row in table.to_dict(orient="records"):
-        entry = {"night_date": row["night_date"].isoformat(), "readiness": readiness(row),
-                 "usable_sleep": bool(row["usable_sleep"]), "quality_notes": row.get("quality_notes") or None,
-                 "deep_min": r1(row.get("deep_min")), "core_min": r1(row.get("core_min")),
-                 "rem_min": r1(row.get("rem_min")), "unspecified_min": r1(row.get("unspecified_min"))}
+        entry = {
+            "night_date": row["night_date"].isoformat(),
+            "readiness": readiness(row),
+            "usable_sleep": bool(row["usable_sleep"]),
+            "quality_notes": row.get("quality_notes") or None,
+            "deep_min": r1(row.get("deep_min")),
+            "core_min": r1(row.get("core_min")),
+            "rem_min": r1(row.get("rem_min")),
+            "unspecified_min": r1(row.get("unspecified_min")),
+        }
         for key, col, _label, _unit, zcol, _up in METRICS:
             lo, hi = usual_range(row, col)
             entry[key] = {"value": r1(row.get(col)), "z": r1(row.get(zcol)), "usual_low": lo, "usual_high": hi}
         rows.append(entry)
-    return {"user_id": user_id, "nights": nights, "cutoffs": {"low_below": LOW_BELOW, "ready_from": READY_FROM},
-            "placeholder": True, "rows": rows, "summaries": explain.trends_summaries(rows)}
+    return {
+        "user_id": user_id,
+        "nights": nights,
+        "cutoffs": {"low_below": LOW_BELOW, "ready_from": READY_FROM},
+        "placeholder": True,
+        "rows": rows,
+        "summaries": explain.trends_summaries(rows),
+    }
 
 
 # ---------------------------------------------------------------- Profile
+
 
 @router.get("/profile")
 def profile(user_id: str):
@@ -252,10 +320,14 @@ def profile(user_id: str):
     with db.connect() as conn:
         require_user(conn, user_id)
         run = last_run(conn, user_id)
-        sources = [r[0] for r in conn.execute(
-            "SELECT DISTINCT source FROM samples WHERE user_id = ? AND source IS NOT NULL "
-            "UNION SELECT DISTINCT source FROM sleep_stages WHERE user_id = ? AND source IS NOT NULL",
-            (user_id, user_id))]
+        sources = [
+            r[0]
+            for r in conn.execute(
+                "SELECT DISTINCT source FROM samples WHERE user_id = ? AND source IS NOT NULL "
+                "UNION SELECT DISTINCT source FROM sleep_stages WHERE user_id = ? AND source IS NOT NULL",
+                (user_id, user_id),
+            )
+        ]
     table = night_rows(user_id)
     usual = []
     if not table.empty:
@@ -263,8 +335,17 @@ def profile(user_id: str):
         for key, col, label, unit, _z, _up in METRICS:
             lo, hi = usual_range(latest, col)
             base = BASE_COLUMN.get(col, col)
-            usual.append({"key": key, "label": label, "unit": unit, "usual_low": lo, "usual_high": hi,
-                          "baseline_nights": clean(latest.get(f"{base}_base_n")), "placeholder": True})
+            usual.append(
+                {
+                    "key": key,
+                    "label": label,
+                    "unit": unit,
+                    "usual_low": lo,
+                    "usual_high": hi,
+                    "baseline_nights": clean(latest.get(f"{base}_base_n")),
+                    "placeholder": True,
+                }
+            )
     return {
         "user_id": user_id,
         "settings": get_settings(user_id),
@@ -282,6 +363,7 @@ def profile(user_id: str):
 
 # ---------------------------------------------------------------- Settings
 
+
 class Settings(BaseModel):
     timezone: str | None = None
     update_time: str | None = None
@@ -297,7 +379,7 @@ class Settings(BaseModel):
             try:
                 ZoneInfo(v)
             except (ZoneInfoNotFoundError, ValueError):
-                raise ValueError(f"unknown time zone '{v}', use a name like America/Chicago")
+                raise ValueError(f"unknown time zone '{v}', use a name like America/Chicago") from None
         return v
 
     @field_validator("update_time")
@@ -308,7 +390,7 @@ class Settings(BaseModel):
                 h, m = (int(x) for x in v.split(":"))
                 assert 0 <= h < 24 and 0 <= m < 60
             except (ValueError, AssertionError):
-                raise ValueError("use HH:MM, for example 08:00")
+                raise ValueError("use HH:MM, for example 08:00") from None
             v = f"{h:02d}:{m:02d}"
         return v
 
@@ -340,10 +422,14 @@ class Settings(BaseModel):
 def get_settings(user_id: str):
     with db.connect() as conn:
         user = require_user(conn, user_id)
-    return {"timezone": user["timezone"], "update_time": user["update_time"], "age": user["age"],
-            "training": user["training"],
-            "training_days": json.loads(user["training_days"]) if user["training_days"] else [],
-            "units": user["units"] or "metric"}
+    return {
+        "timezone": user["timezone"],
+        "update_time": user["update_time"],
+        "age": user["age"],
+        "training": user["training"],
+        "training_days": json.loads(user["training_days"]) if user["training_days"] else [],
+        "units": user["units"] or "metric",
+    }
 
 
 @router.put("/settings")
@@ -353,15 +439,17 @@ def put_settings(user_id: str, settings: Settings):
     if "training_days" in changes and changes["training_days"] is not None:
         changes["training_days"] = json.dumps(changes["training_days"])
     if changes.get("update_time", "") is None:
-        changes["update_time"] = "%02d:%02d" % C.DEFAULT_UPDATE_TIME
+        h, m = C.DEFAULT_UPDATE_TIME
+        changes["update_time"] = f"{h:02d}:{m:02d}"
     with db.connect() as conn:
         conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
-        for col, value in changes.items():   # column names come from the Settings model, not the request
+        for col, value in changes.items():  # column names come from the Settings model, not the request
             conn.execute(f"UPDATE users SET {col} = ? WHERE user_id = ?", (value, user_id))
     return get_settings(user_id)
 
 
 # ---------------------------------------------------------------- Update now
+
 
 @router.post("/update-now")
 def update_now(user_id: str):
@@ -369,16 +457,21 @@ def update_now(user_id: str):
         require_user(conn, user_id)
     report = processing.process_user(user_id, update_now=True)
     if report is None or not report.new_nights:
-        return {"processed": False, "new_nights": [],
-                "message": "Nothing new to process. Last night's sleep hasn't ended or hasn't synced yet."}
-    return {"processed": True, "new_nights": [d.isoformat() for d in report.new_nights],
-            "message": "Updated."}
+        return {
+            "processed": False,
+            "new_nights": [],
+            "message": "Nothing new to process. Last night's sleep hasn't ended or hasn't synced yet.",
+        }
+    return {"processed": True, "new_nights": [d.isoformat() for d in report.new_nights], "message": "Updated."}
 
 
 # ---------------------------------------------------------------- Demo mode (temporary, remove later)
 
-DEMO_PEOPLE = {"sam": "mock_export_sam_steady.zip", "alex": "mock_export_alex_overreach.zip",
-               "jordan": "mock_export_jordan_messy.zip"}
+DEMO_PEOPLE = {
+    "sam": "mock_export_sam_steady.zip",
+    "alex": "mock_export_alex_overreach.zip",
+    "jordan": "mock_export_jordan_messy.zip",
+}
 # The mock people last sleep on the night of 30 Sep 2026 (they wake on 1 Oct), so the demo
 # clock sits just after that night's update time.
 DEMO_CLOCK = "2026-10-01T08:30:00"
@@ -387,8 +480,9 @@ DEMO_CLOCK = "2026-10-01T08:30:00"
 @router.post("/demo/{person}")
 def load_demo(person: Literal["sam", "alex", "jordan"]):
     """Load a mock person as demo-<name> with a fixed clock. Reloading starts them fresh."""
-    from apple_export import import_export
     from pathlib import Path
+
+    from apple_export import import_export
 
     user_id = f"demo-{person}"
     path = Path(processing.__file__).resolve().parent.parent / "preprocessing" / "sample_data" / DEMO_PEOPLE[person]

@@ -23,8 +23,10 @@ ADVICE = {
 # What each metric being worse or better means, in plain words.
 PHRASES = {
     "hrv": {"worse": "your HRV is below your usual", "better": "your HRV is above your usual"},
-    "rhr": {"worse": "your resting heart rate stayed higher overnight",
-            "better": "your resting heart rate was lower than usual overnight"},
+    "rhr": {
+        "worse": "your resting heart rate stayed higher overnight",
+        "better": "your resting heart rate was lower than usual overnight",
+    },
     "sleep": {"worse": "you slept less than usual", "better": "you slept more than usual"},
     "awakenings": {"worse": "you woke more often", "better": "you woke less than usual"},
 }
@@ -45,8 +47,9 @@ def sleep_length(minutes: float) -> str:
     return f"{h} h {m} min" if m else f"{h} h"
 
 
-def today_text(status: str, metrics: list[dict], baseline_nights: int | None, min_nights: int,
-               tst_min: float | None = None) -> tuple[str, str]:
+def today_text(
+    status: str, metrics: list[dict], baseline_nights: int | None, min_nights: int, tst_min: float | None = None
+) -> tuple[str, str]:
     """Returns (verdict, reason) for Today."""
     verdict = VERDICT.get(status, "")
     if status == "short_sleep":
@@ -56,8 +59,7 @@ def today_text(status: str, metrics: list[dict], baseline_nights: int | None, mi
         return verdict, "Wear your watch to bed with Sleep tracking on, and the next night will show here."
     if status == "building_baseline":
         have = baseline_nights or 0
-        return verdict, (f"Your score starts after {min_nights} nights of sleep. "
-                         f"{have} of {min_nights} so far.")
+        return verdict, (f"Your score starts after {min_nights} nights of sleep. {have} of {min_nights} so far.")
     by_key = {m["key"]: m.get("direction") for m in metrics}
     worse = [PHRASES[k]["worse"] for k in PHRASES if by_key.get(k) == "worse"]
     better = [PHRASES[k]["better"] for k in PHRASES if by_key.get(k) == "better"]
@@ -89,7 +91,7 @@ def _nights(n: int) -> str:
 def band_summary(rows: list[dict], key: str) -> str | None:
     """'Below your usual range for the last 5 nights.' for one metric."""
     points = [r[key] for r in rows]
-    flags = []
+    flags: list[str | None] = []
     for p in points:
         if p["value"] is None or p["usual_low"] is None:
             flags.append(None)
@@ -115,7 +117,11 @@ def readiness_summary(rows: list[dict]) -> str | None:
     before = statuses[-n - 1] if len(statuses) > n else None
     if before and n <= 7:
         was = {"low": "Low", "moderate": "Moderate", "ready": "Ready"}[before]
-        direction = "Slid" if ["low", "moderate", "ready"].index(last) < ["low", "moderate", "ready"].index(before) else "Climbed"
+        direction = (
+            "Slid"
+            if ["low", "moderate", "ready"].index(last) < ["low", "moderate", "ready"].index(before)
+            else "Climbed"
+        )
         return f"{direction} from {was} into {word} over {_nights(n)}."
     return f"{word} for {_nights(n)}."
 

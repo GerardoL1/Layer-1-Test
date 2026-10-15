@@ -3,7 +3,7 @@
 A standalone tool that takes **one Apple Health export** and shows, step by step, how it becomes an
 **ML-ready table: one row per person per night**. Nothing is trained here.
 
-The server runs this same code (`server/processing.py` uses `incremental.py`), so the app gets exactly
+The server runs this same code (`server/processing.py` uses `layer1/incremental.py`), so the app gets exactly
 these numbers. This folder is where the logic is changed and tested.
 
 ```
@@ -44,11 +44,14 @@ python run_pipeline.py path\to\export.zip --person alex --days 90
 
 | File | What it is |
 |---|---|
-| `pipeline.py` | The preprocessing. One function per step, plus `run_pipeline()` |
-| `config.py` | Every threshold and window length in one place |
+| `layer1/` | The preprocessing as an installable package (`from layer1 import pipeline`). The server imports it too |
+| `layer1/pipeline.py` | The preprocessing. One function per step, plus `run_pipeline()` |
+| `layer1/config.py` | Every threshold and window length in one place |
+| `layer1/incremental.py` | Daily updates: processes only the nights each sync needs (used by tab 8) |
+| `layer1/samples.py` | Where the three mock exports are, for tests and tools |
 | `app.py` | The Streamlit platform that visualises each step |
-| `incremental.py` | Daily updates: processes only the nights each sync needs (used by tab 8) |
 | `run_pipeline.py` | Command-line runner; `--save-expected` rebuilds `expected/` |
+| `pyproject.toml` | Makes `layer1` and `agent_testing` installable. `requirements.txt` installs them in editable mode |
 | `sample_data/` | Three mock exports (same generator as `server/mock/`), dated Sep 1 to Oct 1, 2026 |
 | `expected/` | The ML tables those three files must produce |
 | `tests/` | `python -m pytest -q` |
@@ -96,7 +99,7 @@ After every run the tab checks the result against processing all received data a
 
 ## Changing the preprocessing
 
-Edit `config.py` or `pipeline.py`, then run the tests. If the sample outputs changed **on purpose**, refresh
+Edit `layer1/config.py` or `layer1/pipeline.py`, then run the tests. If the sample outputs changed **on purpose**, refresh
 them and commit the new CSVs:
 
 ```bash

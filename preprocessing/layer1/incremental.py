@@ -19,16 +19,17 @@ reprocessing of the same data. tests/test_incremental.py checks this.
 In the real system the "saved" tables live in the server database; here they are kept
 in memory so the test platform can show each run.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
 import numpy as np
 import pandas as pd
 
-import config as C
-import pipeline as P
+from layer1 import config as C
+from layer1 import pipeline as P
 
 KEY = ["metric", "stage", "value", "source", "start_utc", "end_utc"]  # what makes a record unique
 
@@ -37,15 +38,15 @@ KEY = ["metric", "stage", "value", "source", "start_utc", "end_utc"]  # what mak
 class RunReport:
     run: int
     sync_time: datetime
-    received: dict                 # records that arrived this sync, by data type
-    duplicates_skipped: int        # already saved from an earlier sync
+    received: dict  # records that arrived this sync, by data type
+    duplicates_skipped: int  # already saved from an earlier sync
     removed_by_cleaning: int
-    new_nights: list               # processed for the first time
-    recomputed_nights: list        # processed again
-    changed: dict                  # recomputed night -> columns whose value changed
-    ready_through: date | None     # latest night that is ready
-    raw_rows_read: int = 0         # saved raw records read to compute this run
-    raw_rows_saved: int = 0        # all raw records saved so far
+    new_nights: list  # processed for the first time
+    recomputed_nights: list  # processed again
+    changed: dict  # recomputed night -> columns whose value changed
+    ready_through: date | None  # latest night that is ready
+    raw_rows_read: int = 0  # saved raw records read to compute this run
+    raw_rows_saved: int = 0  # all raw records saved so far
 
     @property
     def kind(self) -> str:
@@ -60,8 +61,12 @@ def scheduled_ready_night(sync_time: datetime, update_time=C.DEFAULT_UPDATE_TIME
     return (sync_time - timedelta(hours=h, minutes=m)).date() - timedelta(days=1)
 
 
-def latest_ready_night(sync_time: datetime, sleep_stages: pd.DataFrame | None = None,
-                       update_time=C.DEFAULT_UPDATE_TIME, update_now: bool = False) -> date:
+def latest_ready_night(
+    sync_time: datetime,
+    sleep_stages: pd.DataFrame | None = None,
+    update_time=C.DEFAULT_UPDATE_TIME,
+    update_now: bool = False,
+) -> date:
     """
     The newest night that is ready to process at sync_time.
 
@@ -79,7 +84,7 @@ def latest_ready_night(sync_time: datetime, sleep_stages: pd.DataFrame | None = 
     sessions, st = P.find_sleep_windows(recent)
     if sessions.empty:
         return ready
-    session_end = st.groupby("session_id")["end_local"].max()     # includes trailing awake pieces
+    session_end = st.groupby("session_id")["end_local"].max()  # includes trailing awake pieces
     for _, s in sessions[sessions["is_main"]].sort_values("night_date").iterrows():
         if ready < s["night_date"] <= sync_time.date() and session_end[s["session_id"]] <= pd.Timestamp(sync_time):
             ready = s["night_date"]
@@ -89,13 +94,14 @@ def latest_ready_night(sync_time: datetime, sleep_stages: pd.DataFrame | None = 
 class DailyProcessor:
     """Keeps the saved data between syncs and processes only what each sync needs."""
 
-    def __init__(self, person_id: str = "tester1", recompute_nights: int = C.RECOMPUTE_NIGHTS,
-                 update_time=C.DEFAULT_UPDATE_TIME):
+    def __init__(
+        self, person_id: str = "tester1", recompute_nights: int = C.RECOMPUTE_NIGHTS, update_time=C.DEFAULT_UPDATE_TIME
+    ):
         self.person_id = person_id
-        self.update_time = update_time          # the user's daily update time (hour, minute)
+        self.update_time = update_time  # the user's daily update time (hour, minute)
         self.recompute_nights = recompute_nights
-        self.saved: dict[str, pd.DataFrame] | None = None   # cleaned raw data received so far
-        self.nights = pd.DataFrame()                          # saved nightly rows (all columns)
+        self.saved: dict[str, pd.DataFrame] | None = None  # cleaned raw data received so far
+        self.nights = pd.DataFrame()  # saved nightly rows (all columns)
         self.reports: list[RunReport] = []
         self.last_raw_rows_read = 0
 
@@ -110,17 +116,17 @@ class DailyProcessor:
             old = self.saved[k]
             if new.empty:
                 continue
-            overlap = old[old["end_utc"] >= new["start_utc"].min()]   # only rows that could repeat
+            overlap = old[old["end_utc"] >= new["start_utc"].min()]  # only rows that could repeat
             seen = set(map(tuple, overlap[KEY].astype(str).values))
             fresh = ~new[KEY].astype(str).apply(tuple, axis=1).isin(seen)
             skipped += int((~fresh).sum())
-            self.saved[k] = pd.concat([old, new[fresh]], ignore_index=True).sort_values("start_utc",
-                                                                                    ignore_index=True)
+            self.saved[k] = pd.concat([old, new[fresh]], ignore_index=True).sort_values("start_utc", ignore_index=True)
         return skipped
 
     # ------------------------------------------------------------ nightly metrics from only those nights' raw data
     def _metrics_for(self, nights: list) -> pd.DataFrame:
         """Nightly metrics for the given nights, reading only the raw data around them."""
+        assert self.saved is not None, "sync() saves data before any nights are worked out"
         lo = pd.Timestamp(datetime.combine(min(nights), time(0))) - pd.Timedelta(hours=6)
         hi = pd.Timestamp(datetime.combine(max(nights), time(0))) + pd.Timedelta(days=2, hours=6)
         sub = {k: v[(v["end_local"] >= lo) & (v["start_local"] <= hi)] for k, v in self.saved.items()}
@@ -133,24 +139,45 @@ class DailyProcessor:
     # ------------------------------------------------------------ one sync
     def sync(self, new_records: pd.DataFrame, sync_time: datetime, update_now: bool = False) -> RunReport:
         """Save what arrived and process every ready night. update_now = the user tapped \"Update now\"."""
-        received = (new_records.assign(data=new_records["stage"].fillna(new_records["metric"]))
-                    .groupby("data").size().to_dict()) if len(new_records) else {}
+        received = (
+            (
+                new_records.assign(data=new_records["stage"].fillna(new_records["metric"]))
+                .groupby("data")
+                .size()
+                .to_dict()
+            )
+            if len(new_records)
+            else {}
+        )
         cleaned_new, removal_log, _ = P.clean(new_records)
         skipped = self._save(cleaned_new)
+        assert self.saved is not None
+        saved = self.saved
 
-        stages = self.saved["sleep_stages"]
+        stages = saved["sleep_stages"]
         ready_through = latest_ready_night(sync_time, stages, self.update_time, update_now)
         asleep = stages[stages["stage"].isin(C.ASLEEP_STAGES)]
         if asleep.empty and self.nights.empty:
-            report = RunReport(len(self.reports) + 1, sync_time, received, skipped,
-                               int(removal_log["removed"].sum()) if len(removal_log) else 0,
-                               [], [], {}, None)
+            report = RunReport(
+                len(self.reports) + 1,
+                sync_time,
+                received,
+                skipped,
+                int(removal_log["removed"].sum()) if len(removal_log) else 0,
+                [],
+                [],
+                {},
+                None,
+            )
             self.reports.append(report)
             return report
 
         # Which nights to process: every ready night not yet processed, plus the last few again.
-        first = (self.nights["night_date"].min() if len(self.nights) else
-                 (asleep["start_local"].min() - pd.Timedelta(hours=C.NIGHT_SHIFT_HOURS)).date())
+        first = (
+            self.nights["night_date"].min()
+            if len(self.nights)
+            else (asleep["start_local"].min() - pd.Timedelta(hours=C.NIGHT_SHIFT_HOURS)).date()
+        )
         ready = [d.date() for d in pd.date_range(first, ready_through, freq="D")] if first <= ready_through else []
         done = set(self.nights["night_date"]) if len(self.nights) else set()
         new_nights = [d for d in ready if d not in done]
@@ -178,11 +205,19 @@ class DailyProcessor:
         else:
             changed = {}
 
-        report = RunReport(len(self.reports) + 1, sync_time, received, skipped,
-                           int(removal_log["removed"].sum()) if len(removal_log) else 0,
-                           new_nights, recompute, changed, ready_through,
-                           self.last_raw_rows_read if targets else 0,
-                           sum(len(v) for v in self.saved.values()))
+        report = RunReport(
+            len(self.reports) + 1,
+            sync_time,
+            received,
+            skipped,
+            int(removal_log["removed"].sum()) if len(removal_log) else 0,
+            new_nights,
+            recompute,
+            changed,
+            ready_through,
+            self.last_raw_rows_read if targets else 0,
+            sum(len(v) for v in saved.values()),
+        )
         self.reports.append(report)
         return report
 
@@ -196,10 +231,13 @@ class DailyProcessor:
             diffs = []
             for c in cols:
                 a, b = before.at[d, c], after.at[d, c]
-                if (pd.isna(a) and pd.isna(b)):
+                if pd.isna(a) and pd.isna(b):
                     continue
-                if pd.isna(a) != pd.isna(b) or (isinstance(a, (int, float, np.number)) and not np.isclose(a, b)) \
-                        or (not isinstance(a, (int, float, np.number)) and a != b):
+                if (
+                    pd.isna(a) != pd.isna(b)
+                    or (isinstance(a, (int, float, np.number)) and not np.isclose(a, b))
+                    or (not isinstance(a, (int, float, np.number)) and a != b)
+                ):
                     diffs.append(c)
             if diffs:
                 out[d] = diffs
@@ -214,6 +252,7 @@ class DailyProcessor:
 
 
 # ======================================================================= simulation helpers
+
 
 def arrival_times(records: pd.DataFrame, late_hrv: bool = False) -> pd.Series:
     """
@@ -249,14 +288,23 @@ def compare(daily: pd.DataFrame, full: pd.DataFrame) -> pd.DataFrame:
         for c in a.columns:
             x, y = a.at[n, c], b.at[n, c]
             same = (pd.isna(x) and pd.isna(y)) or (
-                not (pd.isna(x) or pd.isna(y)) and
-                (np.isclose(float(x), float(y), rtol=1e-9, atol=1e-9) if isinstance(x, (int, float, np.number))
-                 and not isinstance(x, bool) else x == y))
+                not (pd.isna(x) or pd.isna(y))
+                and (
+                    np.isclose(float(x), float(y), rtol=1e-9, atol=1e-9)
+                    if isinstance(x, (int, float, np.number)) and not isinstance(x, bool)
+                    else x == y
+                )
+            )
             if not same:
                 problems.append({"night": n, "column": c, "day_by_day": x, "all_at_once": y})
     missing = sorted(set(a.index) ^ set(b.index))
     for n in missing:
-        problems.append({"night": n, "column": "(whole row)",
-                         "day_by_day": "present" if n in a.index else "missing",
-                         "all_at_once": "present" if n in b.index else "missing"})
+        problems.append(
+            {
+                "night": n,
+                "column": "(whole row)",
+                "day_by_day": "present" if n in a.index else "missing",
+                "all_at_once": "present" if n in b.index else "missing",
+            }
+        )
     return pd.DataFrame(problems)

@@ -37,7 +37,7 @@ Readings from other apps and devices are stored too: the pipeline's cleaning ste
 
 ## How processing works (`processing.py`)
 
-It reuses `DailyProcessor` from `preprocessing/incremental.py`, so results equal the tested pipeline.
+It reuses `DailyProcessor` from `preprocessing/layer1/incremental.py`, so results equal the tested pipeline.
 
 - Runs in the background after new data arrives, and before the app reads results, but **only when something
   changed**: new readings, or the clock passing the person's update time.
@@ -126,8 +126,8 @@ The data is random but repeatable. The three in `../preprocessing/sample_data/` 
 ## Tests
 
 ```bash
-.venv\Scripts\python -m pip install pytest httpx
-.venv\Scripts\python -m pytest -q tests
+.venv\Scripts\python -m pip install -r requirements-dev.txt
+.venv\Scripts\python -m pytest -q
 ```
 
 About 2–3 minutes. They use a throwaway database, never `platform.db`.

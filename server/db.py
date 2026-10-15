@@ -5,6 +5,7 @@ resting heart rate, HRV, sleep stages and each user's settings.
 Every reading keeps its UTC offset, because which night a reading belongs to
 depends on the person's local clock, not on UTC.
 """
+
 import hashlib
 import os
 import sqlite3
@@ -87,14 +88,15 @@ def init_db():
             conn.execute("ALTER TABLE users ADD COLUMN clock_local TEXT")
         # Early databases keyed readings by id alone. Rebuild those tables keyed by (user_id, id).
         for table in ("samples", "sleep_stages"):
-            key = [r["name"] for r in sorted(conn.execute(f"PRAGMA table_info({table})"), key=lambda r: r["pk"])
-                   if r["pk"]]
+            key = [
+                r["name"] for r in sorted(conn.execute(f"PRAGMA table_info({table})"), key=lambda r: r["pk"]) if r["pk"]
+            ]
             if key == ["id"]:
                 conn.execute(f"ALTER TABLE {table} RENAME TO {table}_old")
                 conn.executescript(SCHEMA)
                 conn.execute(f"INSERT OR IGNORE INTO {table} SELECT * FROM {table}_old")
                 conn.execute(f"DROP TABLE {table}_old")
-                conn.executescript(SCHEMA)   # the index went with the old table, so make it again
+                conn.executescript(SCHEMA)  # the index went with the old table, so make it again
 
 
 def stable_id(*parts) -> str:
@@ -124,42 +126,50 @@ def add_readings(conn: sqlite3.Connection, user_id: str, samples=(), stages=()) 
     """
     conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
     before = conn.total_changes
-    conn.executemany("INSERT OR IGNORE INTO samples VALUES (?,?,?,?,?,?,?,?)",
-                     [(s[0], user_id, *s[1:]) for s in samples])
-    conn.executemany("INSERT OR IGNORE INTO sleep_stages VALUES (?,?,?,?,?,?,?,?)",
-                     [(s[0], user_id, *s[1:]) for s in stages])
+    conn.executemany(
+        "INSERT OR IGNORE INTO samples VALUES (?,?,?,?,?,?,?,?)", [(s[0], user_id, *s[1:]) for s in samples]
+    )
+    conn.executemany(
+        "INSERT OR IGNORE INTO sleep_stages VALUES (?,?,?,?,?,?,?,?)", [(s[0], user_id, *s[1:]) for s in stages]
+    )
     added = conn.total_changes - before
     if added:
         # Step 2 uses this to reprocess only when something actually changed.
-        conn.execute("UPDATE users SET data_changed_ms = ? WHERE user_id = ?",
-                     (int(time.time() * 1000), user_id))
+        conn.execute("UPDATE users SET data_changed_ms = ? WHERE user_id = ?", (int(time.time() * 1000), user_id))
     return added
 
 
 def _local(ms: pd.Series, offset_min: pd.Series) -> pd.Series:
-    return (pd.to_datetime(ms, unit="ms") + pd.to_timedelta(offset_min, unit="min"))
+    return pd.to_datetime(ms, unit="ms") + pd.to_timedelta(offset_min, unit="min")
 
 
-def load_records(conn: sqlite3.Connection, user_id: str, since_ms: int | None = None,
-                 sleep_only: bool = False) -> pd.DataFrame:
+def load_records(
+    conn: sqlite3.Connection, user_id: str, since_ms: int | None = None, sleep_only: bool = False
+) -> pd.DataFrame:
     """
     A user's readings in the same shape as preprocessing's load_export(), so the
     tested pipeline runs on database rows without any changes.
     since_ms and sleep_only are for quick looks at recent sleep, not for processing.
     """
-    since = since_ms if since_ms is not None else -2**62
-    q = pd.read_sql_query("SELECT metric, value, start_ms, end_ms, tz_offset_min AS start_tz, "
-                          "tz_offset_min AS end_tz, source FROM samples WHERE user_id = ? AND end_ms >= ?"
-                          + (" AND 0" if sleep_only else ""),
-                          conn, params=(user_id, since))
+    since = since_ms if since_ms is not None else -(2**62)
+    q = pd.read_sql_query(
+        "SELECT metric, value, start_ms, end_ms, tz_offset_min AS start_tz, "
+        "tz_offset_min AS end_tz, source FROM samples WHERE user_id = ? AND end_ms >= ?"
+        + (" AND 0" if sleep_only else ""),
+        conn,
+        params=(user_id, since),
+    )
     q["kind"] = "quantity"
     q["stage"] = None
     q["unit"] = q["metric"].map(METRICS)
     q["raw_value"] = q["value"].astype(str)
 
-    s = pd.read_sql_query("SELECT stage, start_ms, end_ms, start_tz_min AS start_tz, end_tz_min AS end_tz, "
-                          "source FROM sleep_stages WHERE user_id = ? AND end_ms >= ?",
-                          conn, params=(user_id, since))
+    s = pd.read_sql_query(
+        "SELECT stage, start_ms, end_ms, start_tz_min AS start_tz, end_tz_min AS end_tz, "
+        "source FROM sleep_stages WHERE user_id = ? AND end_ms >= ?",
+        conn,
+        params=(user_id, since),
+    )
     s["kind"] = "sleep"
     s["metric"] = "sleep_analysis"
     s["value"] = float("nan")
@@ -173,8 +183,19 @@ def load_records(conn: sqlite3.Connection, user_id: str, since_ms: int | None = 
     for side in ("start", "end"):
         df[f"{side}_utc"] = pd.to_datetime(df[f"{side}_ms"], unit="ms", utc=True)
         df[f"{side}_local"] = _local(df[f"{side}_ms"], df[f"{side}_tz"])
-    cols = ["kind", "metric", "raw_value", "unit", "source", "start_utc", "end_utc",
-            "start_local", "end_local", "value", "stage"]
+    cols = [
+        "kind",
+        "metric",
+        "raw_value",
+        "unit",
+        "source",
+        "start_utc",
+        "end_utc",
+        "start_local",
+        "end_local",
+        "value",
+        "stage",
+    ]
     # Stable order so every run sees the rows the same way.
     df = df.sort_values(["start_utc", "end_utc", "metric", "source"], kind="stable")
     return df[cols].reset_index(drop=True)
