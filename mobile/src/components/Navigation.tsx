@@ -51,7 +51,7 @@ export function Sidebar({ footer }: { footer?: string | null }) {
         return (
           <Link key={tab.path} href={tab.href} asChild>
             <Pressable accessibilityRole="link" accessibilityState={{ selected: active }}
-              style={[styles.link, { borderLeftColor: active ? colors.borderStrong : 'transparent' }]}>
+              style={StyleSheet.flatten([styles.link, { borderLeftColor: active ? colors.borderStrong : 'transparent' }])}>
               <Text variant={active ? 'bodyEmphasis' : 'body'} color={active ? 'textPrimary' : 'textSecondary'}>
                 {tab.label}
               </Text>
