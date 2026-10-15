@@ -7,16 +7,15 @@ not "No sleep recorded". A night with no sleep data at all stays "no_data".
 
 from datetime import date, datetime, timedelta
 
-import api
-import db
-import explain
 import main
-import processing
-from apple_export import import_export
 from conftest import ROOT
 from fastapi.testclient import TestClient
 
 from agent_testing.scenario_builder import build, load_spec
+from app.core import db
+from app.readiness import explain, scoring
+from app.services import processing
+from app.services.apple_export import import_export
 
 client = TestClient(main.app)
 SCENARIOS = ROOT / "preprocessing" / "agent_testing" / "scenarios"
@@ -70,10 +69,13 @@ def test_night_without_sleep_is_still_no_data(tmp_path):
 
 
 def test_readiness_status_rules():
-    assert api.readiness({"usable_sleep": True})["status"] == "building_baseline"
-    assert api.readiness({"usable_sleep": False, "tst_min": 150.0, "flag_short_sleep": True})["status"] == "short_sleep"
+    assert scoring.readiness({"usable_sleep": True})["status"] == "building_baseline"
     assert (
-        api.readiness({"usable_sleep": False, "tst_min": float("nan"), "flag_short_sleep": False})["status"]
+        scoring.readiness({"usable_sleep": False, "tst_min": 150.0, "flag_short_sleep": True})["status"]
+        == "short_sleep"
+    )
+    assert (
+        scoring.readiness({"usable_sleep": False, "tst_min": float("nan"), "flag_short_sleep": False})["status"]
         == "no_data"
     )
 

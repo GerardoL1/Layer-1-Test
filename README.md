@@ -86,10 +86,10 @@ These work, but are clearly marked in code and in the API (`"placeholder": true`
 
 | What | Current placeholder | Where |
 |---|---|---|
-| Readiness score | 50 + 10 × average of the z-scores (HRV, sleep time and efficiency up; resting HR and fragmentation down), clipped 0–100 | `server/api.py` |
-| Low / Moderate / Ready cut-offs | 40 / 70 | `server/api.py` |
-| "Your usual" range and Worse / Usual / Better | Baseline mean ± 1 SD | `server/api.py` |
-| Verdict, reason and Trends sentences | Simple templates, to be written by the LLM | `server/explain.py` |
+| Readiness score | 50 + 10 × average of the z-scores (HRV, sleep time and efficiency up; resting HR and fragmentation down), clipped 0–100 | `server/app/readiness/scoring.py` |
+| Low / Moderate / Ready cut-offs | 40 / 70 | `server/app/readiness/scoring.py` |
+| "Your usual" range and Worse / Usual / Better | Baseline mean ± 1 SD | `server/app/readiness/usual.py` |
+| Verdict, reason and Trends sentences | Simple templates, to be written by the LLM | `server/app/readiness/explain.py` |
 | Morning check-in, reminder, export, delete | Shown as "Coming soon" | `mobile/` |
 
 ## Tests
@@ -150,7 +150,7 @@ Never commit real health data. Only the mock exports in `preprocessing/sample_da
 ## Next steps
 
 - Team decision on the readiness weights and cut-offs, then the ML readiness model
-- LLM explanations (replace `server/explain.py`)
+- LLM explanations (replace `server/app/readiness/explain.py`)
 - Morning check-in (training labels), data export and delete
 - Layer 2 (sEMG patch) and Layer 3 (sweat biosensor), the Muscles and Train tabs
 - Figma: add the Update time row, Update now and Import Apple Health export

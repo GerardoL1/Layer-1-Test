@@ -6,8 +6,8 @@ Load an Apple Health export from the command line (handy for very large files).
 
 import argparse
 
-import db
-from apple_export import import_export
+from app.core import db
+from app.services.apple_export import import_export
 
 parser = argparse.ArgumentParser(description="Import an Apple Health export into the platform database.")
 parser.add_argument("path", help="export.zip or export.xml from the Health app")

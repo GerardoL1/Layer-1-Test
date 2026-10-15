@@ -9,11 +9,12 @@ import re
 import threading
 from datetime import date, datetime, timezone
 
-import db
 import main
-import processing
 from conftest import ROOT
 from fastapi.testclient import TestClient
+
+from app.core import db
+from app.services import processing
 
 client = TestClient(main.app)
 

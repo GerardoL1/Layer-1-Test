@@ -15,10 +15,10 @@ import threading
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-import db
 import numpy as np
 import pandas as pd
 
+from app.core import db
 from layer1 import config as C
 from layer1 import incremental as I
 from layer1 import pipeline as P

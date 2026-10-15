@@ -17,8 +17,8 @@ SAMPLES = {
 }
 
 # Create the tables up front, so any test file can run on its own.
-import db  # noqa: E402
-import processing  # noqa: E402
+from app.core import db  # noqa: E402
+from app.services import processing  # noqa: E402
 
 db.init_db()
 processing.init_db()

@@ -9,13 +9,13 @@ import io
 import json
 import zipfile
 
-import apple_export
-import db
-import limits
 import main
 import pytest
 from conftest import SAMPLE_DATA, SAMPLES
 from fastapi.testclient import TestClient
+
+from app.core import db, limits
+from app.services import apple_export
 
 client = TestClient(main.app)
 

@@ -5,14 +5,14 @@ database comes out in exactly the shape the tested pipeline expects.
     python -m pytest -q tests
 """
 
-import db
 import main
 import pandas as pd
 import pytest
-from apple_export import import_export
 from conftest import SAMPLE_DATA, SAMPLES
 from fastapi.testclient import TestClient
 
+from app.core import db
+from app.services.apple_export import import_export
 from layer1 import pipeline as P
 
 client = TestClient(main.app)
@@ -175,7 +175,7 @@ def test_import_route_runs_in_background():
 
 
 def test_import_reports_position_through_the_file(monkeypatch):
-    import apple_export
+    from app.services import apple_export
 
     monkeypatch.setattr(apple_export, "TICK_EVERY", 500)  # the mock file is small, so report often
     seen = []

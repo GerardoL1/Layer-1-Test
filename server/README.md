@@ -22,6 +22,19 @@ For the iPhone (or Health Auto Export / Shortcuts) to reach the server, both mus
 computer's IP (Windows: `ipconfig`, look for IPv4 Address. Mac: `ipconfig getifaddr en0`), then open
 `http://<IP>:8000/health` in the iPhone's Safari. If it doesn't load, allow Python through the computer's firewall.
 
+## Code layout
+
+`main.py` only puts the app together. Everything else is in `app/`:
+
+| Folder | What's in it |
+|---|---|
+| `app/core/` | `db.py` (tables, saving and loading readings), `limits.py` (size limits and their messages), `json_values.py` |
+| `app/schemas/` | Request bodies: `readings.py` (what the iPhone app sends), `settings.py` (with its checks) |
+| `app/middleware/` | `size_limit.py`, the 413 for requests over the limit |
+| `app/services/` | The work behind the endpoints: `processing.py`, `apple_export.py` (reads export files), `health_auto_export.py`, `shortcuts.py`, `import_jobs.py`, `readings.py`, `users.py`, `update_schedule.py` |
+| `app/readiness/` | Placeholders: `scoring.py` (readiness score and cut-offs), `usual.py` (usual range, Worse / Usual / Better), `explain.py` (wording) |
+| `app/routers/` | The endpoints, one file per screen or data route: `today`, `trends`, `profile`, `settings`, `update_now`, `demo`, `readings`, `imports`, `health` |
+
 ## What it stores
 
 | Table | What's in it |
@@ -35,7 +48,7 @@ computer's IP (Windows: `ipconfig`, look for IPv4 Address. Mac: `ipconfig getifa
 Readings are keyed by user + ID, and repeats are ignored, so sending the same data twice is always safe.
 Readings from other apps and devices are stored too: the pipeline's cleaning step removes them, exactly as tested.
 
-## How processing works (`processing.py`)
+## How processing works (`app/services/processing.py`)
 
 It reuses `DailyProcessor` from `preprocessing/layer1/incremental.py`, so results equal the tested pipeline.
 
@@ -45,7 +58,7 @@ It reuses `DailyProcessor` from `preprocessing/layer1/incremental.py`, so result
 - Each run processes every ready night not yet processed, redoes the 2 nights before (late data), and saves
   the nightly table.
 
-## API for the app (`api.py`)
+## API for the app (`app/routers/`)
 
 Every endpoint takes `?user_id=<tester name>`. Unknown users get 404.
 
@@ -59,9 +72,10 @@ Every endpoint takes `?user_id=<tester name>`. Unknown users get 404.
 | `POST /api/demo/sam\|alex\|jordan` | Loads a demo person (`demo-sam` ...) with the clock fixed at 1 Oct 2026, 8:30 am. Testing only |
 
 Placeholders, marked `"placeholder": true` in responses: the readiness formula and 40 / 70 cut-offs and the usual
-range (top of `api.py`), and all wording (`explain.py`, to be replaced by the LLM).
+range (`app/readiness/scoring.py` and `usual.py`), and all wording (`app/readiness/explain.py`, to be replaced by
+the LLM).
 
-## The four ways data arrives (`main.py`)
+## The four ways data arrives (`app/routers/readings.py` and `imports.py`)
 
 | Route | Endpoint | Time zone from |
 |---|---|---|

@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pandas as pd
 
-# Tests point this somewhere else.
-DB_PATH = os.environ.get("RECOVERY_DB", str(Path(__file__).with_name("platform.db")))
+# Tests point this somewhere else. The default sits in server/, next to main.py.
+DB_PATH = os.environ.get("RECOVERY_DB", str(Path(__file__).resolve().parents[2] / "platform.db"))
 
 METRICS = {"heart_rate": "count/min", "resting_heart_rate": "count/min", "hrv_sdnn": "ms"}
 STAGES = ("in_bed", "awake", "core", "deep", "rem", "asleep_unspecified")

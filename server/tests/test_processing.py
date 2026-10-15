@@ -7,14 +7,14 @@ database, several times a day, gives the same table as processing everything at 
 
 from datetime import datetime, time, timedelta, timezone
 
-import db
 import main
 import pandas as pd
-import processing
 import pytest
 from conftest import SAMPLE_DATA, SAMPLES
 from fastapi.testclient import TestClient
 
+from app.core import db
+from app.services import processing
 from layer1 import incremental as I
 from layer1 import pipeline as P
 

@@ -1,5 +1,5 @@
 /**
- * Talks to the recovery server (server/api.py). Types mirror its JSON responses.
+ * Talks to the recovery server (server/app/routers/). Types mirror its JSON responses.
  */
 
 export type ReadinessStatus = 'low' | 'moderate' | 'ready' | 'building_baseline' | 'short_sleep' | 'no_data';

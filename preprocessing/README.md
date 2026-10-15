@@ -3,7 +3,7 @@
 A standalone tool that takes **one Apple Health export** and shows, step by step, how it becomes an
 **ML-ready table: one row per person per night**. Nothing is trained here.
 
-The server runs this same code (`server/processing.py` uses `layer1/incremental.py`), so the app gets exactly
+The server runs this same code (`server/app/services/processing.py` uses `layer1/incremental.py`), so the app gets exactly
 these numbers. This folder is where the logic is changed and tested.
 
 ```

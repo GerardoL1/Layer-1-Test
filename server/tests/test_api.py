@@ -6,14 +6,14 @@ App endpoints: Today, Trends, Profile, Settings, Update now and demo mode.
 
 from datetime import datetime, timedelta
 
-import api
-import db
 import main
 import pandas as pd
 import pytest
 from conftest import SAMPLE_DATA, SAMPLES
 from fastapi.testclient import TestClient
 
+from app.core import db
+from app.readiness import scoring
 from layer1 import pipeline as P
 
 client = TestClient(main.app)
@@ -53,9 +53,9 @@ def test_overreach_scores_lower_than_steady(demo):
 def test_readiness_placeholder_math():
     row = {"z_hrv": 1.0, "z_rhr": -1.0, "z_tst": 0.0, "z_eff": float("nan"), "z_frag": 1.0, "usable_sleep": True}
     # (1 + 1 + 0 - 1) / 4 = 0.25 -> 50 + 2.5 = 52.5 -> 52 (rounded to even)
-    assert api.readiness(row) == {"score": 52, "status": "moderate", "z_count": 4, "placeholder": True}
-    assert api.readiness({"usable_sleep": True})["status"] == "building_baseline"
-    assert api.readiness({"z_hrv": -9.0})["score"] == 0
+    assert scoring.readiness(row) == {"score": 52, "status": "moderate", "z_count": 4, "placeholder": True}
+    assert scoring.readiness({"usable_sleep": True})["status"] == "building_baseline"
+    assert scoring.readiness({"z_hrv": -9.0})["score"] == 0
 
 
 @pytest.mark.parametrize("n", [14, 28, 90])
@@ -138,7 +138,7 @@ def test_update_now_from_the_app():
     clock = (woke + pd.Timedelta(minutes=10)).to_pydatetime()
     assert clock.hour < 8
 
-    from apple_export import import_export
+    from app.services.apple_export import import_export
 
     with db.connect() as conn:
         conn.execute("INSERT INTO users (user_id, clock_local) VALUES (?, ?)", (user, clock.isoformat()))
@@ -186,7 +186,7 @@ def test_trend_summaries(demo):
 
 
 def test_explain_templates():
-    import explain
+    from app.readiness import explain
 
     verdict, reason = explain.today_text("building_baseline", [], 3, 7)
     assert verdict == "Still learning your normal." and "3 of 7" in reason
