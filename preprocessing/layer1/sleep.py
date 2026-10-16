@@ -54,14 +54,20 @@ def resolve_overlaps(stages: pd.DataFrame) -> pd.DataFrame:
         else:
             pieces.append((win, lo, hi))
 
+    # A trimmed piece's new start or end is always where another piece starts or ends, and that
+    # piece recorded the local time there. Using it stays right even across a clock change.
+    local_at: dict = {}
+    for side in ("start", "end"):
+        for moment, local in zip(st[f"{side}_utc"], st[f"{side}_local"]):
+            local_at.setdefault(moment, local)
+
     rows = []
     for i, s, e in pieces:
         r = st.iloc[i].copy()
-        # Keep each piece's own local offset for the new start and end (it may cross a clock change).
         if s != r["start_utc"]:
-            r["start_local"] = s.tz_localize(None) + (r["start_local"] - r["start_utc"].tz_localize(None))
+            r["start_local"] = local_at[s]
         if e != r["end_utc"]:
-            r["end_local"] = e.tz_localize(None) + (r["end_local"] - r["end_utc"].tz_localize(None))
+            r["end_local"] = local_at[e]
         r["start_utc"], r["end_utc"] = s, e
         rows.append(r)
     out = pd.DataFrame(rows, columns=st.columns).reset_index(drop=True)
@@ -72,7 +78,7 @@ def find_sleep_windows(stages: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame
     """
     Step 3. Group sleep pieces into sessions and choose each night's main sleep.
 
-    A new session starts when the gap since the previous piece exceeds SESSION_GAP_MIN.
+    A new session starts when the gap since the previous piece reaches SESSION_GAP_MIN.
     Each session's window runs from the first asleep piece (onset) to the last asleep
     piece (final awakening); awake pieces before onset or after final awakening are ignored.
 
@@ -101,7 +107,7 @@ def find_sleep_windows(stages: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame
     gap = pd.Timedelta(minutes=C.SESSION_GAP_MIN)
     session_ids, current, latest_end = [], 0, None
     for start, end in zip(st["start_utc"], st["end_utc"]):
-        if latest_end is not None and start - latest_end > gap:
+        if latest_end is not None and start - latest_end >= gap:
             current += 1
         session_ids.append(current)
         latest_end = end if latest_end is None else max(latest_end, end)

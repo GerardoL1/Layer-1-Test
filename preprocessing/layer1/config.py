@@ -48,7 +48,8 @@ MIN_SLEEP_SEGMENT_SEC = 30
 MAX_SLEEP_SEGMENT_HOURS = 16
 
 # ---------------------------------------------------------------- 3. Sleep window
-# Sleep pieces separated by more than this gap belong to different sleep sessions.
+# Sleep pieces this many minutes apart or more belong to different sleep sessions
+# (the spec: pieces less than 60 min apart form one session).
 SESSION_GAP_MIN = 60
 # A night is labelled by the evening it starts: onset minus this many hours, then take the date.
 # 23:30 -> same date; 01:30 -> previous date. Daytime naps land on the following night's label.

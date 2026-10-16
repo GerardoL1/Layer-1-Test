@@ -101,6 +101,20 @@ def test_clean_rules():
     assert len(removed) == 4
 
 
+def test_a_record_dated_in_the_future_does_not_hide_the_real_data():
+    # One bad date (2099) used to move the "last 90 days" window past everything real.
+    loaded, _ = P.load_export(export(*night("2026-09-01", "2026-09-02"), hr("2099-01-01 10:00:00", 60)), days=90)
+    assert (loaded["kind"] == "sleep").sum() == 3
+
+
+def test_the_days_window_never_cuts_a_night_in_half():
+    # The newest record ends at 00:30, so counting back exactly 2 days lands in the middle of a night.
+    recs = [*night("2026-09-01", "2026-09-02"), *night("2026-09-02", "2026-09-03"), hr("2026-09-04 00:30:00", 60)]
+    nights = P.run_pipeline(export(*recs), days=2).nights.set_index("night_date")
+    first = nights.loc[pd.Timestamp("2026-09-01").date()]
+    assert first["tst_min"] == pytest.approx(410)  # 240 core + 170 deep, the whole night
+
+
 def test_zip_without_export_xml_is_a_clear_error(tmp_path):
     z = tmp_path / "wrong.zip"
     with zipfile.ZipFile(z, "w") as zf:
@@ -131,6 +145,16 @@ def test_night_label_and_trimmed_window():
 def test_sleep_starting_after_midnight_belongs_to_previous_evening():
     r = P.run_pipeline(export(sleep("2026-09-02 01:30:00", "2026-09-02 07:00:00", "AsleepCore")), days=None)
     assert str(r.nights.iloc[0]["night_date"]) == "2026-09-01"
+
+
+@pytest.mark.parametrize("gap, sessions", [(59, 1), (60, 2), (61, 2)])
+def test_pieces_less_than_60_minutes_apart_form_one_session(gap, sessions):
+    second = pd.Timestamp("2026-09-02 02:00:00") + pd.Timedelta(minutes=gap)
+    stages = [
+        sleep("2026-09-01 23:00:00", "2026-09-02 02:00:00", "AsleepCore"),
+        sleep(f"{second}", f"{second + pd.Timedelta(hours=3)}", "AsleepCore"),
+    ]
+    assert len(P.run_pipeline(export(*stages), days=None).sessions) == sessions
 
 
 def test_nap_is_ignored():

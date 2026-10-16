@@ -106,6 +106,26 @@ def test_split_pieces_keep_their_local_times():
     ]
 
 
+def test_split_pieces_keep_true_local_times_across_a_clock_change():
+    # London falls back at 01:00 UTC on 25 Oct 2026. A second watch's deep piece (01:30 BST to
+    # 01:20 GMT) sits inside an unspecified piece that runs from 23:00 BST to 07:00 GMT.
+    df = records(
+        [
+            ("asleep_unspecified", "2026-10-24 23:00", "2026-10-25 07:00"),
+            ("deep", "2026-10-25 01:30", "2026-10-25 01:20", "Sam’s Apple Watch 2"),
+        ],
+        offset="+0100",
+    )
+    df["end_utc"] = df["end_local"].dt.tz_localize("UTC")  # both pieces end after the change (+0000)
+    st = P.resolve_overlaps(P.clean(df)[0]["sleep_stages"])
+    got = [(r.stage, str(r.start_local), str(r.end_local)) for r in st.sort_values("start_utc").itertuples()]
+    assert got == [
+        ("asleep_unspecified", "2026-10-24 23:00:00", "2026-10-25 01:30:00"),
+        ("deep", "2026-10-25 01:30:00", "2026-10-25 01:20:00"),
+        ("asleep_unspecified", "2026-10-25 01:20:00", "2026-10-25 07:00:00"),
+    ]
+
+
 def test_no_overlap_is_left_untouched():
     st = P.clean(records(BASE))[0]["sleep_stages"]
     assert P.resolve_overlaps(st) is st

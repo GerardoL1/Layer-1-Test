@@ -101,8 +101,18 @@ def load_export(source, days: int | None = C.DEFAULT_DAYS) -> tuple[pd.DataFrame
     records["stage"] = records["raw_value"].map(C.SLEEP_VALUES).where(records["kind"] == "sleep")
 
     if days:
-        cutoff = records["end_utc"].max() - pd.Timedelta(days=days)
-        records = records[records["start_utc"] >= cutoff]
+        # Count back from the newest record that isn't in the future. One record with a bad date
+        # (say 2099) would otherwise push the window past all the real data.
+        not_future = records["end_utc"] <= pd.Timestamp.now(tz="UTC") + pd.Timedelta(days=1)
+        newest = records.loc[not_future].sort_values("end_utc").iloc[-1] if not_future.any() else None
+        if newest is None:
+            newest = records.sort_values("end_utc").iloc[-1]
+        # Start the window at local noon, where one night's label ends and the next begins
+        # (nights are labelled onset minus 12 h), so the first night is never cut in half.
+        start = newest["end_local"] - pd.Timedelta(days=days)
+        noon = start.normalize() + pd.Timedelta(hours=C.NIGHT_SHIFT_HOURS)
+        cutoff = noon if noon <= start else noon - pd.Timedelta(days=1)
+        records = records[records["start_local"] >= cutoff]
 
     records = records.drop(columns=["start_str", "end_str"]).sort_values("start_utc").reset_index(drop=True)
     return records, type_counts
