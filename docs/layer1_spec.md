@@ -63,6 +63,10 @@ Why two fragmentation columns: without In Bed data, time in bed = TST + awake mi
   flagged row at the same time.
 - **Update now**: the user can tap it earlier. Last night is then processed straight away if its main sleep has
   already ended; tapping before bed never creates tonight's row.
+  - Ended means nothing asleep has been recorded for 30 minutes (`UPDATE_NOW_QUIET_MIN = 30`). A tap in the
+    middle of the night, before the watch has synced the rest of the sleep, waits instead of processing half a
+    night.
+  - Only nights before today count, so a nap earlier today never becomes tonight's row.
 - Each run processes every ready night not yet processed (catches up skipped days). It also redoes the 2 nights
   processed before (`RECOMPUTE_NIGHTS = 3`), plus every night the previous run processed for the first time if it
   is from the last 3 days (`LATE_DATA_DAYS`), to pick up data that synced late.
