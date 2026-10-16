@@ -21,9 +21,23 @@ router = APIRouter(prefix=USER + "/imports", tags=["imports"])
 
 def start_import(background: BackgroundTasks, user_id: str, file: UploadFile, since_days: int) -> dict:
     """Saves the upload, checks it, and queues the import. Returns the new import's status."""
-    if import_jobs.is_busy():
-        raise HTTPException(409, "An import is already running. Wait for it to finish.")
     filename = file.filename or ""
+    try:
+        previous = import_jobs.reserve(user_id, filename)
+    except import_jobs.Busy:
+        raise HTTPException(409, "An import is already running. Wait for it to finish.") from None
+    try:
+        path = _save_upload(file, filename)
+    except Exception:
+        import_jobs.release(previous)
+        raise
+    job = import_jobs.uploaded(path.stat().st_size)
+    background.add_task(import_jobs.run_import, str(path), user_id, since_days or None)
+    return job
+
+
+def _save_upload(file: UploadFile, filename: str) -> Path:
+    """Copies the upload to a temporary file and checks it's a Health export we can read."""
     if not filename.lower().endswith((".zip", ".xml")):
         raise HTTPException(400, "Upload the export.zip (or export.xml) from the Health app.")
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=Path(filename).suffix)
@@ -39,9 +53,7 @@ def start_import(background: BackgroundTasks, user_id: str, file: UploadFile, si
         raise HTTPException(
             400, "That zip file can't be opened. Upload the export.zip made by the Health app."
         ) from None
-    job = import_jobs.queue(user_id, filename, Path(tmp.name).stat().st_size)
-    background.add_task(import_jobs.run_import, tmp.name, user_id, since_days or None)
-    return job
+    return Path(tmp.name)
 
 
 @router.post("", status_code=202, response_model=ImportJob)

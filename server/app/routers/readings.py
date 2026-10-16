@@ -73,7 +73,12 @@ async def add_health_auto_export(user_id: str, request: Request, background: Bac
       http://<computer-ip>:8000/api/v1/users/<tester name>/readings/health-auto-export
     Its dates carry the UTC offset, e.g. '2026-09-30 23:14:05 -0700'.
     """
-    parsed = health_auto_export.parse_payload(await request.json(), user_id)
+    try:
+        parsed = health_auto_export.parse_payload(await request.json(), user_id)
+    except health_auto_export.BadPayload as e:
+        raise HTTPException(400, str(e)) from None
+    except ValueError:  # not JSON at all, or an empty body
+        raise HTTPException(400, "The body isn't JSON. Set Health Auto Export's format to JSON.") from None
     added = save_readings(background, user_id, parsed.samples, parsed.stages)
     log.info(
         "health-auto-export %s: %d samples, %d sleep stages, %d new, %d unreadable dates, ignored: %s",

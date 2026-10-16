@@ -24,7 +24,10 @@ def shortcut_date(text: str) -> tuple[int, int]:
     offset = dt.utcoffset()
     if offset is None:
         raise ValueError("date has no time zone, set the date format to ISO 8601 with time")
-    return int(dt.timestamp() * 1000), int(offset.total_seconds() // 60)
+    minutes = int(offset.total_seconds() // 60)
+    if not db.valid_offset(minutes):
+        raise ValueError(f"impossible UTC offset: {text}")
+    return int(dt.timestamp() * 1000), minutes
 
 
 def sleep_stage(value: str) -> str | None:

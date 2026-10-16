@@ -29,16 +29,32 @@ class Parsed:
     samples: list[tuple] = field(default_factory=list)
     stages: list[tuple] = field(default_factory=list)
     ignored: set[str] = field(default_factory=set)  # metric names we don't use, like steps
-    bad: int = 0  # rows whose dates couldn't be read
+    bad: int = 0  # rows that couldn't be read: bad dates, impossible offsets, values that aren't numbers
 
 
-def parse_payload(payload: dict, user_id: str) -> Parsed:
+class BadPayload(ValueError):
+    """The body isn't shaped like Health Auto Export's JSON at all."""
+
+
+def parse_payload(payload, user_id: str) -> Parsed:
+    data = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(payload, dict) or not isinstance(data or {}, dict):
+        raise BadPayload("Expected Health Auto Export's JSON: an object with data.metrics.")
+    metrics = (data or {}).get("metrics") or []
+    if not isinstance(metrics, list):
+        raise BadPayload("data.metrics should be a list.")
     out = Parsed()
-    metrics = (payload.get("data") or {}).get("metrics") or []
 
     for m in metrics:
+        if not isinstance(m, dict):
+            out.bad += 1
+            continue
         name = m.get("name", "")
         rows = m.get("data") or []
+        if not isinstance(rows, list):
+            out.bad += 1
+            continue
+        rows = _objects(rows, out)
 
         if name in HAE_METRICS:
             metric = HAE_METRICS[name]
@@ -49,12 +65,13 @@ def parse_payload(payload: dict, user_id: str) -> Parsed:
                     continue
                 try:
                     t, tz = parse_date(row["date"])
-                except ValueError:
+                    value = float(value)
+                except (TypeError, ValueError):
                     out.bad += 1
                     continue
                 source = row.get("source")
                 out.samples.append(
-                    (db.sample_id(user_id, metric, t, t, value, source), metric, float(value), t, t, tz, source)
+                    (db.sample_id(user_id, metric, t, t, value, source), metric, value, t, t, tz, source)
                 )
 
         elif name == "sleep_analysis":
@@ -65,12 +82,23 @@ def parse_payload(payload: dict, user_id: str) -> Parsed:
                     continue
                 try:
                     (s, s_tz), (e, e_tz) = parse_date(row["startDate"]), parse_date(row["endDate"])
-                except ValueError:
+                except (TypeError, ValueError):
                     out.bad += 1
                     continue
                 source = row.get("source")
                 out.stages.append((db.sleep_id(user_id, stage, s, e, source), stage, s, e, s_tz, e_tz, source))
         else:
-            out.ignored.add(name)
+            out.ignored.add(str(name))
 
     return out
+
+
+def _objects(rows: list, out: Parsed) -> list[dict]:
+    """The rows that are JSON objects. Anything else is counted as unreadable."""
+    kept = []
+    for row in rows:
+        if isinstance(row, dict):
+            kept.append(row)
+        else:
+            out.bad += 1
+    return kept

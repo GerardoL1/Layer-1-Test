@@ -76,7 +76,10 @@ def parse_date(date_str: str) -> tuple[int, int]:
     offset = dt.utcoffset()
     if offset is None:
         raise ValueError(f"date has no UTC offset: {date_str}")
-    return int(dt.timestamp() * 1000), int(offset.total_seconds() // 60)
+    minutes = int(offset.total_seconds() // 60)
+    if not db.valid_offset(minutes):
+        raise ValueError(f"impossible UTC offset: {date_str}")
+    return int(dt.timestamp() * 1000), minutes
 
 
 def xml_size(path: str | Path) -> int:
