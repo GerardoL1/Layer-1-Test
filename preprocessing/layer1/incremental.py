@@ -71,8 +71,9 @@ def latest_ready_night(
     The newest night that is ready to process at sync_time.
 
     Normally: every night whose next day has passed the user's update time.
-    With update_now (the user tapped "Update now"): also any later night whose main sleep has
-    already ended by sync_time.
+    With update_now (the user tapped "Update now"): also last night, once its main sleep has
+    ended, meaning nothing asleep for UPDATE_NOW_QUIET_MIN minutes. Never tonight: a nap
+    earlier today is labelled with tonight's date, so only nights before today count.
     """
     ready = scheduled_ready_night(sync_time, update_time)
     if not update_now or sleep_stages is None or sleep_stages.empty:
@@ -84,9 +85,14 @@ def latest_ready_night(
     sessions, st = P.find_sleep_windows(recent)
     if sessions.empty:
         return ready
+    now = pd.Timestamp(sync_time)
     session_end = st.groupby("session_id")["end_local"].max()  # includes trailing awake pieces
+    asleep_end = st[st["stage"].isin(C.ASLEEP_STAGES)].groupby("session_id")["end_local"].max()
+    quiet = pd.Timedelta(minutes=C.UPDATE_NOW_QUIET_MIN)
     for _, s in sessions[sessions["is_main"]].sort_values("night_date").iterrows():
-        if ready < s["night_date"] <= sync_time.date() and session_end[s["session_id"]] <= pd.Timestamp(sync_time):
+        sid = s["session_id"]
+        ended = session_end[sid] <= now and sid in asleep_end and asleep_end[sid] + quiet <= now
+        if ready < s["night_date"] < sync_time.date() and ended:
             ready = s["night_date"]
     return ready
 

@@ -24,7 +24,8 @@ def count_awakenings(awake: pd.DataFrame, lo, hi) -> tuple[int, float]:
     a = awake[(awake["end_utc"] > lo) & (awake["start_utc"] < hi)].sort_values("start_utc")
     bouts: list[list[pd.Timestamp]] = []
     for s, e in zip(a["start_utc"].clip(lower=lo), a["end_utc"].clip(upper=hi)):
-        if bouts and s <= bouts[-1][1] + pd.Timedelta(seconds=60):
+        # Only pieces that touch or overlap merge. Sleep between two awake pieces stays sleep.
+        if bouts and s <= bouts[-1][1]:
             bouts[-1][1] = max(bouts[-1][1], e)
         else:
             bouts.append([s, e])

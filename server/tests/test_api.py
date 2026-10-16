@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 
 from app.core import db
 from app.readiness import scoring
+from layer1 import config as C
 from layer1 import pipeline as P
 
 client = TestClient(main.app)
@@ -134,7 +135,8 @@ def test_update_now_from_the_app():
         & (recs["start_local"] >= sleep["start_local"].min())
         & (recs["start_local"] <= pd.Timestamp(day) + pd.Timedelta(hours=14))
     ]["end_local"].max()
-    clock = (woke + pd.Timedelta(minutes=10)).to_pydatetime()
+    # Update now needs the sleep to have been over for a while (UPDATE_NOW_QUIET_MIN).
+    clock = (woke + pd.Timedelta(minutes=C.UPDATE_NOW_QUIET_MIN + 10)).to_pydatetime()
     assert clock.hour < 8
 
     from app.services.apple_export import import_export

@@ -100,7 +100,7 @@ def test_night_waits_for_the_update_time():
 
 def test_update_now_processes_last_night_early():
     recs, night, woke = _morning()
-    when = woke + timedelta(minutes=5)
+    when = woke + timedelta(minutes=C.UPDATE_NOW_QUIET_MIN + 1)
     assert when < _at(night + timedelta(days=1), C.DEFAULT_UPDATE_TIME)  # before the update time
     _, normal = _sync_at(recs, when)
     assert night not in normal.new_nights
@@ -108,11 +108,45 @@ def test_update_now_processes_last_night_early():
     assert night in tapped.new_nights
 
 
+def test_update_now_waits_until_sleep_has_been_over_for_a_while():
+    recs, night, woke = _morning()
+    _, too_soon = _sync_at(recs, woke + timedelta(minutes=5), update_now=True)
+    assert night not in too_soon.new_nights
+
+
 def test_update_now_before_bed_does_not_create_tonight():
     recs, night, _ = _morning()
     evening = _at(night + timedelta(days=1), (21, 0))  # the next evening, not asleep yet
     _, report = _sync_at(recs, evening, update_now=True)
     assert report.ready_through == night  # last night yes, tonight no
+
+
+def _stages(pieces):
+    """Cleaned sleep stages from (stage, start, end) pieces with local times like '2026-09-01 23:00'."""
+    from test_overlaps import records
+
+    return P.clean(records(pieces))[0]["sleep_stages"]
+
+
+def test_update_now_in_the_evening_ignores_a_nap_from_this_afternoon():
+    # A 14:00 nap is labelled with tonight's date. Update now at 21:00 must not turn it into tonight's row.
+    stages = _stages(
+        [
+            ("core", "2026-09-01 23:00", "2026-09-02 06:00"),
+            ("core", "2026-09-02 14:00", "2026-09-02 14:40"),
+        ]
+    )
+    ready = I.latest_ready_night(datetime(2026, 9, 2, 21, 0), stages, update_now=True)
+    assert ready == datetime(2026, 9, 1).date()
+
+
+def test_update_now_in_the_middle_of_the_night_waits():
+    # The watch has only synced sleep up to 02:50. A tap at 03:00 must not process half a night.
+    stages = _stages([("core", "2026-09-01 23:00", "2026-09-02 02:50")])
+    at_three = I.latest_ready_night(datetime(2026, 9, 2, 3, 0), stages, update_now=True)
+    assert at_three < datetime(2026, 9, 1).date()
+    later = I.latest_ready_night(datetime(2026, 9, 2, 3, 25), stages, update_now=True)
+    assert later == datetime(2026, 9, 1).date()
 
 
 def test_users_own_update_time():

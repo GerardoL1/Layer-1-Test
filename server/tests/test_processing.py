@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 
 from app.core import db
 from app.services import processing
+from layer1 import config as C
 from layer1 import incremental as I
 from layer1 import pipeline as P
 
@@ -137,8 +138,11 @@ def test_update_time_and_update_now():
 
     early = processing.process_user(user, to_utc(woke + timedelta(minutes=5), -420))
     assert night not in early.new_nights  # before 17:00, last night waits
-    now = processing.process_user(user, to_utc(woke + timedelta(minutes=6), -420), update_now=True)
-    assert night in now.new_nights  # "Update now" after waking processes it
+    too_soon = processing.process_user(user, to_utc(woke + timedelta(minutes=6), -420), update_now=True)
+    assert night not in too_soon.new_nights  # still might be asleep, the watch syncs in pieces
+    later = woke + timedelta(minutes=C.UPDATE_NOW_QUIET_MIN + 1)
+    now = processing.process_user(user, to_utc(later, -420), update_now=True)
+    assert night in now.new_nights  # "Update now" once the sleep has been over for a while
 
 
 def test_nights_follow_the_users_time_zone():
@@ -168,3 +172,36 @@ def test_new_data_starts_processing():
     recs, _ = P.load_export(SAMPLE_DATA / SAMPLES["jordan"], days=None)
     expected = I.full_reprocessing(recs, "auto", last_ready("auto"))
     assert I.compare(saved_table("auto"), expected).empty
+
+
+# ---------------------------------------------------------------- data arriving in pieces
+
+
+def test_sleep_and_heart_rate_sent_separately_match_one_batch():
+    # A first sync in pieces: all the sleep arrives, someone opens the app, then the heart rate arrives.
+    recs = load("alex")
+    morning = datetime.combine(recs["end_local"].max().date() + timedelta(days=1), time(9))
+    store("split", recs[recs["kind"] == "sleep"])
+    processing.process_user("split", to_utc(morning, -420))
+    store("split", recs[recs["kind"] != "sleep"])
+    processing.process_user("split", to_utc(morning, -420))
+    expected = I.full_reprocessing(recs, "split", last_ready("split"))
+    assert I.compare(saved_table("split"), expected).empty
+
+
+def test_a_read_halfway_through_an_import_is_fixed_by_the_end():
+    from app.services.apple_export import import_export
+
+    read = []
+
+    def someone_opens_the_app(counts):  # called after each saved batch
+        if not read:
+            read.append(1)
+            processing.process_user("halfway")
+
+    with db.connect() as conn:
+        import_export(SAMPLE_DATA / SAMPLES["alex"], conn, "halfway", progress=someone_opens_the_app)
+    assert read
+    processing.process_user("halfway")  # what the import does once every batch is saved
+    expected = I.full_reprocessing(load("alex"), "halfway", last_ready("halfway"))
+    assert I.compare(saved_table("halfway"), expected).empty

@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS users (
     training_days    TEXT,                          -- JSON list of weekdays
     units            TEXT,
     data_changed_ms  INTEGER,                       -- when new readings last arrived
+    changed_from_ms  INTEGER,                       -- local time of the earliest reading added since the last run
     clock_local      TEXT                           -- demo users only: a fixed local clock
 );
 CREATE TABLE IF NOT EXISTS samples (
@@ -86,6 +87,8 @@ def init_db():
         have = {r["name"] for r in conn.execute("PRAGMA table_info(users)")}
         if "clock_local" not in have:
             conn.execute("ALTER TABLE users ADD COLUMN clock_local TEXT")
+        if "changed_from_ms" not in have:
+            conn.execute("ALTER TABLE users ADD COLUMN changed_from_ms INTEGER")
         # Early databases keyed readings by id alone. Rebuild those tables keyed by (user_id, id).
         for table in ("samples", "sleep_stages"):
             key = [
@@ -116,6 +119,21 @@ def valid_offset(minutes) -> bool:
     return isinstance(minutes, int) and MIN_OFFSET_MIN <= minutes <= MAX_OFFSET_MIN
 
 
+def _earliest_new(conn: sqlite3.Connection, table: str, user_id: str, rows, start_at: int, tz_at: int) -> int | None:
+    """Local time (ms) of the earliest row that isn't stored yet, or None when every row is a repeat."""
+    ids = [r[0] for r in rows]
+    stored: set[str] = set()
+    for i in range(0, len(ids), 500):  # SQLite limits how many values one query can take
+        part = ids[i : i + 500]
+        marks = ",".join("?" * len(part))
+        stored.update(
+            r[0]
+            for r in conn.execute(f"SELECT id FROM {table} WHERE user_id = ? AND id IN ({marks})", (user_id, *part))
+        )
+    times = [r[start_at] + r[tz_at] * 60_000 for r in rows if r[0] not in stored]
+    return min(times) if times else None
+
+
 def add_readings(conn: sqlite3.Connection, user_id: str, samples=(), stages=()) -> int:
     """
     Save readings and return how many were new. Repeats are ignored, so sending
@@ -125,6 +143,15 @@ def add_readings(conn: sqlite3.Connection, user_id: str, samples=(), stages=()) 
     stages:  (id, stage, start_ms, end_ms, start_tz_min, end_tz_min, source)
     """
     conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
+    # Processing needs to know how far back the new readings reach, to redo every night they touch.
+    earliest = [
+        t
+        for t in (
+            _earliest_new(conn, "samples", user_id, samples, 3, 5),
+            _earliest_new(conn, "sleep_stages", user_id, stages, 2, 4),
+        )
+        if t is not None
+    ]
     before = conn.total_changes
     conn.executemany(
         "INSERT OR IGNORE INTO samples VALUES (?,?,?,?,?,?,?,?)", [(s[0], user_id, *s[1:]) for s in samples]
@@ -136,6 +163,11 @@ def add_readings(conn: sqlite3.Connection, user_id: str, samples=(), stages=()) 
     if added:
         # Step 2 uses this to reprocess only when something actually changed.
         conn.execute("UPDATE users SET data_changed_ms = ? WHERE user_id = ?", (int(time.time() * 1000), user_id))
+        if earliest:
+            conn.execute(
+                "UPDATE users SET changed_from_ms = MIN(COALESCE(changed_from_ms, ?), ?) WHERE user_id = ?",
+                (min(earliest), min(earliest), user_id),
+            )
     return added
 
 

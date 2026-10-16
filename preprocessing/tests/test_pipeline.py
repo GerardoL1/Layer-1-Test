@@ -155,6 +155,20 @@ def test_touching_awake_pieces_count_as_one_awakening():
     assert row["awakenings"] == 1 and row["waso_min"] == pytest.approx(6)
 
 
+def test_awake_pieces_with_sleep_between_stay_separate():
+    # 40 s awake, 50 s asleep, 40 s awake: neither piece reaches a minute, and the sleep between them stays sleep.
+    stages = [
+        sleep("2026-09-01 23:00:00", "2026-09-02 02:00:00", "AsleepCore"),
+        sleep("2026-09-02 02:00:00", "2026-09-02 02:00:40", "Awake"),
+        sleep("2026-09-02 02:00:40", "2026-09-02 02:01:30", "AsleepCore"),
+        sleep("2026-09-02 02:01:30", "2026-09-02 02:02:10", "Awake"),
+        sleep("2026-09-02 02:02:10", "2026-09-02 06:00:00", "AsleepREM"),
+    ]
+    row = P.run_pipeline(export(*stages), days=None).nights.iloc[0]
+    assert row["awakenings"] == 0
+    assert row["waso_min"] == pytest.approx(80 / 60)
+
+
 # ---------------------------------------------------------------- 4. nightly metrics
 
 

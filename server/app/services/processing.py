@@ -192,12 +192,29 @@ def _dates(text) -> list:
     return [date.fromisoformat(d) for d in json.loads(text or "[]")]
 
 
+def _reaches_back(changed_from_ms: int | None, last) -> bool:
+    """
+    True when readings that arrived since the last run could belong to a night the next run
+    won't redo. That happens when data comes in pieces (a first sync in chunks, an import that
+    someone reads halfway, sleep and heart rate sent separately). Those nights must be rebuilt,
+    or they'd keep what was worked out from half the data.
+    """
+    if changed_from_ms is None or last is None or last["ready_through"] is None:
+        return False
+    # A reading belongs to a night up to a day and a half earlier (nights are labelled onset minus 12 h).
+    earliest_night = (datetime(1970, 1, 1) + timedelta(milliseconds=changed_from_ms) - timedelta(hours=36)).date()
+    # Each run redoes the newest processed night and the RECOMPUTE_NIGHTS - 2 before it.
+    oldest_redone = date.fromisoformat(last["ready_through"]) - timedelta(days=C.RECOMPUTE_NIGHTS - 2)
+    return earliest_night < oldest_redone
+
+
 def process_user(
     user_id: str, now_utc: datetime | None = None, update_now: bool = False, force: bool = False
 ) -> I.RunReport | None:
     """
     Process a user's ready nights with DailyProcessor and save the result.
     Skips the work when nothing changed, unless update_now or force is set.
+    force also starts over from all saved readings instead of the saved nights.
     """
     now_utc = now_utc or utc_now()
     with _lock(user_id), db.connect() as conn:
@@ -212,9 +229,13 @@ def process_user(
             return None
 
         proc = I.DailyProcessor(user_id, update_time=parse_update_time(user["update_time"]))
-        proc.nights = load_nights(conn, user_id)
         last = _last_run(conn, user_id)
-        if last is not None:
+        # Start over when asked to, or when new readings reach back past the nights a run redoes.
+        # Otherwise carry on from the saved nights, which only redoes the last few.
+        rebuild = force or _reaches_back(user["changed_from_ms"], last)
+        if not rebuild:
+            proc.nights = load_nights(conn, user_id)
+        if last is not None and not rebuild:
             # DailyProcessor redoes the nights its previous run added for the first time.
             # The server may run several times a day, so remember the last run that added
             # nights, not just the last run. That only ever redoes more, never less.
@@ -258,6 +279,11 @@ def process_user(
                 json.dumps({d.isoformat(): cols for d, cols in report.changed.items()}),
                 seen_change,
             ),
+        )
+        # These readings are now in the saved nights. Readings that arrived during this run keep
+        # their mark, so the next run still knows how far back they reach.
+        conn.execute(
+            "UPDATE users SET changed_from_ms = NULL WHERE user_id = ? AND data_changed_ms IS ?", (user_id, seen_change)
         )
         report.run = run
         return report

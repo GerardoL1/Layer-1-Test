@@ -96,6 +96,9 @@ MIN_SD_FRACTION_OF_MEAN = 0.02
 DEFAULT_UPDATE_TIME = (8, 0)
 # The user can also tap "Update now" earlier: last night is then processed straight away, as long
 # as its main sleep has ended (so tapping before bed never creates tonight's row early).
+# Ended means nothing asleep was recorded for this many minutes. A tap in the middle of the night,
+# before the watch has synced the rest of the sleep, then waits instead of processing half a night.
+UPDATE_NOW_QUIET_MIN = 30
 # "Recompute the last N nights": each run processes the newest night(s) AND redoes the
 # N - 1 nights processed just before, to pick up data that synced late (HRV, sleep stages and
 # Apple's daily resting HR can arrive a day or more after waking). 1 = never redo anything.
