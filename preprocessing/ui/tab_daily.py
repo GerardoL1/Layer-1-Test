@@ -95,8 +95,14 @@ def render(data: AppData) -> None:
         def run_sync(stt):
             sync = stt["next"]
             arrive = stt["arrive"]
-            m = (arrive <= sync) if stt["prev"] is None else ((arrive > stt["prev"]) & (arrive <= sync))
-            report = stt["proc"].sync(recs_all[m], sync)
+            reports = stt["proc"].reports
+            # A click while the last run was still going interrupts it. If that run already got this
+            # day in, don't sync the same day twice, just move on.
+            if reports and reports[-1].sync_time == sync:
+                report = reports[-1]
+            else:
+                m = (arrive <= sync) if stt["prev"] is None else ((arrive > stt["prev"]) & (arrive <= sync))
+                report = stt["proc"].sync(recs_all[m], sync)
             full = (
                 I.full_reprocessing(recs_all[arrive <= sync], R.person_id, report.ready_through)
                 if report.ready_through

@@ -211,3 +211,17 @@ def test_imports_keep_everything_by_default():
     assert r.status_code == 202
     status = client.get(r.headers["location"]).json()
     assert status["state"] == "done" and status["counts"]["heart_rate"] == 1
+
+
+def test_nights_ready_counts_only_nights_with_sleep():
+    # One night of sleep from weeks ago. Empty rows are kept up to today, but only one night is ready.
+    xml = (
+        '<?xml version="1.0"?><HealthData>'
+        '<Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="Test’s Apple Watch" '
+        'value="HKCategoryValueSleepAnalysisAsleepCore" '
+        'startDate="2026-09-01 23:00:00 -0500" endDate="2026-09-02 06:00:00 -0500"/>'
+        "</HealthData>"
+    )
+    r = client.post("/api/v1/users/one_night/imports", files={"file": ("export.xml", xml.encode(), "text/xml")})
+    status = client.get(r.headers["location"]).json()
+    assert status["state"] == "done" and status["nights_ready"] == 1

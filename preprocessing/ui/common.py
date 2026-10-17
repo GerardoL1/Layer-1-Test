@@ -67,7 +67,8 @@ def style(fig: go.Figure, height: int = 320, legend: bool = True) -> go.Figure:
 def fmt_min(m) -> str:
     if m is None or pd.isna(m):
         return "–"
-    return f"{int(m // 60)}h {int(round(m % 60)):02d}m"
+    m = int(round(m))  # round first, so 59.6 min shows as 1h 00m, never 0h 60m
+    return f"{m // 60}h {m % 60:02d}m"
 
 
 def settings(*names):

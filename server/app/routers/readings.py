@@ -78,7 +78,7 @@ async def add_health_auto_export(user_id: str, request: Request, background: Bac
         parsed = health_auto_export.parse_payload(await request.json(), user_id)
     except health_auto_export.BadPayload as e:
         raise HTTPException(400, str(e)) from None
-    except ValueError:  # not JSON at all, or an empty body
+    except (ValueError, RecursionError):  # not JSON at all, an empty body, or nested too deep to read
         raise HTTPException(400, "The body isn't JSON. Set Health Auto Export's format to JSON.") from None
     added = save_readings(background, user_id, parsed.samples, parsed.stages)
     log.info(

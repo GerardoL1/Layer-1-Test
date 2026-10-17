@@ -2,7 +2,7 @@
  * Small inline editors that open under a list row (Profile and Setup "About you").
  * Kept simple on purpose: chips to pick from, and a text box where a list doesn't fit.
  */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { WEEKDAYS } from '../lib/format';
@@ -36,13 +36,40 @@ export function Chips<T extends string | number>({ options, value, onPick, label
   );
 }
 
+const DAYS_SAVE_DELAY_MS = 600;
+
 export function DaysPicker({ value, onChange }: { value: number[]; onChange: (days: number[]) => void }) {
+  // Quick taps each build on the one before (kept in a ref, so even taps closer together than a
+  // render count), and one save goes out once the taps stop. One save can't arrive out of order.
+  const [days, setDays] = useState(value);
+  const latest = useRef(value);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const save = useRef(onChange);
+  useEffect(() => {
+    save.current = onChange;
+  });
+  // Closing the row before the delay is up still saves.
+  useEffect(() => () => {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      save.current(latest.current);
+    }
+  }, []);
+
+  function toggle(i: number) {
+    const cur = latest.current;
+    const next = cur.includes(i) ? cur.filter((x) => x !== i) : [...cur, i].sort();
+    latest.current = next;
+    setDays(next);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      save.current(latest.current);
+    }, DAYS_SAVE_DELAY_MS);
+  }
   return (
     <View style={styles.chips}>
-      {WEEKDAYS.map((d, i) => (
-        <Chip key={d} label={d} on={value.includes(i)}
-          onPress={() => onChange(value.includes(i) ? value.filter((x) => x !== i) : [...value, i].sort())} />
-      ))}
+      {WEEKDAYS.map((d, i) => <Chip key={d} label={d} on={days.includes(i)} onPress={() => toggle(i)} />)}
     </View>
   );
 }

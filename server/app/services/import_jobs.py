@@ -90,7 +90,11 @@ def run_import(path: str, user_id: str, since_days: int | None):
             IMPORT_STATUS.update(state="processing")
             processing.process_user(user_id)
         with db.connect() as conn:
-            nights = conn.execute("SELECT COUNT(*) FROM nights WHERE user_id = ?", (user_id,)).fetchone()[0]
+            # Nights with sleep recorded. Empty rows are also kept up to today, but those aren't ready nights.
+            nights = conn.execute(
+                "SELECT COUNT(*) FROM nights WHERE user_id = ? AND json_extract(data, '$.tst_min') IS NOT NULL",
+                (user_id,),
+            ).fetchone()[0]
         IMPORT_STATUS.update(state="done", counts=counts, nights_ready=nights)
     except Exception as e:  # report any parsing problem to whoever is polling the status
         saved = (IMPORT_STATUS.get("counts") or {}).get("new")

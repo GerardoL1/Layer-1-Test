@@ -99,11 +99,17 @@ export function TrendLine({ points, height = 90, label, color, lastLabel }: {
             pen = true;
           });
           const lastIndex = points.map((p) => p.value !== null).lastIndexOf(true);
+          // A night between two missing nights has nothing to join to, so a line would leave it invisible.
+          const has = (i: number) => i >= 0 && i < points.length && points[i].value !== null;
+          const lone = points.map((_, i) => i).filter((i) => has(i) && !has(i - 1) && !has(i + 1) && i !== lastIndex);
 
           return (
             <Svg width={w} height={height}>
               {bands.map((b, i) => <Path key={i} d={b} fill={colors.baseline} />)}
               <Path d={d} stroke={color ?? colors.hrv} strokeWidth={1.5} fill="none" strokeLinejoin="round" />
+              {lone.map((i) => (
+                <Circle key={`lone-${i}`} cx={x(i)} cy={y(points[i].value!)} r={dot / 2} fill={color ?? colors.hrv} />
+              ))}
               {lastIndex >= 0 ? (
                 <Circle cx={x(lastIndex)} cy={y(points[lastIndex].value!)} r={dot} fill={color ?? colors.hrv} />
               ) : null}

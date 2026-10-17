@@ -6,9 +6,10 @@ import { Href, router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
-import { makeApi } from '../../api/client';
+import { ApiError, makeApi } from '../../api/client';
 import { Button } from '../../components/Button';
 import { Text } from '../../components/Text';
+import { deviceTimeZone } from '../../lib/timeZone';
 import { errorText } from '../../lib/useLoad';
 import { useSession } from '../../state/session';
 import { useTheme } from '../../theme/theme';
@@ -31,7 +32,16 @@ export function TestBuild({ next = '/today' }: { next?: Href }) {
     setBusy('use');
     setNote(null);
     try {
-      await makeApi(serverUrl, userId).health();
+      const api = makeApi(serverUrl.trim(), userId.trim());
+      await api.health();
+      // A brand-new tester has no data yet. Saving this device's time zone creates them, so the
+      // screens show "No nights yet" instead of errors, and their dates are local from the start.
+      try {
+        await api.settings();
+      } catch (e) {
+        if (!(e instanceof ApiError && e.status === 404)) throw e;
+        await api.saveSettings({ timezone: deviceTimeZone() });
+      }
       await session.update({ serverUrl: serverUrl.trim(), userId: userId.trim() });
       router.replace(next);
     } catch (e) {

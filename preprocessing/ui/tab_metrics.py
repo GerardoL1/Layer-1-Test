@@ -112,7 +112,12 @@ def render(data: AppData) -> None:
         fig.update_xaxes(tickformat="%H:%M")
         fig.update_yaxes(title="bpm")
         st.markdown("**Overnight heart rate** (shaded blue = sleep window, orange = lowest 30-minute stretch)")
-        st.plotly_chart(style(fig, 340), use_container_width=True)
+        if around.empty:
+            st.warning(
+                "No heart rate readings during tonight's sleep, so there's no overnight resting HR for this night."
+            )
+        else:
+            st.plotly_chart(style(fig, 340), use_container_width=True)
 
         hrv = R.cleaned["hrv_sdnn"]
         night_hrv = hrv[(hrv["start_utc"] >= lo) & (hrv["start_utc"] <= hi)]

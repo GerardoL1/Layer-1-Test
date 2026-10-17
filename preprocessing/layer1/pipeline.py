@@ -71,6 +71,8 @@ def run_pipeline(source, person_id: str = "tester1", days: int | None = C.DEFAUL
     sessions, stages = find_sleep_windows(cleaned["sleep_stages"])
     metrics = nightly_metrics(sessions, stages, cleaned)
     notes = []
+    if records.attrs.get("future_dropped"):
+        notes.append(f"{records.attrs['future_dropped']} records dated in the future were ignored.")
     if metrics.empty:
         notes.append("No sleep sessions found. Is sleep tracking on (iPhone Watch app > Sleep)?")
         first = cleaned["heart_rate"]["start_local"].min()

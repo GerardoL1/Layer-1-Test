@@ -25,6 +25,22 @@ export type ImportJob = Schemas['ImportJob'];
 export type ProcessingRun = Schemas['ProcessingRun'];
 export type DemoUser = Schemas['DemoUser'];
 
+/**
+ * The server's error message. Most errors carry it as text. A 422 from a check on what was sent
+ * carries a list, so its messages are joined (without pydantic's "Value error, " prefix).
+ */
+export function errorDetail(body: unknown, status: number): string {
+  const detail = (body as { detail?: unknown } | null)?.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    const msgs = detail
+      .map((d) => (typeof d?.msg === 'string' ? d.msg.replace(/^Value error, /, '') : null))
+      .filter((m): m is string => !!m);
+    if (msgs.length) return msgs.join('. ');
+  }
+  return `Server replied ${status}`;
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -44,14 +60,13 @@ export function makeApi(serverUrl: string, userId: string) {
       throw new ApiError(0, `Can't reach the server at ${base}. Is it running, and is the address right?`);
     }
     if (!res.ok) {
-      let detail = `Server replied ${res.status}`;
+      let body: unknown = null;
       try {
-        const body = await res.json();
-        if (typeof body.detail === 'string') detail = body.detail;
+        body = await res.json();
       } catch {
-        // not JSON, keep the plain message
+        // not JSON, the plain message below is used
       }
-      throw new ApiError(res.status, detail);
+      throw new ApiError(res.status, errorDetail(body, res.status));
     }
     return res.json() as Promise<T>;
   }
@@ -85,14 +100,14 @@ export function makeApi(serverUrl: string, userId: string) {
           if (onProgress && e.lengthComputable) onProgress(e.loaded / e.total);
         };
         xhr.onload = () => {
-          let body: { detail?: unknown } = {};
+          let body: unknown = null;
           try {
             body = JSON.parse(xhr.responseText);
           } catch {
             // not JSON, use the status code below
           }
           if (xhr.status >= 200 && xhr.status < 300) resolve(body as ImportJob);
-          else reject(new ApiError(xhr.status, typeof body.detail === 'string' ? body.detail : `Server replied ${xhr.status}`));
+          else reject(new ApiError(xhr.status, errorDetail(body, xhr.status)));
         };
         xhr.onerror = () => reject(new ApiError(0, `Can't reach the server at ${base}. Is it running, and is the address right?`));
         xhr.send(form);

@@ -22,7 +22,9 @@ def _open_xml(source) -> IO[bytes]:
     name = getattr(source, "name", str(source))
     if str(name).lower().endswith(".zip"):
         zf = zipfile.ZipFile(source)
-        inner = next((n for n in zf.namelist() if n.endswith("export.xml") and not n.endswith("export_cda.xml")), None)
+        # The same rule as the server. A zip made on a Mac can also hold __MACOSX/.../._export.xml, which isn't XML.
+        names = [n for n in zf.namelist() if not n.startswith("__MACOSX/")]
+        inner = next((n for n in names if n == "export.xml" or n.endswith("/export.xml")), None)
         if inner is None:
             raise ValueError(
                 "No export.xml inside this zip. Use the zip made by the Health app "
@@ -100,13 +102,16 @@ def load_export(source, days: int | None = C.DEFAULT_DAYS) -> tuple[pd.DataFrame
     )
     records["stage"] = records["raw_value"].map(C.SLEEP_VALUES).where(records["kind"] == "sleep")
 
+    # Records dated more than a day ahead come from a wrong clock (say 2099). Kept, one of them would
+    # create years of empty nights, so they're dropped and counted for the notes.
+    future = records["start_utc"] > pd.Timestamp.now(tz="UTC") + pd.Timedelta(days=1)
+    future_dropped = int(future.sum())
+    records = records[~future]
+    if records.empty:
+        raise ValueError("Every heart rate, HRV and sleep record in this file is dated in the future.")
+
     if days:
-        # Count back from the newest record that isn't in the future. One record with a bad date
-        # (say 2099) would otherwise push the window past all the real data.
-        not_future = records["end_utc"] <= pd.Timestamp.now(tz="UTC") + pd.Timedelta(days=1)
-        newest = records.loc[not_future].sort_values("end_utc").iloc[-1] if not_future.any() else None
-        if newest is None:
-            newest = records.sort_values("end_utc").iloc[-1]
+        newest = records.sort_values("end_utc").iloc[-1]
         # Start the window at local noon, where one night's label ends and the next begins
         # (nights are labelled onset minus 12 h), so the first night is never cut in half.
         start = newest["end_local"] - pd.Timedelta(days=days)
@@ -115,4 +120,5 @@ def load_export(source, days: int | None = C.DEFAULT_DAYS) -> tuple[pd.DataFrame
         records = records[records["start_local"] >= cutoff]
 
     records = records.drop(columns=["start_str", "end_str"]).sort_values("start_utc").reset_index(drop=True)
+    records.attrs["future_dropped"] = future_dropped
     return records, type_counts

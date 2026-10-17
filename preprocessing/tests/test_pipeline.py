@@ -299,3 +299,26 @@ def test_alex_story_comes_through():
     ml = P.run_pipeline(HERE / "sample_data" / SAMPLES["alex"], "alex", days=None).ml_table
     last = ml.tail(5)
     assert last["z_hrv"].mean() < -1 and last["z_rhr"].mean() > 1 and last["z_tst"].mean() < -1
+
+
+def test_records_dated_in_the_future_are_dropped_with_a_note():
+    stages = [*night("2026-09-01", "2026-09-02"), sleep("2031-01-01 23:00:00", "2031-01-02 06:00:00", "AsleepCore")]
+    r = P.run_pipeline(export(*stages), days=90)
+    assert len(r.nights) == 1
+    assert any("dated in the future" in n for n in r.notes)
+
+
+def test_a_zip_made_on_a_mac_is_read(tmp_path):
+    # Mac zips add __MACOSX/.../._export.xml, which isn't XML and must not be picked.
+    path = tmp_path / "export.zip"
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("__MACOSX/apple_health_export/._export.xml", b"\x00\x05\x16\x07 not xml")
+        zf.writestr("apple_health_export/export.xml", export(*night("2026-09-01", "2026-09-02")).getvalue())
+    assert len(P.run_pipeline(path, days=None).nights) == 1
+
+
+def test_minutes_never_show_as_60():
+    pytest.importorskip("plotly")  # the Streamlit helpers need it, CI's preprocessing install has it
+    from ui.common import fmt_min
+
+    assert fmt_min(59.6) == "1h 00m" and fmt_min(419.7) == "7h 00m" and fmt_min(419.4) == "6h 59m"

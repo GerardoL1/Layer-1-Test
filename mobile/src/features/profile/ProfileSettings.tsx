@@ -7,6 +7,7 @@ import { ListRow } from '../../components/ListRow';
 import { SectionHeader } from '../../components/SectionHeader';
 import { clock, WEEKDAYS } from '../../lib/format';
 import { canPickFile } from '../../lib/pickFile';
+import { deviceTimeZone } from '../../lib/timeZone';
 import { Appearance, useSession } from '../../state/session';
 import { useSettingsEditor } from '../settings/useSettingsEditor';
 
@@ -14,14 +15,6 @@ const APPEARANCE: { value: Appearance; label: string }[] = [
   { value: 'system', label: 'Match system' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' },
 ];
 const UNITS = [{ value: 'metric' as const, label: 'kg · m' }, { value: 'imperial' as const, label: 'lb · ft' }];
-
-const deviceTimeZone = () => {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone;
-  } catch {
-    return 'UTC';
-  }
-};
 
 /** Right side of Profile: about you, settings, and your data. */
 export function ProfileSettings({ settings: s, reload }: { settings: Settings; reload: () => void }) {

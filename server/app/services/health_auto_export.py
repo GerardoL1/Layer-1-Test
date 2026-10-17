@@ -3,6 +3,7 @@ Reads the JSON the Health Auto Export iPhone app posts (REST API automation, JSO
 Its dates carry the UTC offset, e.g. '2026-09-30 23:14:05 -0700'.
 """
 
+import re
 from dataclasses import dataclass, field
 
 from app.core import db
@@ -13,15 +14,27 @@ HAE_METRICS = {
     "resting_heart_rate": "resting_heart_rate",
     "heart_rate_variability": "hrv_sdnn",
 }
+# Sleep value names, with spaces, punctuation and case removed first ("Core Sleep" -> "coresleep").
 HAE_SLEEP_STAGES = {
-    "in bed": "in_bed",
     "inbed": "in_bed",
     "awake": "awake",
     "core": "core",
+    "coresleep": "core",
+    "asleepcore": "core",
     "deep": "deep",
+    "deepsleep": "deep",
+    "asleepdeep": "deep",
     "rem": "rem",
+    "remsleep": "rem",
+    "asleeprem": "rem",
     "asleep": "asleep_unspecified",
+    "unspecified": "asleep_unspecified",
+    "asleepunspecified": "asleep_unspecified",
 }
+
+
+def _stage(value) -> str | None:
+    return HAE_SLEEP_STAGES.get(re.sub(r"[^a-z]", "", str(value).lower()))
 
 
 @dataclass
@@ -52,7 +65,7 @@ def parse_payload(payload, user_id: str) -> Parsed:
             continue
         name = m.get("name", "")
         rows = m.get("data") or []
-        if not isinstance(rows, list):
+        if not isinstance(name, str) or not isinstance(rows, list):
             out.bad += 1
             continue
         rows = _objects(rows, out)
@@ -64,13 +77,16 @@ def parse_payload(payload, user_id: str) -> Parsed:
                 value = row.get("qty", row.get("Avg"))
                 if value is None or "date" not in row:
                     continue
+                source = row.get("source")
                 try:
                     t, tz = parse_date(row["date"])
                     value = float(value)
-                except (TypeError, ValueError):
+                except (TypeError, ValueError, OverflowError):  # OverflowError: a number too big for a float
                     out.bad += 1
                     continue
-                source = row.get("source")
+                if source is not None and not isinstance(source, str):
+                    out.bad += 1
+                    continue
                 out.samples.append(
                     (db.sample_id(user_id, metric, t, t, value, source), metric, value, t, t, tz, source)
                 )
@@ -82,15 +98,18 @@ def parse_payload(payload, user_id: str) -> Parsed:
                     out.aggregated_sleep += 1
                     out.bad += 1
                     continue
-                stage = HAE_SLEEP_STAGES.get(str(row.get("value", "")).strip().lower())
-                if not stage or "startDate" not in row or "endDate" not in row:
+                if "startDate" not in row or "endDate" not in row:
+                    continue
+                stage = _stage(row.get("value", ""))
+                source = row.get("source")
+                if stage is None or (source is not None and not isinstance(source, str)):
+                    out.bad += 1  # a sleep value we don't know, so the night would be missing a piece
                     continue
                 try:
                     (s, s_tz), (e, e_tz) = parse_date(row["startDate"]), parse_date(row["endDate"])
                 except (TypeError, ValueError):
                     out.bad += 1
                     continue
-                source = row.get("source")
                 out.stages.append((db.sleep_id(user_id, stage, s, e, source), stage, s, e, s_tz, e_tz, source))
         else:
             out.ignored.add(str(name))

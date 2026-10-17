@@ -164,3 +164,36 @@ def test_aggregated_sleep_from_health_auto_export_is_refused_with_a_note():
     r = client.post(HAE.format("aggregated"), json=body).json()
     assert r["sleep_stages"] == 0 and r["unreadable"] == 1
     assert len(r["notes"]) == 1 and "Aggregate sleep data" in r["notes"][0]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        '{"data": {"metrics": [{"name": ["heart_rate"], "data": []}]}}',
+        '{"data": {"metrics": [{"name": "heart_rate", "data": [{"date": "2026-09-30 23:14:05 -0500", "Avg": '
+        + "9" * 400
+        + "}]}]}}",
+        '{"data": {"metrics": [{"name": "heart_rate", "data": '
+        '[{"date": "2026-09-30 23:14:05 -0500", "Avg": 52, "source": {"x": 1}}]}]}}',
+        "[" * 100000 + "]" * 100000,
+    ],
+    ids=["name is a list", "400-digit number", "source is an object", "nested too deep"],
+)
+def test_health_auto_export_odd_bodies_never_crash(body):
+    r = client.post(HAE.format("odd"), content=body, headers={"Content-Type": "application/json"})
+    assert r.status_code in (200, 400)
+    if r.status_code == 200:
+        assert r.json()["new"] == 0 and r.json()["unreadable"] >= 1
+
+
+def test_health_auto_export_sleep_names_are_read_or_counted():
+    def phase(value, start, end):
+        return {"value": value, "startDate": f"2026-09-30 {start} -0500", "endDate": f"2026-09-30 {end} -0500"}
+
+    rows = [
+        phase("Core Sleep", "01:00:00", "02:00:00"),
+        phase("asleepDeep", "02:00:00", "03:00:00"),
+        phase("Snoozing", "03:00:00", "04:00:00"),
+    ]
+    r = client.post(HAE.format("sleep_names"), json={"data": {"metrics": [{"name": "sleep_analysis", "data": rows}]}})
+    assert r.json()["sleep_stages"] == 2 and r.json()["unreadable"] == 1
