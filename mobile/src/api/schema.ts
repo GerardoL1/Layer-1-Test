@@ -547,6 +547,11 @@ export interface components {
             unreadable: number;
             /** Ignored Metrics */
             ignored_metrics: string[];
+            /**
+             * Notes
+             * @default []
+             */
+            notes: string[];
         };
         /** HealthCheck */
         HealthCheck: {

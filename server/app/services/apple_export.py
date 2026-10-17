@@ -7,6 +7,7 @@ loaded into memory.
 """
 
 import sqlite3
+import time
 import xml.etree.ElementTree as ET
 import zipfile
 from collections.abc import Callable, Iterator
@@ -151,8 +152,18 @@ def import_export(
     stages: list[tuple] = []
 
     def flush():
-        counts["new"] += db.add_readings(conn, user_id, samples, stages)
-        conn.commit()
+        # A busy server can keep the database locked for a while. Try a batch a few times before
+        # giving up, so a big import doesn't fail just because other people were syncing.
+        for attempt in range(4):
+            try:
+                counts["new"] += db.add_readings(conn, user_id, samples, stages)
+                conn.commit()
+                break
+            except sqlite3.OperationalError as e:
+                conn.rollback()
+                if "locked" not in str(e) or attempt == 3:
+                    raise
+                time.sleep(2**attempt)
         samples.clear()
         stages.clear()
         if progress:

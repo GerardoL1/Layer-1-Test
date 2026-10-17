@@ -16,6 +16,7 @@ from fastapi.responses import PlainTextResponse
 
 from app.core.urls import API_V1, USER
 from app.routers import demo, imports, processing_runs, profile, readings, settings, today, trends
+from app.routers.large_form import LargeFormRoute
 from app.schemas.readings import Upload
 from app.schemas.settings import SettingsUpdate
 from app.services import import_jobs
@@ -65,9 +66,13 @@ async def hae(request: Request, background: BackgroundTasks, user_id: str = "tes
     return await readings.add_health_auto_export(user_id, request, background)
 
 
-@router.post("/api/shortcut", response_class=PlainTextResponse)
 def shortcut(background: BackgroundTasks, user: str = Form(...), metric: str = Form(...), rows: str = Form("")):
     return readings.add_shortcut_rows(user.strip(), background, metric, rows)
+
+
+router.add_api_route(
+    "/api/shortcut", shortcut, methods=["POST"], response_class=PlainTextResponse, route_class_override=LargeFormRoute
+)
 
 
 @router.post("/api/import")

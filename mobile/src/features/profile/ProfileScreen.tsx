@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { useApi } from '../../api/useApi';
+import { Button } from '../../components/Button';
 import { ListRow } from '../../components/ListRow';
 import { Page, PageState } from '../../components/Page';
 import { Text } from '../../components/Text';
@@ -19,7 +20,31 @@ export default function ProfileScreen() {
   const { colors, isWide } = useTheme();
   const { data: p, error, loading, reload } = useLoad(() => api.profile(), api);
 
-  if (!p) return <Page><PageState loading={loading} error={error} /></Page>;
+  // Switching tester or server has to work even when Profile can't load (server down, wrong
+  // address, or a tester with no data yet), or there'd be no way out of this screen.
+  const testerTools = (
+    <View style={styles.space24}>
+      <ListRow label="Switch tester" onPress={async () => {
+        await session.signOut();
+        router.replace('/setup');
+      }} />
+      <TestBuild />
+    </View>
+  );
+
+  if (!p) {
+    return (
+      <Page>
+        <PageState loading={loading} error={error} />
+        {error ? (
+          <>
+            <Button title="Try again" kind="secondary" onPress={reload} style={styles.retry} />
+            {testerTools}
+          </>
+        ) : null}
+      </Page>
+    );
+  }
   const left = <ProfileData profile={p} reload={reload} />;
   const right = <ProfileSettings settings={p.settings} reload={reload} />;
 
@@ -41,13 +66,7 @@ export default function ProfileScreen() {
           <View style={styles.space32}>{right}</View>
         </>
       )}
-      <View style={styles.space24}>
-        <ListRow label="Switch tester" onPress={async () => {
-          await session.signOut();
-          router.replace('/setup');
-        }} />
-        <TestBuild />
-      </View>
+      {testerTools}
       <Text variant="bodySmall" color="textMuted" style={[styles.footer, { borderTopColor: colors.border }]}>
         Readiness is a training guide, not medical advice. Version 0.1 (test build).
       </Text>
@@ -62,5 +81,6 @@ const styles = StyleSheet.create({
   column: { flex: 1 },
   space32: { marginTop: 32 },
   space24: { marginTop: 24 },
+  retry: { alignSelf: 'flex-start', marginTop: 16 },
   footer: { marginTop: 24, paddingTop: 12, borderTopWidth: 1 },
 });

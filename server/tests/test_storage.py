@@ -149,9 +149,9 @@ def test_health_auto_export_keeps_offset():
 
 
 def test_shortcut_keeps_offset():
-    rows = "2026-09-30T23:30:00-05:00 | 2026-10-01T00:10:00-05:00 | 3 | Apple Watch\nnot a valid line"
+    rows = "2026-09-30T23:30:00-05:00 | 2026-10-01T00:10:00-05:00 | 3 | Apple Watch"
     r = client.post("/api/v1/users/sc/readings/shortcuts", data={"metric": "sleep", "rows": rows})
-    assert r.status_code == 200 and "new 1" in r.text and "1 lines could not be read" in r.text
+    assert r.status_code == 200 and "new 1" in r.text
     with db.connect() as conn:
         rec = db.load_records(conn, "sc")
     assert rec.iloc[0]["stage"] == "core"

@@ -4,12 +4,16 @@ Bad or simultaneous input gets a clear answer instead of a crash, and only one i
     python -m pytest -q tests/test_robustness.py
 """
 
+import sqlite3
+
 import main
 import pytest
+from conftest import SAMPLE_DATA, SAMPLES
 from fastapi.testclient import TestClient
 
+from app.core import db
 from app.routers import imports
-from app.services import import_jobs
+from app.services import apple_export, import_jobs
 from app.services.apple_export import parse_date
 from app.services.shortcuts import shortcut_date
 
@@ -91,3 +95,72 @@ def test_a_refused_upload_frees_the_slot_and_keeps_the_last_status():
     r = client.post("/api/v1/users/refused/imports", files=NOT_A_ZIP)
     assert r.status_code == 400
     assert import_jobs.IMPORT_STATUS == before and not import_jobs.is_busy()
+
+
+# ---------------------------------------------------------------- many people at once
+
+
+def test_the_database_lets_people_read_while_others_write():
+    with db.connect() as conn:
+        assert conn.execute("PRAGMA journal_mode").fetchone()[0].lower() == "wal"
+    assert db.LOCK_WAIT_SECONDS >= 30
+
+
+def test_an_import_batch_is_retried_when_the_database_is_busy(monkeypatch):
+    real_add, calls = db.add_readings, []
+
+    def busy_once(*args, **kwargs):
+        calls.append(1)
+        if len(calls) == 1:
+            raise sqlite3.OperationalError("database is locked")
+        return real_add(*args, **kwargs)
+
+    monkeypatch.setattr(db, "add_readings", busy_once)
+    monkeypatch.setattr(apple_export.time, "sleep", lambda s: None)
+    with db.connect() as conn:
+        counts = apple_export.import_export(SAMPLE_DATA / SAMPLES["sam"], conn, "busy_import")
+    assert counts["new"] > 0 and len(calls) > 1
+
+
+# ---------------------------------------------------------------- Shortcuts and Health Auto Export
+
+
+def test_shortcuts_takes_a_first_sync_bigger_than_1_mb():
+    times = [f"2026-09-{1 + i // 1440:02d}T{i // 60 % 24:02d}:{i % 60:02d}:00-05:00" for i in range(20000)]
+    rows = "\n".join(f"{t} | {t} | 52 | Test Apple Watch" for t in times)
+    assert len(rows) > 1024 * 1024
+    for url, data in (
+        ("/api/v1/users/big_sc/readings/shortcuts", {"metric": "heart_rate", "rows": rows}),
+        ("/api/shortcut", {"user": "big_sc_old", "metric": "heart_rate", "rows": rows}),
+    ):
+        r = client.post(url, data=data)
+        assert r.status_code == 200 and "new 20000" in r.text, url
+
+
+def test_a_shortcuts_sleep_batch_with_unreadable_lines_is_refused_whole():
+    # German stage names: only REM would match by accident, leaving a fake short night.
+    rows = "\n".join(
+        [
+            "2026-09-20T23:00:00+02:00 | 2026-09-21T02:00:00+02:00 | Kern | Apple Watch",
+            "2026-09-21T02:00:00+02:00 | 2026-09-21T03:00:00+02:00 | Tief | Apple Watch",
+            "2026-09-21T03:00:00+02:00 | 2026-09-21T04:20:00+02:00 | REM | Apple Watch",
+        ]
+    )
+    r = client.post("/api/v1/users/german/readings/shortcuts", data={"metric": "sleep", "rows": rows})
+    assert r.status_code == 400 and "Nothing was saved" in r.json()["detail"] and "number" in r.json()["detail"]
+    with db.connect() as conn:
+        assert db.load_records(conn, "german").empty
+
+
+def test_aggregated_sleep_from_health_auto_export_is_refused_with_a_note():
+    summary = {
+        "date": "2026-09-30 00:00:00 -0500",
+        "sleepStart": "2026-09-29 23:00:00 -0500",
+        "sleepEnd": "2026-09-30 07:00:00 -0500",
+        "asleep": 7.5,
+        "inBed": 8,
+    }
+    body = {"data": {"metrics": [{"name": "sleep_analysis", "data": [summary]}]}}
+    r = client.post(HAE.format("aggregated"), json=body).json()
+    assert r["sleep_stages"] == 0 and r["unreadable"] == 1
+    assert len(r["notes"]) == 1 and "Aggregate sleep data" in r["notes"][0]

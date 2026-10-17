@@ -1308,6 +1308,14 @@
             },
             "type": "array",
             "title": "Ignored Metrics"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes",
+            "default": []
           }
         },
         "type": "object",

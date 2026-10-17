@@ -40,8 +40,9 @@ class HealthAutoExportResult(BaseModel):
     samples: int
     sleep_stages: int
     new: int
-    unreadable: int  # rows whose dates couldn't be read
+    unreadable: int  # rows that couldn't be read
     ignored_metrics: list[str]  # things we don't use, like steps
+    notes: list[str] = []  # what to change in Health Auto Export, when something can't be used
 
 
 class Upload(ReadingsBatch):

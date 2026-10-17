@@ -30,6 +30,7 @@ class Parsed:
     stages: list[tuple] = field(default_factory=list)
     ignored: set[str] = field(default_factory=set)  # metric names we don't use, like steps
     bad: int = 0  # rows that couldn't be read: bad dates, impossible offsets, values that aren't numbers
+    aggregated_sleep: int = 0  # nightly sleep summaries, which have no stages to work with
 
 
 class BadPayload(ValueError):
@@ -77,6 +78,10 @@ def parse_payload(payload, user_id: str) -> Parsed:
         elif name == "sleep_analysis":
             # Unaggregated sleep phases have a start, end and a stage name.
             for row in rows:
+                if "startDate" not in row and ("sleepStart" in row or "inBedStart" in row):
+                    out.aggregated_sleep += 1
+                    out.bad += 1
+                    continue
                 stage = HAE_SLEEP_STAGES.get(str(row.get("value", "")).strip().lower())
                 if not stage or "startDate" not in row or "endDate" not in row:
                     continue

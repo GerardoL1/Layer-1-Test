@@ -121,6 +121,32 @@ def test_runs_only_when_something_changed():
     assert processing.process_user(user, to_utc(morning + timedelta(hours=3), -420)) is not None
 
 
+def test_a_rebuild_after_update_now_keeps_last_night():
+    # Update now processes last night early. An old reading then arrives before the update time and
+    # makes the next run rebuild. Last night must still be there afterwards.
+    user = "kept"
+    recs = load("sam")
+    day = recs["start_local"].min().date() + timedelta(days=10)
+    night = day - timedelta(days=1)
+    sleep = recs[
+        recs["stage"].notna()
+        & (recs["start_local"] >= pd.Timestamp(datetime.combine(night, time(18))))
+        & (recs["start_local"] <= pd.Timestamp(datetime.combine(day, time(14))))
+    ]
+    woke = sleep["end_local"].max().to_pydatetime()
+    tapped = woke + timedelta(minutes=C.UPDATE_NOW_QUIET_MIN + 1)
+    assert tapped < datetime.combine(day, time(*C.DEFAULT_UPDATE_TIME))  # still before the update time
+    arrived = recs[recs["end_local"] <= pd.Timestamp(woke)]
+    old = arrived[(arrived["kind"] != "sleep") & (arrived["start_local"] < pd.Timestamp(day - timedelta(days=5)))]
+    store(user, arrived.drop(old.index))
+    assert night in processing.process_user(user, to_utc(tapped, -420), update_now=True).new_nights
+
+    store(user, old.head(50))  # readings from days ago: enough to make the next run rebuild
+    processing.process_user(user, to_utc(tapped + timedelta(minutes=5), -420))
+    with db.connect() as conn:
+        assert night in set(processing.load_nights(conn, user)["night_date"])
+
+
 def test_update_time_and_update_now():
     user = "clock"
     recs = load("sam")

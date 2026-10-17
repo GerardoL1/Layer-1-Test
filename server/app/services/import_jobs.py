@@ -93,6 +93,10 @@ def run_import(path: str, user_id: str, since_days: int | None):
             nights = conn.execute("SELECT COUNT(*) FROM nights WHERE user_id = ?", (user_id,)).fetchone()[0]
         IMPORT_STATUS.update(state="done", counts=counts, nights_ready=nights)
     except Exception as e:  # report any parsing problem to whoever is polling the status
-        IMPORT_STATUS.update(state="error", error=str(e))
+        saved = (IMPORT_STATUS.get("counts") or {}).get("new")
+        note = (
+            " Readings saved so far are kept. Import the file again to finish (repeats are skipped)." if saved else ""
+        )
+        IMPORT_STATUS.update(state="error", error=f"{e}{note}")
     finally:
         Path(path).unlink(missing_ok=True)

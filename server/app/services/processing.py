@@ -258,9 +258,14 @@ def process_user(
             ]
 
         sync = local_now(conn, user_id, now_utc)
+        # A rebuild starts from nothing, so on its own it would only keep nights up to the scheduled
+        # update time. If Update now already processed last night, rebuild the same way so it stays.
+        scheduled = I.scheduled_ready_night(sync, parse_update_time(user["update_time"]))
+        early = rebuild and last is not None and last["ready_through"] is not None
+        keep_early = early and date.fromisoformat(last["ready_through"]) > scheduled
         # All saved readings go in as one batch. The processor cleans them and keeps
         # only what it needs, so this matches feeding them in day by day.
-        report = proc.sync(records, sync, update_now=update_now)
+        report = proc.sync(records, sync, update_now=update_now or keep_early)
 
         if len(proc.nights):
             save_nights(conn, user_id, proc.nights)

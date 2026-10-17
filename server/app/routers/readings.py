@@ -13,6 +13,7 @@ from fastapi.responses import PlainTextResponse
 
 from app.core import db
 from app.core.urls import USER
+from app.routers.large_form import LargeFormRoute
 from app.schemas.readings import HealthAutoExportResult, ReadingsBatch, ReadingsResult
 from app.services import health_auto_export, shortcuts
 from app.services.readings import save_readings
@@ -89,19 +90,26 @@ async def add_health_auto_export(user_id: str, request: Request, background: Bac
         parsed.bad,
         ", ".join(sorted(parsed.ignored)) or "none",
     )
+    notes = []
+    if parsed.aggregated_sleep:
+        notes.append(
+            f"{parsed.aggregated_sleep} nights of sleep arrived as nightly summaries, which have no sleep "
+            "stages, so they weren't saved. In Health Auto Export, turn off 'Aggregate sleep data' and send again."
+        )
+        log.warning("health-auto-export %s: %d aggregated sleep rows refused", user_id, parsed.aggregated_sleep)
     return {
         "samples": len(parsed.samples),
         "sleep_stages": len(parsed.stages),
         "new": added,
         "unreadable": parsed.bad,
         "ignored_metrics": sorted(parsed.ignored),
+        "notes": notes,
     }
 
 
 # ---------------------------------------------------------------- 3. Apple Shortcuts
 
 
-@router.post("/shortcuts", response_class=PlainTextResponse)
 def add_shortcut_rows(user_id: str, background: BackgroundTasks, metric: str = Form(...), rows: str = Form("")):
     """
     Receiver for the Apple Shortcuts automation. Form fields:
@@ -113,6 +121,16 @@ def add_shortcut_rows(user_id: str, background: BackgroundTasks, metric: str = F
     if metric not in shortcuts.SHORTCUT_METRICS:
         raise HTTPException(400, f"Unknown metric '{metric}'. Use one of: {', '.join(shortcuts.SHORTCUT_METRICS)}")
     samples, stages, bad = shortcuts.parse_rows(user_id, metric, rows)
+    if metric == "sleep" and bad:
+        # Saving the lines that did read would leave part of a night (in another language, often
+        # only REM matches), which looks like a short night. Better to save none and say why.
+        log.warning("shortcut %s: sleep refused, first unreadable line: %s", user_id, bad[0][:200])
+        raise HTTPException(
+            400,
+            f"Nothing was saved: {len(bad)} sleep lines could not be read (first one: {bad[0][:80]}). "
+            "Set the shortcut to send the sleep value as a number: 0 in bed, 1 asleep, 2 awake, "
+            "3 core, 4 deep, 5 REM.",
+        )
     added = save_readings(background, user_id, samples, stages)
 
     received = len(samples) + len(stages)
@@ -123,3 +141,12 @@ def add_shortcut_rows(user_id: str, background: BackgroundTasks, metric: str = F
     if bad:
         msg += f", {len(bad)} lines could not be read (first one: {bad[0][:80]})"
     return msg
+
+
+router.add_api_route(
+    "/shortcuts",
+    add_shortcut_rows,
+    methods=["POST"],
+    response_class=PlainTextResponse,
+    route_class_override=LargeFormRoute,
+)

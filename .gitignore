@@ -9,6 +9,8 @@ venv/
 
 # Local test database (contains real health data, never commit it)
 *.db
+*.db-wal
+*.db-shm
 
 # OS / editors
 .DS_Store

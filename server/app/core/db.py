@@ -74,14 +74,24 @@ CREATE INDEX IF NOT EXISTS idx_sleep_user ON sleep_stages(user_id, start_ms);
 """
 
 
+# How long a request waits for another one's write to finish before giving up. SQLite's own
+# default of 5 s made busy mornings (many phones syncing at once) fail with "database is locked".
+LOCK_WAIT_SECONDS = 30
+
+
 def connect() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=LOCK_WAIT_SECONDS)
     conn.row_factory = sqlite3.Row
+    # Safe with WAL (set in init_db), and much faster for the many small writes syncs make.
+    conn.execute("PRAGMA synchronous = NORMAL")
     return conn
 
 
 def init_db():
     with connect() as conn:
+        # WAL lets people read while someone else is writing, instead of everyone queueing on one lock.
+        # It's stored in the database file, so setting it once here is enough.
+        conn.execute("PRAGMA journal_mode = WAL")
         conn.executescript(SCHEMA)
         # Databases made before a column existed get it added here.
         have = {r["name"] for r in conn.execute("PRAGMA table_info(users)")}
