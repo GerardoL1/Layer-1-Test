@@ -198,3 +198,16 @@ def test_import_reports_position_through_the_file(monkeypatch):
 def test_dashboard_endpoints_are_gone():
     for path in ("/", "/api/samples", "/api/sleep", "/api/summary"):
         assert client.get(path).status_code == 404
+
+
+def test_imports_keep_everything_by_default():
+    # One reading from 2024, far more than 90 days back. Without since_days it must still come in.
+    xml = (
+        '<?xml version="1.0"?><HealthData><Record type="HKQuantityTypeIdentifierHeartRate" '
+        'sourceName="Test’s Apple Watch" unit="count/min" startDate="2024-01-01 23:00:00 -0500" '
+        'endDate="2024-01-01 23:00:00 -0500" value="52"/></HealthData>'
+    )
+    r = client.post("/api/v1/users/old_export/imports", files={"file": ("export.xml", xml.encode(), "text/xml")})
+    assert r.status_code == 202
+    status = client.get(r.headers["location"]).json()
+    assert status["state"] == "done" and status["counts"]["heart_rate"] == 1

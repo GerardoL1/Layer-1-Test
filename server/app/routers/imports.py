@@ -62,11 +62,12 @@ def create_import(
     background: BackgroundTasks,
     response: Response,
     file: UploadFile = File(...),
-    since_days: int = Form(90),
+    since_days: int = Form(0),
 ):
     """
     Upload export.zip (or export.xml). Replies 202 straight away with the import's status,
-    and its address in the Location header. since_days 0 imports everything.
+    and its address in the Location header. By default everything is imported. since_days N keeps
+    only the last N days, counted back from today.
     """
     job = start_import(background, user_id, file, since_days)
     here = router.prefix.format(user_id=quote(user_id, safe=""))

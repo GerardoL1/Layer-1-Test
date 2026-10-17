@@ -88,7 +88,7 @@ the LLM).
 | Route | Endpoint | Time zone from |
 |---|---|---|
 | Our iPhone app | `POST .../readings` (JSON: `samples`, `sleep`) | Sent with every reading (`tz_offset_min`, or `start_tz_min` / `end_tz_min` for sleep). Readings without it are rejected |
-| Health export file | `POST .../imports` (form: `file`, `since_days`, 0 = everything). Replies 202 with the import's `import_id` and a `Location` header. Progress at `GET .../imports/{import_id}`, latest import at `GET .../imports` | The dates in the file |
+| Health export file | `POST .../imports` (form: `file`, and optionally `since_days` to keep only the last N days counted back from today; everything by default). Replies 202 with the import's `import_id` and a `Location` header. Progress at `GET .../imports/{import_id}`, latest import at `GET .../imports` | The dates in the file |
 | Health Auto Export | `POST .../readings/health-auto-export` | The dates in the payload |
 | Apple Shortcuts | `POST .../readings/shortcuts` (form: `metric`, `rows`) | The ISO 8601 dates sent |
 
@@ -118,10 +118,10 @@ that worked carry a `Deprecation` header, and `/docs` marks them deprecated. The
 Faster for very large exports (several years, over 1 GB):
 
 ```bash
-python import_export.py C:\Users\you\Downloads\export.zip --user tester1 --days 90
+python import_export.py C:\Users\you\Downloads\export.zip --user tester1
 ```
 
-`--days 0` imports everything.
+Everything in the file is imported. `--days 90` keeps only the last 90 days, counted back from today.
 
 ### Health Auto Export (no Mac, automatic, paid app feature)
 

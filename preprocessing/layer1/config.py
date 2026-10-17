@@ -34,8 +34,9 @@ DEFAULT_DAYS = 90
 # ---------------------------------------------------------------- 2. Clean
 # A record counts as "from the watch" if its source name contains one of these.
 WATCH_SOURCE_KEYWORDS = ("Apple Watch",)
-# "In Bed" usually comes from the iPhone's Sleep Schedule, so it is kept from any source.
-IN_BED_ANY_SOURCE = True
+# "In Bed" comes from the iPhone's Sleep Schedule. It is kept from the watch and from sources with one of
+# these in their name. Other apps (Oura, sleep apps) would stretch time in bed and lower efficiency.
+IN_BED_SOURCE_KEYWORDS = ("iPhone",)
 
 # Values outside these ranges are physically implausible and are dropped.
 VALID_RANGES = {

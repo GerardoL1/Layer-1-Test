@@ -181,7 +181,7 @@
           "imports"
         ],
         "summary": "Create Import",
-        "description": "Upload export.zip (or export.xml). Replies 202 straight away with the import's status,\nand its address in the Location header. since_days 0 imports everything.",
+        "description": "Upload export.zip (or export.xml). Replies 202 straight away with the import's status,\nand its address in the Location header. By default everything is imported. since_days N keeps\nonly the last N days, counted back from today.",
         "operationId": "create_import_api_v1_users__user_id__imports_post",
         "parameters": [
           {
@@ -1168,7 +1168,7 @@
           "since_days": {
             "type": "integer",
             "title": "Since Days",
-            "default": 90
+            "default": 0
           }
         },
         "type": "object",

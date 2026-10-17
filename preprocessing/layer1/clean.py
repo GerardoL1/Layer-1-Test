@@ -9,9 +9,10 @@ import pandas as pd
 from layer1 import config as C
 
 
-def _is_watch(source: pd.Series) -> pd.Series:
+def _named(source: pd.Series, keywords) -> pd.Series:
+    """True where the source name contains one of the keywords."""
     mask = pd.Series(False, index=source.index)
-    for kw in C.WATCH_SOURCE_KEYWORDS:
+    for kw in keywords:
         mask |= source.str.contains(kw, case=False, regex=False)
     return mask
 
@@ -21,7 +22,7 @@ def clean(records: pd.DataFrame) -> tuple[dict[str, pd.DataFrame], pd.DataFrame,
     Step 2. Returns cleaned tables, a summary of what was removed, and the removed rows themselves.
 
     Tables: heart_rate, resting_heart_rate (Apple's daily value), hrv_sdnn,
-            sleep_stages (watch only, no In Bed), in_bed (any source).
+            sleep_stages (watch only, no In Bed), in_bed (iPhone or watch).
     """
     log, removed_parts = [], []
     df = records.copy()
@@ -38,10 +39,10 @@ def clean(records: pd.DataFrame) -> tuple[dict[str, pd.DataFrame], pd.DataFrame,
     # Unknown sleep values (future iOS categories we don't handle yet).
     drop((df["kind"] == "sleep") & df["stage"].isna(), "Unrecognised sleep value")
 
-    # Watch only. "In Bed" is the exception: it usually comes from the iPhone's sleep schedule.
-    watch = _is_watch(df["source"])
-    in_bed = df["stage"] == "in_bed"
-    keep_source = watch | (in_bed if C.IN_BED_ANY_SOURCE else False)
+    # Watch only. "In Bed" is the exception: it comes from the iPhone's sleep schedule.
+    watch = _named(df["source"], C.WATCH_SOURCE_KEYWORDS)
+    iphone_in_bed = (df["stage"] == "in_bed") & _named(df["source"], C.IN_BED_SOURCE_KEYWORDS)
+    keep_source = watch | iphone_in_bed
     drop(~keep_source, "Not recorded by the Apple Watch")
 
     # Exact duplicates (same data, same time, same source), e.g. from re-imports or sync glitches.

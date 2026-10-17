@@ -208,6 +208,16 @@ def test_time_in_bed_uses_iphone_when_present():
     assert row["sleep_efficiency_pct"] == pytest.approx(410 / 480 * 100)
 
 
+def test_in_bed_from_other_apps_is_ignored():
+    # Only the iPhone's (or the watch's) In Bed counts. Another app's would stretch time in bed.
+    stages = [
+        *night("2026-09-01", "2026-09-02"),
+        sleep("2026-09-01 21:00:00", "2026-09-02 09:00:00", "InBed", source="Oura"),
+    ]
+    row = P.run_pipeline(export(*stages), days=None).nights.iloc[0]
+    assert row["tib_source"] == "sleep_window" and row["tib_min"] == pytest.approx(420)
+
+
 def test_time_in_bed_falls_back_to_sleep_window():
     row = P.run_pipeline(export(*night("2026-09-01", "2026-09-02")), days=None).nights.iloc[0]
     assert row["tib_source"] == "sleep_window" and row["tib_min"] == pytest.approx(420)

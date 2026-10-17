@@ -104,5 +104,9 @@ def render(data: AppData) -> None:
                 use_container_width=True,
             )
     settings(
-        "WATCH_SOURCE_KEYWORDS", "IN_BED_ANY_SOURCE", "VALID_RANGES", "MIN_SLEEP_SEGMENT_SEC", "MAX_SLEEP_SEGMENT_HOURS"
+        "WATCH_SOURCE_KEYWORDS",
+        "IN_BED_SOURCE_KEYWORDS",
+        "VALID_RANGES",
+        "MIN_SLEEP_SEGMENT_SEC",
+        "MAX_SLEEP_SEGMENT_HOURS",
     )

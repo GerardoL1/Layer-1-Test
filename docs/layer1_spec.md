@@ -9,9 +9,18 @@ Settings live in `preprocessing/layer1/config.py`; if this document and the conf
 ## 1. Pre-process and clean
 
 - Inputs: timestamped sleep stage intervals (`HKCategoryValueSleepAnalysis`), overnight HRV (SDNN), heart rate, Apple's resting heart rate.
-- Keep **Apple Watch** records only. Exception: iPhone **In Bed** records are kept (used for time in bed).
+- Keep **Apple Watch** records only. Exception: **In Bed** records from the iPhone (or the watch) are kept, for
+  time in bed. In Bed from other apps (Oura, sleep apps) is dropped, since it would stretch time in bed.
+- A record counts as Apple Watch data when its source name contains "Apple Watch" (`WATCH_SOURCE_KEYWORDS`), and
+  In Bed counts as the iPhone's when the name contains "iPhone" (`IN_BED_SOURCE_KEYWORDS`). Known gaps: a
+  third-party app named "... for Apple Watch" is counted as the watch, and a watch renamed without those words is
+  missed. Matching on the device type instead is planned for the production work.
 - Remove exact duplicates and physically impossible values (HR outside 30–220 bpm, resting HR outside 30–120, SDNN outside 5–300 ms).
 - Remove sleep pieces shorter than 30 s or longer than 16 h.
+- **Overlapping pieces** (two watches, or a stage written on top of another) never count the same minute twice.
+  Each overlapping moment goes to one stage: deep, REM and core beat unspecified asleep, which beats awake
+  (`SLEEP_STAGE_PRIORITY`). Between equal stages the piece that started first wins. Pieces are trimmed to the parts
+  they win.
 - **Primary sleep window** = first asleep piece (onset) to last asleep piece (final awakening). Awake time before onset or after final awakening does not count.
 - Sleep pieces less than 60 min apart form one session. Each night's **main sleep is its longest session**; other sessions are naps and are ignored.
 - A night is labelled by the evening it starts: onset minus 12 h, then take the local date.
@@ -51,6 +60,9 @@ Why two fragmentation columns: without In Bed data, time in bed = TST + awake mi
 
 - Every calendar night between the first and last night gets a row, even with no data.
 - `usable_sleep`: sleep recorded and TST ≥ 180 min.
+- A recorded night shorter than that (`flag_short_sleep`) is kept as a row but is not usable, so it gets no
+  z-scores and stays out of every baseline. The app shows it as a short night, with its own wording, rather than
+  "no sleep recorded".
 - `usable_hrv`: usable sleep and ≥ 1 HRV reading in the window.
 - `usable_rhr`: usable sleep, a valid overnight resting HR, and ≥ 2 HR readings per hour of sleep.
 - `quality_notes` explains every incomplete night; empty when complete, except the informational
@@ -71,6 +83,12 @@ Why two fragmentation columns: without In Bed data, time in bed = TST + awake mi
   processed before (`RECOMPUTE_NIGHTS = 3`), plus every night the previous run processed for the first time if it
   is from the last 3 days (`LATE_DATA_DAYS`), to pick up data that synced late.
 - Results must equal processing all received data at once.
+- **Late data on the server:** when new readings belong to a night older than the ones a run redoes (data sent in
+  pieces, a first sync of history, an import, or data that arrives days late), the server rebuilds that person's
+  nights from all their readings, so the rule above holds however late data arrives.
+- The standalone daily simulation (`DailyProcessor` on its own, as in the Layer 1 tester's daily replay and the
+  Streamlit "Daily updates" tab) only redoes the nights described above. There, a reading more than about 3 days
+  late is not picked up.
 
 ## 4. Readiness score (0–100): not built yet
 

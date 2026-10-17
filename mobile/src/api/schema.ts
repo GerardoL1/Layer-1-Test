@@ -103,7 +103,8 @@ export interface paths {
         /**
          * Create Import
          * @description Upload export.zip (or export.xml). Replies 202 straight away with the import's status,
-         *     and its address in the Location header. since_days 0 imports everything.
+         *     and its address in the Location header. By default everything is imported. since_days N keeps
+         *     only the last N days, counted back from today.
          */
         post: operations["create_import_api_v1_users__user_id__imports_post"];
         delete?: never;
@@ -482,7 +483,7 @@ export interface components {
             file: string;
             /**
              * Since Days
-             * @default 90
+             * @default 0
              */
             since_days: number;
         };
