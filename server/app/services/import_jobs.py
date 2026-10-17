@@ -7,6 +7,7 @@ Only the latest import is remembered, and only until the server restarts.
 import threading
 import uuid
 from pathlib import Path
+from xml.etree.ElementTree import ParseError
 
 from app.core import db
 from app.services import processing
@@ -101,6 +102,11 @@ def run_import(path: str, user_id: str, since_days: int | None):
         note = (
             " Readings saved so far are kept. Import the file again to finish (repeats are skipped)." if saved else ""
         )
-        IMPORT_STATUS.update(state="error", error=f"{e}{note}")
+        reason = (
+            "The export file is damaged and couldn't be read. Export again from the Health app and upload the new file."
+            if isinstance(e, ParseError)
+            else str(e)
+        )
+        IMPORT_STATUS.update(state="error", error=f"{reason}{note}")
     finally:
         Path(path).unlink(missing_ok=True)

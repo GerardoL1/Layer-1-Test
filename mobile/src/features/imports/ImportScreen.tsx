@@ -25,6 +25,7 @@ const STEPS = [
 ];
 
 const thousands = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+const count = (n: number, one: string, many: string) => `${thousands(n)} ${n === 1 ? one : many}`;
 const fileSize = (bytes: number) => (bytes >= 1e6 ? `${Math.round(bytes / 1e6)} MB` : `${Math.max(1, Math.round(bytes / 1e3))} KB`);
 
 function Section({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
@@ -61,17 +62,17 @@ export default function ImportScreen() {
         )}
       </Section>
       {job && p ? (
-        <Section title="Importing" note={`${job.name} · ${fileSize(job.bytes)}`}>
+        <Section title={problem ? 'Import failed' : done ? 'Imported' : 'Importing'} note={`${job.name} · ${fileSize(job.bytes)}`}>
           <View style={styles.bar}>
             <ProgressBar share={p.share} />
           </View>
           <Text variant="labelSmall" color="textMuted" style={styles.phase}>
             {Math.round(p.share * 100)}% · {p.phase}
           </Text>
-          <ListRow label="Heart rate" value={`${thousands(counts.heart_rate ?? 0)} readings`} />
-          <ListRow label="HRV" value={`${thousands(counts.hrv_sdnn ?? 0)} readings`} />
-          <ListRow label="Sleep" value={`${thousands(counts.sleep_stages ?? 0)} pieces`} />
-          <ListRow label="Nights ready" value={done ? `${job.status?.nights_ready ?? 0} nights` : 'After the import'} />
+          <ListRow label="Heart rate" value={count(counts.heart_rate ?? 0, 'reading', 'readings')} />
+          <ListRow label="HRV" value={count(counts.hrv_sdnn ?? 0, 'reading', 'readings')} />
+          <ListRow label="Sleep" value={count(counts.sleep_stages ?? 0, 'piece', 'pieces')} />
+          <ListRow label="Nights ready" value={done ? count(job.status?.nights_ready ?? 0, 'night', 'nights') : 'After the import'} />
           <View style={[styles.rule, { borderTopColor: colors.border }]} />
           {problem ? <Text variant="bodySmall" color="low" style={styles.problem}>{problem}</Text> : null}
           {done ? <Button title="Go to Today" style={styles.goToday} onPress={() => router.replace('/today')} /> : null}

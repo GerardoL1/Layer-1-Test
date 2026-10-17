@@ -117,6 +117,15 @@ def load_export(source, days: int | None = C.DEFAULT_DAYS) -> tuple[pd.DataFrame
         start = newest["end_local"] - pd.Timedelta(days=days)
         noon = start.normalize() + pd.Timedelta(hours=C.NIGHT_SHIFT_HOURS)
         cutoff = noon if noon <= start else noon - pd.Timedelta(days=1)
+        # Someone who sleeps through the day can be asleep at noon. Move the cut back to where that
+        # sleep started, so the oldest night is kept whole instead of leaving a piece that looks like a nap.
+        sleep = records[records["kind"] == "sleep"]
+        gap = pd.Timedelta(minutes=C.SESSION_GAP_MIN)
+        while True:
+            crossing = sleep[(sleep["start_local"] < cutoff) & (sleep["end_local"] > cutoff - gap)]
+            if crossing.empty:
+                break
+            cutoff = crossing["start_local"].min()
         records = records[records["start_local"] >= cutoff]
 
     records = records.drop(columns=["start_str", "end_str"]).sort_values("start_utc").reset_index(drop=True)

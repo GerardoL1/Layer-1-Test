@@ -27,10 +27,13 @@ def render(data: AppData) -> None:
     chosen_night = data.chosen_night
     st.subheader("Nightly metrics")
     st.markdown(
-        "- **Total sleep time (TST)** = core + deep + REM minutes inside the window.\n"
-        "- **Time in bed** = iPhone *In Bed* when it exists, otherwise onset to final awakening.\n"
+        "- **Total sleep time (TST)** = core + deep + REM minutes inside the window, plus asleep time with no "
+        "stage (older watches).\n"
+        "- **Time in bed** = the *In Bed* span from the iPhone or the watch when it exists (widened to include the "
+        "whole sleep window), otherwise onset to final awakening.\n"
         "- **Sleep efficiency** = TST ÷ time in bed × 100.\n"
-        f"- **Fragmentation** = awakenings per hour of sleep (an awakening is ≥ {C.MIN_AWAKENING_MIN:g} min awake). "
+        f"- **Fragmentation** = awakenings per hour of sleep (an awakening is ≥ {C.MIN_AWAKENING_MIN:g} min awake; "
+        "awake pieces that touch count as one). "
         "This replaces *awake minutes ÷ time in bed*, which is just 100 − efficiency when there's no In Bed data.\n"
         "- **Overnight HRV** = mean of the SDNN readings inside the window (the watch takes only a few per night).\n"
         f"- **Overnight resting HR** = lowest {C.RHR_WINDOW_MIN}-minute average heart rate during sleep. "

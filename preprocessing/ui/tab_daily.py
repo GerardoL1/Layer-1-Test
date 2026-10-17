@@ -26,7 +26,8 @@ def render(data: AppData) -> None:
         "This tab replays the selected file **one daily sync at a time**, the way the phone would send it, and "
         "processes only what each sync needs:\n"
         f"1. **A night is processed at the user's update time the next day** ({C.DEFAULT_UPDATE_TIME[0]}:"
-        f"{C.DEFAULT_UPDATE_TIME[1]:02d} by default), or earlier if they tap **Update now** after waking.\n"
+        f"{C.DEFAULT_UPDATE_TIME[1]:02d} by default), or earlier if they tap **Update now** once they're up "
+        f"(nothing asleep recorded for {C.UPDATE_NOW_QUIET_MIN} minutes). This replay doesn't tap Update now.\n"
         "2. **Every run processes the new night and redoes the nights just before it**, "
         "to pick up data that synced late.\n"
         "3. **Skipped days are caught up**: every ready night that hasn't been processed yet is processed.\n\n"
@@ -189,7 +190,7 @@ def render(data: AppData) -> None:
                 f"Differs from processing everything at once on {len(nights_off)} night(s): "
                 + ", ".join(fmt_d(n) for n in nights_off[:6])
                 + ". Usually this means data arrived after its night stopped being redone; try "
-                "recomputing 2 nights."
+                "recomputing more nights."
             )
             with st.expander("Differences"):
                 st.dataframe(check, hide_index=True, use_container_width=True)
@@ -264,4 +265,4 @@ def render(data: AppData) -> None:
             file_name=f"layer1_features_{safe_d}_daily.csv",
             mime="text/csv",
         )
-    settings("DEFAULT_UPDATE_TIME", "RECOMPUTE_NIGHTS", "LATE_DATA_DAYS", "SIM_SYNC_HOUR")
+    settings("DEFAULT_UPDATE_TIME", "UPDATE_NOW_QUIET_MIN", "RECOMPUTE_NIGHTS", "LATE_DATA_DAYS", "SIM_SYNC_HOUR")

@@ -4,7 +4,7 @@ import { Today } from '../../api/client';
 import { Button } from '../../components/Button';
 import { ReadinessSummary } from '../../components/Readiness';
 import { Text } from '../../components/Text';
-import { updateTimeLabel, weekdayName } from '../../lib/format';
+import { clock, weekdayName } from '../../lib/format';
 import { useTheme } from '../../theme/theme';
 
 type Props = {
@@ -30,7 +30,7 @@ export function TodaySummary({ today: t, waiting, updating, updateNote, onUpdate
         <View style={[styles.panel, { borderTopColor: colors.border }]}>
           {waiting ? (
             <Text variant="labelMedium" color="textMuted">
-              Showing {weekdayName(t.night_date!)} night · Last night updates at {updateTimeLabel(t.update_time)}
+              Showing {weekdayName(t.night_date!)} night · Last night updates at {clock(t.update_time)}
             </Text>
           ) : null}
           {waiting ? (

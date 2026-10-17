@@ -9,7 +9,7 @@ import { useHealthSync } from '../../health/HealthSync';
 import { clock, dayLabel, rangeText } from '../../lib/format';
 
 const USUAL_LABELS: Record<string, string> = { hrv: 'HRV', rhr: 'Resting heart rate', sleep: 'Total sleep',
-  fragmentation: 'Awakenings' };
+  efficiency: 'Sleep efficiency', fragmentation: 'Awakenings per hour' };
 
 /** Left side of Profile: where the data comes from, and the person's usual ranges. */
 export function ProfileData({ profile: p, reload }: { profile: Profile; reload: () => void }) {
@@ -45,7 +45,7 @@ export function ProfileData({ profile: p, reload }: { profile: Profile; reload: 
           <ListRow key={u.key} label={USUAL_LABELS[u.key]}
             value={rangeText(u.usual_low, u.usual_high, u.key) ?? `Needs ${p.baseline_min_nights} nights`} />
         ))}
-        {p.usual_ranges.length === 0 ? <ListRow label="Usual ranges" value={`Need ${p.baseline_min_nights} nights`} /> : null}
+        {p.usual_ranges.length === 0 ? <ListRow label="Usual ranges" value={`Needs ${p.baseline_min_nights} nights`} /> : null}
       </View>
     </View>
   );

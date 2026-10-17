@@ -14,19 +14,20 @@ import { useSettingsEditor } from '../settings/useSettingsEditor';
 const APPEARANCE: { value: Appearance; label: string }[] = [
   { value: 'system', label: 'Match system' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' },
 ];
+const AGE_HINT = 'Type your age as a whole number, like 21.';
 const UNITS = [{ value: 'metric' as const, label: 'kg · m' }, { value: 'imperial' as const, label: 'lb · ft' }];
 
 /** Right side of Profile: about you, settings, and your data. */
 export function ProfileSettings({ settings: s, reload }: { settings: Settings; reload: () => void }) {
   const session = useSession();
-  const { isOpen, toggle, save, error } = useSettingsEditor(reload);
+  const { isOpen, toggle, save, invalid, error } = useSettingsEditor(reload);
   return (
     <View>
       <SectionHeader title="About you" />
       <EditRow label="Age" value={s.age ? String(s.age) : 'Choose'} open={isOpen('age')} onToggle={() => toggle('age')}
         error={error}>
         <TextEditor initial={s.age ? String(s.age) : ''} keyboard="number-pad" placeholder="Age"
-          onSave={(t) => save({ age: t ? Number(t) : null })} />
+          onSave={(t) => (t && !/^\d+$/.test(t) ? invalid(AGE_HINT) : save({ age: t ? Number(t) : null }))} />
       </EditRow>
       <EditRow label="Main training" value={s.training ?? 'Choose'} open={isOpen('training')}
         onToggle={() => toggle('training')} error={error}>

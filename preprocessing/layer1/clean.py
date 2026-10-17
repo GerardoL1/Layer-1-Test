@@ -41,9 +41,12 @@ def clean(records: pd.DataFrame) -> tuple[dict[str, pd.DataFrame], pd.DataFrame,
 
     # Watch only. "In Bed" is the exception: it comes from the iPhone's sleep schedule.
     watch = _named(df["source"], C.WATCH_SOURCE_KEYWORDS)
-    iphone_in_bed = (df["stage"] == "in_bed") & _named(df["source"], C.IN_BED_SOURCE_KEYWORDS)
-    keep_source = watch | iphone_in_bed
-    drop(~keep_source, "Not recorded by the Apple Watch")
+    in_bed = df["stage"] == "in_bed"
+    drop(in_bed & ~watch & ~_named(df["source"], C.IN_BED_SOURCE_KEYWORDS), "In Bed from another app")
+    # drop() took rows out, so the masks are worked out again for what's left.
+    watch = _named(df["source"], C.WATCH_SOURCE_KEYWORDS)
+    in_bed = df["stage"] == "in_bed"
+    drop(~(watch | in_bed), "Not recorded by the Apple Watch")
 
     # Exact duplicates (same data, same time, same source), e.g. from re-imports or sync glitches.
     dup = df.duplicated(subset=["metric", "stage", "value", "source", "start_utc", "end_utc"])

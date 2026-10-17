@@ -62,7 +62,7 @@ def create_import(
     background: BackgroundTasks,
     response: Response,
     file: UploadFile = File(...),
-    since_days: int = Form(0),
+    since_days: int = Form(0, ge=0),
 ):
     """
     Upload export.zip (or export.xml). Replies 202 straight away with the import's status,

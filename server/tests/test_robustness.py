@@ -197,3 +197,32 @@ def test_health_auto_export_sleep_names_are_read_or_counted():
     ]
     r = client.post(HAE.format("sleep_names"), json={"data": {"metrics": [{"name": "sleep_analysis", "data": rows}]}})
     assert r.json()["sleep_stages"] == 2 and r.json()["unreadable"] == 1
+
+
+def test_infinity_and_nan_are_never_stored():
+    row = '{"date": "2026-09-30 23:14:05 -0500", "Avg": Infinity}'
+    hae = '{"data": {"metrics": [{"name": "heart_rate", "data": [' + row + "]}]}}"
+    r = client.post(HAE.format("inf"), content=hae, headers={"Content-Type": "application/json"}).json()
+    assert r["new"] == 0 and r["unreadable"] == 1
+    rows = "2026-09-30T23:30:00-05:00 | 2026-09-30T23:30:00-05:00 | inf | Apple Watch"
+    r = client.post("/api/v1/users/inf/readings/shortcuts", data={"metric": "heart_rate", "rows": rows})
+    assert "new 0" in r.text and "1 lines could not be read" in r.text
+    sample = '{"uuid": "x", "metric": "heart_rate", "value": NaN, "start_ms": 1, "end_ms": 1, "tz_offset_min": 0}'
+    r = client.post(
+        "/api/v1/users/inf/readings",
+        content='{"samples": [' + sample + "]}",
+        headers={"Content-Type": "application/json"},
+    )
+    assert r.status_code == 422
+
+
+def test_since_days_cannot_be_negative():
+    r = client.post("/api/v1/users/negative/imports", files=NOT_A_ZIP, data={"since_days": "-5"})
+    assert r.status_code == 422
+
+
+def test_a_damaged_export_gets_a_plain_message():
+    broken = b'<?xml version="1.0"?><HealthData><Record type="HKQuantityTypeIdentifierHeartRate"'
+    r = client.post("/api/v1/users/damaged/imports", files={"file": ("export.xml", broken, "text/xml")})
+    status = client.get(r.headers["location"]).json()
+    assert status["state"] == "error" and "damaged" in status["error"]

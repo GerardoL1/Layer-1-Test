@@ -17,6 +17,17 @@ import { radius, type } from '../../theme/tokens';
 
 const DEMO = ['sam', 'alex', 'jordan'] as const;
 
+/** Why this isn't a server address, or null if it looks fine. */
+function addressProblem(address: string): string | null {
+  try {
+    const url = new URL(address.trim());
+    if (url.protocol === 'http:' || url.protocol === 'https:') return null;
+  } catch {
+    // not a URL at all
+  }
+  return 'Type the server address with http:// at the start, like http://192.168.1.50:8000';
+}
+
 /** next: where to go once a tester is picked. */
 export function TestBuild({ next = '/today' }: { next?: Href }) {
   const { colors } = useTheme();
@@ -29,8 +40,9 @@ export function TestBuild({ next = '/today' }: { next?: Href }) {
   const input = [styles.input, { color: colors.textPrimary, borderColor: colors.border }];
 
   async function use() {
+    setNote(addressProblem(serverUrl));
+    if (addressProblem(serverUrl)) return;
     setBusy('use');
-    setNote(null);
     try {
       const api = makeApi(serverUrl.trim(), userId.trim());
       await api.health();
@@ -52,8 +64,9 @@ export function TestBuild({ next = '/today' }: { next?: Href }) {
   }
 
   async function demo(person: (typeof DEMO)[number]) {
+    setNote(addressProblem(serverUrl));
+    if (addressProblem(serverUrl)) return;
     setBusy(person);
-    setNote(null);
     try {
       const r = await makeApi(serverUrl, '').loadDemo(person);
       await session.update({ serverUrl: serverUrl.trim(), userId: r.user_id });

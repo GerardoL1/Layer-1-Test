@@ -24,8 +24,10 @@ def render(data: AppData) -> None:
     st.markdown(
         f"Each night is compared with **the same person's previous {C.BASELINE_WINDOW_NIGHTS} nights** "
         f"(tonight is never part of its own baseline), using only usable values. A z-score appears once the "
-        f"baseline has **{C.BASELINE_MIN_NIGHTS} nights**.\n\n"
-        "**z = (tonight − baseline mean) ÷ baseline SD.** 0 means a typical night for this person; −2 means well below "
+        f"baseline has **at least {C.BASELINE_MIN_NIGHTS} usable values** and tonight's own value is usable.\n\n"
+        "**z = (tonight − baseline mean) ÷ baseline SD.** The SD is the sample SD, but never less than "
+        f"{C.MIN_SD_FRACTION_OF_MEAN:g} × the mean, so a very steady person's small wobbles don't turn into "
+        "huge z-scores. 0 means a typical night for this person; −2 means well below "
         "their usual. HRV is log-transformed first because its values are skewed. Signs are left as they are: for "
         "resting HR and fragmentation, a high z is the *bad* direction."
     )

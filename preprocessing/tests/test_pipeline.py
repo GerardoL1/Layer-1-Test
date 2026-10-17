@@ -322,3 +322,24 @@ def test_minutes_never_show_as_60():
     from ui.common import fmt_min
 
     assert fmt_min(59.6) == "1h 00m" and fmt_min(419.7) == "7h 00m" and fmt_min(419.4) == "6h 59m"
+
+
+def test_the_days_window_keeps_a_day_sleepers_sleep_whole():
+    # Night-shift sleep 09:00-16:30 crosses noon, where the window starts. No piece of it may become a nap.
+    recs = []
+    for d in range(1, 7):
+        day = f"2026-09-{d:02d}"
+        recs += [
+            sleep(f"{day} 09:00:00", f"{day} 12:30:00", "AsleepCore"),
+            sleep(f"{day} 12:30:00", f"{day} 13:00:00", "AsleepDeep"),
+            sleep(f"{day} 13:00:00", f"{day} 16:30:00", "AsleepREM"),
+        ]
+    r = P.run_pipeline(export(*recs), days=3)
+    assert (r.nights["naps"] == 0).all()
+    assert (r.nights.dropna(subset=["tst_min"])["tst_min"] == 450).all()
+
+
+def test_in_bed_from_another_app_says_so_in_the_removal_log():
+    stages = [*night("2026-09-01", "2026-09-02"), sleep("2026-09-01 21:00:00", "2026-09-02 09:00:00", "InBed", "Oura")]
+    log = P.run_pipeline(export(*stages), days=None).removal_log
+    assert "In Bed from another app" in set(log["reason"])

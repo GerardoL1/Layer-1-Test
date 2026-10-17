@@ -199,3 +199,21 @@ def test_explain_templates():
     assert reason.startswith("Your HRV is below your usual and you slept less than usual.")
     rows = [{"readiness": {"score": s, "status": st}} for s, st in [(80, "ready")] * 5 + [(30, "low")] * 3]
     assert explain.readiness_summary(rows) == "Slid from Ready into Low over the last 3 nights."
+
+
+def test_summaries_name_the_latest_night_with_data():
+    from app.readiness import explain
+
+    def row(date, score, status, value):
+        band = {"value": value, "usual_low": 40, "usual_high": 60}
+        return {"night_date": date, "readiness": {"score": score, "status": status}, "hrv": band}
+
+    rows = [row(f"2026-09-{d}", 55, "moderate", 30) for d in range(20, 30)]
+    rows.append(row("2026-09-30", None, "no_data", None))  # last night: nothing recorded
+    assert explain.readiness_summary(rows) == "Moderate for the 10 nights to Sep 29."
+    assert explain.band_summary(rows, "hrv") == "Below your usual range for the 10 nights to Sep 29."
+
+
+def test_update_now_says_when_last_night_is_already_done(demo):
+    r = client.post("/api/v1/users/demo-sam/processing-runs").json()
+    assert r["processed"] is False and r["message"] == "Last night is already up to date."

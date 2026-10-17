@@ -127,12 +127,12 @@ with st.sidebar:
         st.caption("No nights with sleep to inspect.")
 
 # ---------------------------------------------------------------- the flow at a glance
-kept_types = R.type_counts.loc[R.type_counts["kept"], "records"].sum()
 after_clean = sum(len(v) for v in R.cleaned.values())
 usable = int(nights["usable_sleep"].sum()) if not nights.empty else 0
 flow = [
     ("Records in file", int(R.type_counts["records"].sum())),
-    ("Layer 1 records", int(kept_types)),
+    # Only the records inside "How far back", so the next step's drop is cleaning and nothing else.
+    ("Layer 1 records in range", len(R.records)),
     ("After cleaning", after_clean),
     ("Sleep sessions", len(R.sessions)),
     ("Nights", len(nights)),

@@ -235,6 +235,15 @@ def process_user(
         rebuild = force or _reaches_back(user["changed_from_ms"], last)
         if not rebuild:
             proc.nights = load_nights(conn, user_id)
+        # A rebuild works every night out again. Only nights that weren't saved before count as new.
+        saved_before = (
+            {
+                date.fromisoformat(r[0])
+                for r in conn.execute("SELECT night_date FROM nights WHERE user_id = ?", (user_id,))
+            }
+            if rebuild
+            else set()
+        )
         if last is not None and not rebuild:
             # DailyProcessor redoes the nights its previous run added for the first time.
             # The server may run several times a day, so remember the last run that added
@@ -266,6 +275,8 @@ def process_user(
         # All saved readings go in as one batch. The processor cleans them and keeps
         # only what it needs, so this matches feeding them in day by day.
         report = proc.sync(records, sync, update_now=update_now or keep_early)
+        if saved_before:
+            report.new_nights = [d for d in report.new_nights if d not in saved_before]
 
         if len(proc.nights):
             save_nights(conn, user_id, proc.nights)

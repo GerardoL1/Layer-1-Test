@@ -24,8 +24,9 @@ def render(data: AppData) -> None:
         "skipped. Each value is then marked **usable** or not. Only usable values go into the personal baselines.\n"
         f"- **Sleep** is usable if the watch recorded at least {C.MIN_TST_FOR_USABLE_MIN / 60:g} hours.\n"
         "- **HRV** needs usable sleep plus at least one HRV reading in the window.\n"
-        f"- **Overnight resting HR** needs usable sleep plus at least {C.MIN_HR_SAMPLES_PER_SLEEP_HOUR} heart rate "
-        "readings per hour of sleep."
+        "- **Overnight resting HR** needs usable sleep, a valid overnight resting HR "
+        f"(a full {C.RHR_WINDOW_MIN}-minute stretch), and at least {C.MIN_HR_SAMPLES_PER_SLEEP_HOUR} "
+        "heart rate readings per hour of sleep."
     )
     if not nights.empty:
         c = st.columns(4)

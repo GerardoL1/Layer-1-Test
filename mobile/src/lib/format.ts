@@ -107,11 +107,6 @@ export function weekdayShort(iso: string): string {
 }
 
 /** Update time as Figma writes it: "08:00" -> "8:00", "17:30" -> "17:30" (24 hours, so never ambiguous). */
-export function updateTimeLabel(hhmm: string): string {
-  const [h, m] = hhmm.split(':').map(Number);
-  return `${h}:${String(m).padStart(2, '0')}`;
-}
-
 /** "16:00", "4 pm", "4:30pm" -> "16:00" / "16:30". Returns null if it isn't a time. */
 export function parseTime(text: string): string | null {
   const m = text.trim().toLowerCase().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/);

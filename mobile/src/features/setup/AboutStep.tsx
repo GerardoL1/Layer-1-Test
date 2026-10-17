@@ -10,11 +10,13 @@ import { WEEKDAYS } from '../../lib/format';
 import { useLoad } from '../../lib/useLoad';
 import { useSettingsEditor } from '../settings/useSettingsEditor';
 
+const AGE_HINT = 'Type your age as a whole number, like 21.';
+
 /** Setup 3: a little about you. Everything can be skipped and changed later in Profile. */
 export default function AboutStep() {
   const api = useApi();
   const { data: s, reload } = useLoad(() => api.settings().catch(() => null), api);
-  const { isOpen, toggle, save, error } = useSettingsEditor(reload);
+  const { isOpen, toggle, save, invalid, error } = useSettingsEditor(reload);
 
   return (
     <SetupFrame step={2} actions={
@@ -30,7 +32,7 @@ export default function AboutStep() {
       <EditRow label="Age" value={s?.age ? String(s.age) : 'Choose'} open={isOpen('age')} onToggle={() => toggle('age')}
         error={error}>
         <TextEditor initial={s?.age ? String(s.age) : ''} keyboard="number-pad" placeholder="Age"
-          onSave={(t) => save({ age: t ? Number(t) : null })} />
+          onSave={(t) => (t && !/^\d+$/.test(t) ? invalid(AGE_HINT) : save({ age: t ? Number(t) : null }))} />
       </EditRow>
       <EditRow label="Main training" value={s?.training ?? 'Choose'} open={isOpen('training')}
         onToggle={() => toggle('training')} error={error}>

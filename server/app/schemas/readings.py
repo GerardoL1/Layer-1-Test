@@ -1,12 +1,12 @@
 """What our iPhone app sends with a batch of readings."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, FiniteFloat
 
 
 class Sample(BaseModel):
     uuid: str
     metric: str
-    value: float
+    value: FiniteFloat  # no NaN or Infinity
     start_ms: int
     end_ms: int
     tz_offset_min: int | None = None  # minutes ahead of UTC when the reading was taken

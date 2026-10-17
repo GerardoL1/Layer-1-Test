@@ -81,20 +81,22 @@ export function TextEditor({ initial, placeholder, keyboard, onSave, hint }: {
   const { colors } = useTheme();
   const [text, setText] = useState(initial);
   const [busy, setBusy] = useState(false);
+  async function submit() {
+    setBusy(true);
+    try {
+      await onSave(text.trim());
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <View style={styles.editor}>
       <View style={styles.inputRow}>
         <TextInput value={text} onChangeText={setText} placeholder={placeholder} keyboardType={keyboard}
           autoCapitalize="none" autoCorrect={false} placeholderTextColor={colors.textMuted}
+          accessibilityLabel={placeholder} onSubmitEditing={submit} returnKeyType="done"
           style={[styles.input, { color: colors.textPrimary, borderColor: colors.border }]} />
-        <Button title="Save" busy={busy} onPress={async () => {
-          setBusy(true);
-          try {
-            await onSave(text.trim());
-          } finally {
-            setBusy(false);
-          }
-        }} />
+        <Button title="Save" busy={busy} onPress={submit} />
       </View>
       {hint ? <Text variant="bodySmall" color="textMuted">{hint}</Text> : null}
     </View>

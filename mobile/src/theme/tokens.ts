@@ -37,14 +37,16 @@ export const light: Colors = {
   inverse: '#132036',
   textPrimary: '#132036',
   textSecondary: '#46536A',
-  textMuted: '#6B7790',
+  // Darker than Figma's #6B7790 so small text reaches 4.5:1 contrast on the canvas.
+  textMuted: '#56627A',
   border: '#C2CCD8',
   borderStrong: '#132036',
   accent: '#1F3C88',
   onAccent: '#E4EAF0',
   ready: '#1E7466',
   readyBg: '#D3E6E2',
-  moderate: '#A9741A',
+  // Darker than Figma's #A9741A for 4.5:1 contrast, on the canvas and on moderateBg.
+  moderate: '#8A5D10',
   moderateBg: '#EFE3CC',
   low: '#B5306B',
   lowBg: '#F0D6E1',

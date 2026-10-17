@@ -53,7 +53,9 @@ export default function ProfileScreen() {
       <Text variant="labelSmall" color="textSecondary">Profile</Text>
       <Text variant="h1" accessibilityRole="header" style={styles.name}>{displayName(p.user_id)}</Text>
       <Text variant="body" color="textSecondary" style={styles.since}>
-        {p.first_night ? `Tracking since ${longDate(p.first_night)} · ${p.nights_usable} nights recorded` : 'No nights yet'}
+        {p.first_night
+          ? `Tracking since ${longDate(p.first_night)} · ${p.nights_usable} ${p.nights_usable === 1 ? 'night' : 'nights'} recorded`
+          : 'No nights yet'}
       </Text>
       {isWide ? (
         <View style={styles.columns}>

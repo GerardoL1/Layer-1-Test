@@ -84,8 +84,24 @@ def _run(values: list, test) -> int:
     return n
 
 
-def _nights(n: int) -> str:
-    return "last night" if n == 1 else f"the last {n} nights"
+MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+def _nights(n: int, up_to: str | None = None) -> str:
+    """
+    'the last 5 nights'. When the newest nights have no data, up_to is the latest night that does,
+    and the sentence names it ('the 5 nights to Sep 29') instead of calling it last night.
+    """
+    if up_to is None:
+        return "last night" if n == 1 else f"the last {n} nights"
+    _, m, d = (int(x) for x in up_to.split("-"))
+    day = f"{MONTHS[m - 1]} {d}"
+    return f"the night of {day}" if n == 1 else f"the {n} nights to {day}"
+
+
+def _stale(rows: list[dict], index: int) -> str | None:
+    """The night_date of rows[index] if later rows have no data, else None."""
+    return rows[index]["night_date"] if index < len(rows) - 1 else None
 
 
 def band_summary(rows: list[dict], key: str) -> str | None:
@@ -97,20 +113,24 @@ def band_summary(rows: list[dict], key: str) -> str | None:
             flags.append(None)
         else:
             flags.append("below" if p["value"] < p["usual_low"] else "above" if p["value"] > p["usual_high"] else "in")
-    known = [f for f in flags if f is not None]
+    known = [i for i, f in enumerate(flags) if f is not None]
     if not known:
         return None
-    last = known[-1]
+    up_to = _stale(rows, known[-1])
+    last = flags[known[-1]]
     n = _run(flags, lambda f: f == last)
     if last == "in":
-        return "Within your usual range." if n >= 3 else "Back within your usual range."
-    return f"{last.capitalize()} your usual range for {_nights(n)}."
+        text = "Within your usual range" if n >= 3 else "Back within your usual range"
+        return f"{text} on {_nights(1, up_to)}." if up_to else f"{text}."
+    return f"{str(last).capitalize()} your usual range for {_nights(n, up_to)}."
 
 
 def readiness_summary(rows: list[dict]) -> str | None:
-    statuses = [r["readiness"]["status"] for r in rows if r["readiness"]["score"] is not None]
-    if not statuses:
+    scored = [i for i, r in enumerate(rows) if r["readiness"]["score"] is not None]
+    if not scored:
         return None
+    up_to = _stale(rows, scored[-1])
+    statuses = [rows[i]["readiness"]["status"] for i in scored]
     last = statuses[-1]
     n = _run(statuses, lambda s: s == last)
     word = {"low": "Low", "moderate": "Moderate", "ready": "Ready"}[last]
@@ -122,8 +142,8 @@ def readiness_summary(rows: list[dict]) -> str | None:
             if ["low", "moderate", "ready"].index(last) < ["low", "moderate", "ready"].index(before)
             else "Climbed"
         )
-        return f"{direction} from {was} into {word} over {_nights(n)}."
-    return f"{word} for {_nights(n)}."
+        return f"{direction} from {was} into {word} over {_nights(n, up_to)}."
+    return f"{word} for {_nights(n, up_to)}."
 
 
 def sleep_summary(rows: list[dict]) -> str | None:

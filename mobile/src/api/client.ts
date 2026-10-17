@@ -68,7 +68,12 @@ export function makeApi(serverUrl: string, userId: string) {
       }
       throw new ApiError(res.status, errorDetail(body, res.status));
     }
-    return res.json() as Promise<T>;
+    try {
+      return (await res.json()) as T;
+    } catch {
+      // Something answered, but not with JSON: the address points at some other web page.
+      throw new ApiError(res.status, `${base} answered, but it isn't the recovery server. Check the address.`);
+    }
   }
 
   const json = (method: string, body?: unknown): RequestInit => ({
@@ -113,7 +118,7 @@ export function makeApi(serverUrl: string, userId: string) {
         xhr.send(form);
       });
     },
-    importStatus: (importId: string) => call<ImportJob>(`${user}/imports/${importId}`),
+    importStatus: (importId: string) => call<ImportJob>(`${user}/imports/${encodeURIComponent(importId)}`),
     /** This person's latest import, if the server still has it. Empty after a server restart. */
     imports: () => call<ImportJob[]>(`${user}/imports`),
   };

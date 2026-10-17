@@ -31,5 +31,10 @@ export function useSettingsEditor(saved: () => void) {
     }
   }
 
-  return { open, toggle, save, error, isOpen: (key: string) => open === key };
+  /** Shows a problem with what was typed, without saving. */
+  async function invalid(message: string) {
+    setError(message);
+  }
+
+  return { open, toggle, save, invalid, error, isOpen: (key: string) => open === key };
 }

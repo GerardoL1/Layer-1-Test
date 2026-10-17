@@ -78,7 +78,7 @@ def render(data: AppData) -> None:
                     x=xs,
                     y=ys,
                     mode="lines",
-                    name="In bed (iPhone)",
+                    name="In bed",
                     line=dict(color=MUTED, width=8),
                     hoverinfo="x+name",
                 )

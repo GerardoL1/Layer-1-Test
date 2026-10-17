@@ -80,7 +80,7 @@ def import_upload(
     background: BackgroundTasks,
     file: UploadFile = File(...),
     user_id: str = Form("tester1"),
-    since_days: int = Form(90),
+    since_days: int = Form(90, ge=0),
 ):
     imports.start_import(background, user_id, file, since_days)
     return {"started": True}

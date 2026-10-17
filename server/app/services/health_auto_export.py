@@ -3,6 +3,7 @@ Reads the JSON the Health Auto Export iPhone app posts (REST API automation, JSO
 Its dates carry the UTC offset, e.g. '2026-09-30 23:14:05 -0700'.
 """
 
+import math
 import re
 from dataclasses import dataclass, field
 
@@ -84,7 +85,7 @@ def parse_payload(payload, user_id: str) -> Parsed:
                 except (TypeError, ValueError, OverflowError):  # OverflowError: a number too big for a float
                     out.bad += 1
                     continue
-                if source is not None and not isinstance(source, str):
+                if not math.isfinite(value) or (source is not None and not isinstance(source, str)):
                     out.bad += 1
                     continue
                 out.samples.append(

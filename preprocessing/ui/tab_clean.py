@@ -20,12 +20,14 @@ def render(data: AppData) -> None:
     R = data.R
     st.subheader("Clean")
     st.markdown(
-        "Four rules, applied in order:\n"
-        "1. **Apple Watch only.** Other apps (chest-strap apps, third-party sleep trackers) measure "
-        "differently, so mixing them would add noise. iPhone **In Bed** times are kept; they're used for time in bed.\n"
-        "2. **Exact duplicates** removed (sync glitches, re-imports).\n"
-        "3. **Impossible values** removed, such as a heart rate of 12 or 250 from a loose strap.\n"
-        "4. **Broken sleep pieces** removed: shorter than 30 seconds or longer than 16 hours.\n\n"
+        "Five rules, applied in order:\n"
+        "1. **Unrecognised sleep values** removed (sleep categories from newer iOS versions we don't handle yet).\n"
+        "2. **Apple Watch only.** Other apps (chest-strap apps, third-party sleep trackers) measure "
+        "differently, so mixing them would add noise. **In Bed** times from the iPhone or the watch are kept for "
+        "time in bed. In Bed from other apps is removed, since it would stretch time in bed.\n"
+        "3. **Exact duplicates** removed (sync glitches, re-imports).\n"
+        "4. **Impossible values** removed, such as a heart rate of 12 or 250 from a loose strap.\n"
+        "5. **Broken sleep pieces** removed: shorter than 30 seconds or longer than 16 hours.\n\n"
         "Apple Watch doesn't share raw motion or sensor signals, so there is no motion-artifact filtering "
         "to do here: HealthKit values are already processed by the watch."
     )

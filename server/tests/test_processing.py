@@ -231,3 +231,12 @@ def test_a_read_halfway_through_an_import_is_fixed_by_the_end():
     processing.process_user("halfway")  # what the import does once every batch is saved
     expected = I.full_reprocessing(load("alex"), "halfway", last_ready("halfway"))
     assert I.compare(saved_table("halfway"), expected).empty
+
+
+def test_a_rebuild_does_not_call_old_nights_new():
+    user = "rebuilt"
+    store(user, load("sam"))
+    first = processing.process_user(user, force=True)
+    assert first.new_nights  # the first run really does add them
+    again = processing.process_user(user, force=True)  # a rebuild with nothing new
+    assert again.new_nights == []

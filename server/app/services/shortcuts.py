@@ -3,6 +3,7 @@ Reads what the Apple Shortcuts automation posts: one line per Health sample,
 start | end | value | source, with ISO 8601 dates.
 """
 
+import math
 from datetime import datetime
 
 from app.core import db
@@ -80,6 +81,9 @@ def parse_rows(user: str, metric: str, rows: str) -> tuple[list[tuple], list[tup
                 # Strip units if the whole sample was inserted, and accept "48,5" decimals.
                 value = float(value_txt.split()[0].replace(",", "."))
             except (ValueError, IndexError):
+                bad.append(line)
+                continue
+            if not math.isfinite(value):  # "inf" and "nan" read as numbers, but aren't readings
                 bad.append(line)
                 continue
             samples.append((db.sample_id(user, metric, s, e, value, source), metric, value, s, e, s_tz, source))
