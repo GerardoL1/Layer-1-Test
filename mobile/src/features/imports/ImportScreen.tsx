@@ -8,6 +8,7 @@ import { StyleSheet, View } from 'react-native';
 import { Button } from '../../components/Button';
 import { DropZone } from '../../components/DropZone';
 import { ListRow } from '../../components/ListRow';
+import { LiveText } from '../../components/LiveText';
 import { NumberedSteps } from '../../components/NumberedSteps';
 import { Page } from '../../components/Page';
 import { ProgressBar } from '../../components/ProgressBar';
@@ -67,14 +68,15 @@ export default function ImportScreen() {
             <ProgressBar share={p.share} />
           </View>
           <Text variant="labelSmall" color="textMuted" style={styles.phase}>
-            {Math.round(p.share * 100)}% · {p.phase}
+            {/* Only the phase is read out. The percentage changes every second and would never stop talking. */}
+            {Math.round(p.share * 100)}% · <LiveText variant="labelSmall" color="textMuted">{p.phase}</LiveText>
           </Text>
           <ListRow label="Heart rate" value={count(counts.heart_rate ?? 0, 'reading', 'readings')} />
           <ListRow label="HRV" value={count(counts.hrv_sdnn ?? 0, 'reading', 'readings')} />
           <ListRow label="Sleep" value={count(counts.sleep_stages ?? 0, 'piece', 'pieces')} />
           <ListRow label="Nights ready" value={done ? count(job.status?.nights_ready ?? 0, 'night', 'nights') : 'After the import'} />
           <View style={[styles.rule, { borderTopColor: colors.border }]} />
-          {problem ? <Text variant="bodySmall" color="low" style={styles.problem}>{problem}</Text> : null}
+          {problem ? <LiveText error variant="bodySmall" color="low" style={styles.problem}>{problem}</LiveText> : null}
           {done ? <Button title="Go to Today" style={styles.goToday} onPress={() => router.replace('/today')} /> : null}
         </Section>
       ) : null}

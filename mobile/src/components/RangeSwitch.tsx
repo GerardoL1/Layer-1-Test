@@ -14,7 +14,7 @@ export function RangeSwitch({ value, onChange }: { value: Range; onChange: (r: R
       {RANGES.map((r) => {
         const on = r === value;
         return (
-          <Pressable key={r} onPress={() => onChange(r)} accessibilityRole="tab" accessibilityState={{ selected: on }}
+          <Pressable key={r} onPress={() => onChange(r)} accessibilityRole="tab" aria-selected={on}
             style={[styles.tab, { borderBottomColor: on ? colors.borderStrong : 'transparent' }]}>
             <Text variant="labelMedium" color={on ? 'textPrimary' : 'textMuted'}>{r} nights</Text>
           </Pressable>

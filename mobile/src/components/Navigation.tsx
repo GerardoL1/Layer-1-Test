@@ -7,6 +7,7 @@ import { Href, Link, usePathname } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { currentPage } from '../lib/a11y';
 import { useTheme } from '../theme/theme';
 import { Text } from './Text';
 
@@ -29,7 +30,7 @@ export function TabBar() {
         const active = path.startsWith(tab.path);
         return (
           <Link key={tab.path} href={tab.href} asChild>
-            <Pressable accessibilityRole="tab" accessibilityState={{ selected: active }} style={styles.tab}>
+            <Pressable accessibilityRole="link" {...currentPage(active)} style={styles.tab}>
               <View style={[styles.tabMark, { backgroundColor: active ? colors.borderStrong : 'transparent' }]} />
               <Text variant="labelSmall" color={active ? 'textPrimary' : 'textMuted'}>{tab.label}</Text>
             </Pressable>
@@ -50,7 +51,7 @@ export function Sidebar({ footer }: { footer?: string | null }) {
         const active = path.startsWith(tab.path);
         return (
           <Link key={tab.path} href={tab.href} asChild>
-            <Pressable accessibilityRole="link" accessibilityState={{ selected: active }}
+            <Pressable accessibilityRole="link" {...currentPage(active)}
               style={StyleSheet.flatten([styles.link, { borderLeftColor: active ? colors.borderStrong : 'transparent' }])}>
               <Text variant={active ? 'bodyEmphasis' : 'body'} color={active ? 'textPrimary' : 'textSecondary'}>
                 {tab.label}

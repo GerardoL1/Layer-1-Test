@@ -11,7 +11,7 @@ export function TimeRow({ label, selected, onPress, arrow, children }: Props) {
   const { colors } = useTheme();
   return (
     <View style={[styles.rule, { borderTopColor: colors.border }]}>
-      <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ checked: selected }} style={styles.row}>
+      <Pressable onPress={onPress} accessibilityRole="radio" aria-checked={selected} style={styles.row}>
         <Text variant="bodyEmphasis">{label}</Text>
         <View style={styles.marks}>
           {selected ? <Text variant="body" color="accent">Selected</Text> : null}

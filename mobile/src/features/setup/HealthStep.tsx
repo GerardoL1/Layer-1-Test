@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { Button } from '../../components/Button';
 import { ListRow } from '../../components/ListRow';
 import { SetupFrame } from '../../components/SetupFrame';
+import { LiveText } from '../../components/LiveText';
 import { Text } from '../../components/Text';
 import { connectHealth, healthAvailable, syncHealth } from '../../health/health';
 import { canPickFile, pickFile } from '../../lib/pickFile';
@@ -71,7 +72,7 @@ export default function HealthStep() {
         {!phone && canPickFile ? <Button title="Import Apple Health export" busy={busy} onPress={importFile} /> : null}
         <Button title={phone ? 'Skip for now' : 'Continue without importing'} kind="secondary"
           onPress={() => router.push('/setup/about')} />
-        {shown ? <Text variant="bodySmall" color="textSecondary">{shown}</Text> : null}
+        {shown ? <LiveText variant="bodySmall" color="textSecondary">{shown}</LiveText> : null}
         <Text variant="bodySmall" color="textMuted">
           {phone ? 'Next, iPhone will ask which data to share. Turn on all four.'
             : 'On a computer, export from the iPhone: Health > profile picture > Export All Health Data, then pick the export.zip here.'}

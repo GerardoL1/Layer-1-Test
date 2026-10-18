@@ -10,6 +10,8 @@ import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
 import { useTheme } from '../theme/theme';
+import { describeHistory, describeSleep, describeTrend } from './chartText';
+import { STATUS_WORD } from './Readiness';
 import { Text } from './Text';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -48,9 +50,12 @@ function Frame({ height, label, children }: { height: number; label: string; chi
 
 export type TrendPoint = { date: string; value: number | null; usualLow: number | null; usualHigh: number | null };
 
-/** lastLabel: what the right end of the axis says, "Last night" unless the newest night is older. */
-export function TrendLine({ points, height = 90, label, color, lastLabel }: {
-  points: TrendPoint[]; height?: number; label: string; color?: string; lastLabel?: string;
+/**
+ * lastLabel: what the right end of the axis says, "Last night" unless the newest night is older.
+ * unit: used in what screen readers hear, like "Latest 52 ms".
+ */
+export function TrendLine({ points, height = 90, label, color, lastLabel, unit }: {
+  points: TrendPoint[]; height?: number; label: string; color?: string; lastLabel?: string; unit?: string;
 }) {
   const { colors } = useTheme();
   const nums = points.flatMap((p) => [p.value, p.usualLow, p.usualHigh]).filter((v): v is number => v !== null);
@@ -66,7 +71,7 @@ export function TrendLine({ points, height = 90, label, color, lastLabel }: {
 
   return (
     <View>
-      <Frame height={height} label={label}>
+      <Frame height={height} label={describeTrend(label, points, unit)}>
         {(w) => {
           const x = (i: number) => dot + (points.length === 1 ? (w - 2 * dot) / 2 : (i * (w - 2 * dot)) / (points.length - 1));
           const y = (v: number) => height - ((v - lo) / (hi - lo)) * height;
@@ -133,7 +138,7 @@ export function ReadinessHistory({ bars, cutoffs, height = 100 }: {
   if (bars.length === 0) return <Text color="textMuted" style={styles.empty}>No nights yet.</Text>;
   return (
     <View>
-      <Frame height={height} label={`Readiness for the last ${bars.length} nights`}>
+      <Frame height={height} label={describeHistory(bars, STATUS_WORD)}>
         {(w) => {
           const gap = bars.length > 40 ? 1 : 4;
           const bw = Math.max(1, (w - gap * (bars.length - 1)) / bars.length);
@@ -175,7 +180,7 @@ export function SleepStages({ nights, height = 110 }: { nights: SleepNight[]; he
   ];
   return (
     <View>
-      <Frame height={height} label={`Sleep stages for the last ${nights.length} nights`}>
+      <Frame height={height} label={describeSleep(nights)}>
         {(w) => {
           const gap = nights.length > 40 ? 1 : 4;
           const bw = Math.max(1, (w - gap * (nights.length - 1)) / nights.length);

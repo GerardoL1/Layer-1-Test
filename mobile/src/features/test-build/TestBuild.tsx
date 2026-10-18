@@ -8,6 +8,7 @@ import { StyleSheet, TextInput, View } from 'react-native';
 
 import { ApiError, makeApi } from '../../api/client';
 import { Button } from '../../components/Button';
+import { LiveText } from '../../components/LiveText';
 import { Text } from '../../components/Text';
 import { deviceTimeZone } from '../../lib/timeZone';
 import { errorText } from '../../lib/useLoad';
@@ -100,7 +101,7 @@ export function TestBuild({ next = '/today' }: { next?: Href }) {
             disabled={!serverUrl.trim()} onPress={() => demo(p)} style={styles.demo} />
         ))}
       </View>
-      {note ? <Text variant="bodySmall" color="low" style={styles.space12}>{note}</Text> : null}
+      {note ? <LiveText error variant="bodySmall" color="low" style={styles.space12}>{note}</LiveText> : null}
     </View>
   );
 }

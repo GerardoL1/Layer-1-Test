@@ -2,6 +2,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { Today } from '../../api/client';
 import { Button } from '../../components/Button';
+import { LiveText } from '../../components/LiveText';
 import { ReadinessSummary } from '../../components/Readiness';
 import { Text } from '../../components/Text';
 import { clock, weekdayName } from '../../lib/format';
@@ -37,7 +38,7 @@ export function TodaySummary({ today: t, waiting, updating, updateNote, onUpdate
             <Button title="Update now" kind="secondary" busy={updating} disabled={!t.can_update_now}
               onPress={onUpdateNow} style={styles.updateNow} />
           ) : null}
-          {updateNote ? <Text variant="bodySmall" color="textSecondary">{updateNote}</Text> : null}
+          {updateNote ? <LiveText variant="bodySmall" color="textSecondary">{updateNote}</LiveText> : null}
         </View>
       ) : null}
     </View>

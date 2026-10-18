@@ -4,7 +4,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 import { Profile } from '../../api/client';
 import { ListRow } from '../../components/ListRow';
 import { SectionHeader } from '../../components/SectionHeader';
-import { Text } from '../../components/Text';
+import { LiveText } from '../../components/LiveText';
 import { useHealthSync } from '../../health/HealthSync';
 import { clock, dayLabel, rangeText } from '../../lib/format';
 
@@ -26,9 +26,10 @@ export function ProfileData({ profile: p, reload }: { profile: Profile; reload: 
               reload();
             }} />
             {health.lastError || health.lastResult ? (
-              <Text variant="bodySmall" color={health.lastError ? 'low' : 'textSecondary'} style={styles.syncNote}>
-                {health.lastError ?? health.lastResult?.message}
-              </Text>
+              <LiveText error={!!health.lastError} variant="bodySmall" color={health.lastError ? 'low' : 'textSecondary'}
+                style={styles.syncNote}>
+                {health.lastError ?? health.lastResult?.message ?? ''}
+              </LiveText>
             ) : null}
             <ListRow label="Permissions" value="Set up" onPress={() => router.push('/setup/health')} />
           </View>

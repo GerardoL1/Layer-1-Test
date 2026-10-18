@@ -23,7 +23,7 @@ export function ListRow({ label, value, onPress, comingSoon, danger, valueColor 
   return (
     <Pressable onPress={link ? onPress : undefined} disabled={!link}
       accessibilityRole={link ? 'button' : undefined}
-      accessibilityState={comingSoon ? { disabled: true } : undefined}
+      aria-disabled={comingSoon || undefined}
       accessibilityHint={comingSoon ? 'Coming soon' : undefined}
       style={({ pressed }) => [styles.row, { borderTopColor: colors.border,
         opacity: comingSoon ? 0.55 : pressed ? 0.7 : 1 }]}>

@@ -46,10 +46,10 @@ export default function TrendsScreen() {
         score: r.readiness.score, status: r.readiness.status }))} />
     </Section>,
     <Section key="hrv" title="HRV" note={usual('hrv') && `Usual ${usual('hrv')}`} summary={s.hrv}>
-      <TrendLine label="Heart rate variability" points={trendPoints(rows, 'hrv')} />
+      <TrendLine label="Heart rate variability" points={trendPoints(rows, 'hrv')} unit="ms" />
     </Section>,
     <Section key="rhr" title="Resting heart rate" note={usual('rhr') && `Usual ${usual('rhr')}`} summary={s.rhr}>
-      <TrendLine label="Resting heart rate" color={colors.rhr} points={trendPoints(rows, 'rhr')} />
+      <TrendLine label="Resting heart rate" color={colors.rhr} points={trendPoints(rows, 'rhr')} unit="bpm" />
     </Section>,
     <Section key="sleep" title="Sleep" note={avgSleep === null ? null : `Avg ${hoursMinutes(avgSleep)} h`} summary={s.sleep}>
       <SleepStages nights={rows.map((r) => ({ date: r.night_date, deep: r.deep_min, core: r.core_min,
@@ -57,7 +57,7 @@ export default function TrendsScreen() {
     </Section>,
     <Section key="efficiency" title="Sleep efficiency" note={usual('efficiency') && `Usual ${usual('efficiency')}`}
       summary={s.efficiency}>
-      <TrendLine label="Sleep efficiency" color={colors.sleep} points={trendPoints(rows, 'efficiency')} />
+      <TrendLine label="Sleep efficiency" color={colors.sleep} points={trendPoints(rows, 'efficiency')} unit="%" />
     </Section>,
   ] : [];
 

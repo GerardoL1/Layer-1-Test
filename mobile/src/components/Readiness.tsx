@@ -8,7 +8,7 @@ import { ReadinessStatus } from '../api/client';
 import { useTheme } from '../theme/theme';
 import { Text } from './Text';
 
-const STATUS_WORD: Record<ReadinessStatus, string> = {
+export const STATUS_WORD: Record<ReadinessStatus, string> = {
   low: 'Low',
   moderate: 'Moderate',
   ready: 'Ready',

@@ -10,14 +10,16 @@ import { useTheme } from '../theme/theme';
 import { radius, type } from '../theme/tokens';
 import { Button } from './Button';
 import { ListRow } from './ListRow';
+import { LiveText } from './LiveText';
 import { Text } from './Text';
 
 export const TRAINING = ['Strength', 'Endurance', 'Mixed', 'Team sport', 'Other'];
 
-function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
+/** multi: one of several that can be on together (days), so a checkbox. Otherwise one choice of many, a radio. */
+function Chip({ label, on, onPress, multi }: { label: string; on: boolean; onPress: () => void; multi?: boolean }) {
   const { colors } = useTheme();
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{ selected: on }}
+    <Pressable onPress={onPress} accessibilityRole={multi ? 'checkbox' : 'radio'} aria-checked={on}
       style={[styles.chip, { borderColor: on ? colors.borderStrong : colors.border,
         backgroundColor: on ? colors.inverse : 'transparent' }]}>
       <Text variant="body" style={{ color: on ? colors.canvas : colors.textPrimary }}>{label}</Text>
@@ -29,7 +31,7 @@ export function Chips<T extends string | number>({ options, value, onPick, label
   options: { value: T; label: string }[]; value: T | null; onPick: (v: T) => void; label?: (v: T) => string;
 }) {
   return (
-    <View style={styles.chips}>
+    <View accessibilityRole="radiogroup" style={styles.chips}>
       {options.map((o) => <Chip key={String(o.value)} label={label ? label(o.value) : o.label} on={o.value === value}
         onPress={() => onPick(o.value)} />)}
     </View>
@@ -69,7 +71,7 @@ export function DaysPicker({ value, onChange }: { value: number[]; onChange: (da
   }
   return (
     <View style={styles.chips}>
-      {WEEKDAYS.map((d, i) => <Chip key={d} label={d} on={days.includes(i)} onPress={() => toggle(i)} />)}
+      {WEEKDAYS.map((d, i) => <Chip key={d} label={d} on={days.includes(i)} multi onPress={() => toggle(i)} />)}
     </View>
   );
 }
@@ -113,7 +115,7 @@ export function EditRow({ label, value, children, open, onToggle, error }: {
       {open ? (
         <View style={styles.opened}>
           {children}
-          {error ? <Text variant="bodySmall" color="low">{error}</Text> : null}
+          {error ? <LiveText error variant="bodySmall" color="low">{error}</LiveText> : null}
         </View>
       ) : null}
     </View>

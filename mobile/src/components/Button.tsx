@@ -30,7 +30,8 @@ export function Button({ title, onPress, kind = 'primary', disabled, busy, style
       : { fill: 'transparent', border: colors.borderStrong, text: colors.textPrimary };
   const off = disabled || busy;
   return (
-    <Pressable accessibilityRole="button" accessibilityState={{ disabled: !!off, busy: !!busy }}
+    // react-native-web sets aria-disabled from disabled, so both are given.
+    <Pressable accessibilityRole="button" disabled={!!off} aria-disabled={!!off} aria-busy={!!busy}
       onPress={off ? undefined : onPress}
       style={({ pressed }) => [styles.button, { backgroundColor: look.fill, borderColor: look.border,
         opacity: pressed && !off ? 0.85 : 1 }, style]}>

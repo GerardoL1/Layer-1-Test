@@ -12,6 +12,7 @@ import { Button } from '../../components/Button';
 import { NumberedSteps } from '../../components/NumberedSteps';
 import { SectionHeader } from '../../components/SectionHeader';
 import { SubPageHeader } from '../../components/SubPageHeader';
+import { LiveText } from '../../components/LiveText';
 import { Text } from '../../components/Text';
 import { clock, parseTime } from '../../lib/format';
 import { errorText, useLoad } from '../../lib/useLoad';
@@ -84,7 +85,7 @@ export default function UpdateTimeScreen() {
       <Text variant="bodySmall" color="textMuted" style={styles.hint}>
         Work nights? Pick a time after you usually wake up, for example 4:00 pm.
       </Text>
-      {error ? <Text variant="bodySmall" color="low" style={styles.error}>{error}</Text> : null}
+      {error ? <LiveText error variant="bodySmall" color="low" style={styles.error}>{error}</LiveText> : null}
     </View>
   );
 
