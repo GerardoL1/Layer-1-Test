@@ -28,7 +28,10 @@ export function ReadinessScale({ score, status, cutoffs }: { score: number | nul
     { key: 'ready', label: 'Ready', from: cutoffs.ready_from, to: 100 },
   ];
   return (
-    <View accessible accessibilityLabel={score === null ? 'No score yet' : `Score ${score} of 100, ${STATUS_WORD[status]}`}
+    // The score itself is read by the summary above, so the scale only says where the zones are.
+    <View accessible role="group"
+      accessibilityLabel={`Low below ${cutoffs.low_below}, Moderate ${cutoffs.low_below} to ${cutoffs.ready_from - 1}, `
+        + `Ready ${cutoffs.ready_from} and up`}
       style={styles.scale}>
       {zones.map((z) => {
         const on = z.key === status;
@@ -74,17 +77,15 @@ export function ReadinessSummary({ score, status, cutoffs, verdict, reason }: Su
     <View>
       <View style={[styles.statusBar, { backgroundColor: color }]} />
       <Text variant="labelSmall" style={[styles.statusWord, { color }]}>Readiness  ·  {STATUS_WORD[status]}</Text>
-      <View style={styles.score}>
-        <Text variant="scoreHero" accessibilityLabel={score === null ? 'No score yet' : `${score} out of 100`}
-          style={heroSize(isWide, isNarrow)}>
-          {score ?? '–'}
-        </Text>
-        <Text variant="scoreSuffix" color="textMuted" style={styles.outOf}>/ 100</Text>
+      <View accessible role="group" style={styles.score}
+        accessibilityLabel={score === null ? 'No score yet' : `Readiness score ${score} out of 100`}>
+        <Text variant="scoreHero" aria-hidden style={heroSize(isWide, isNarrow)}>{score ?? '–'}</Text>
+        <Text variant="scoreSuffix" color="textMuted" aria-hidden style={styles.outOf}>/ 100</Text>
       </View>
       <View style={styles.scaleSpace}>
         <ReadinessScale score={score} status={status} cutoffs={cutoffs} />
       </View>
-      {verdict ? <Text variant="h1" style={[styles.verdict, { fontSize: isWide ? 30 : 26 }]}>{verdict}</Text> : null}
+      {verdict ? <Text variant="h1" accessibilityRole="header" style={[styles.verdict, { fontSize: isWide ? 30 : 26 }]}>{verdict}</Text> : null}
       {reason ? <Text variant="bodyLarge" color="textSecondary" style={styles.reason}>{reason}</Text> : null}
     </View>
   );

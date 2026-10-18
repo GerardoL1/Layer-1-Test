@@ -63,6 +63,7 @@ export default function UpdateTimeScreen() {
   const choose = (
     <View>
       {isWide ? <SectionHeader title="Choose a time" /> : null}
+      <View accessibilityRole="radiogroup" accessibilityLabel="Update time">
       {PRESETS.map((t) => (
         <TimeRow key={t} label={clock(t)} selected={selected === t} onPress={() => {
           setPicked(t);
@@ -76,11 +77,12 @@ export default function UpdateTimeScreen() {
           <View style={styles.other}>
             <TextInput value={otherText} onChangeText={setOtherText} placeholder="4:00 pm" autoFocus
               placeholderTextColor={colors.textMuted} accessibilityLabel="Other update time" onSubmitEditing={applyOther}
-              style={[styles.input, { color: colors.textPrimary, borderColor: colors.border }]} />
+              style={[styles.input, { color: colors.textPrimary, borderColor: colors.borderStrong }]} />
             <Button title="Use" kind="secondary" onPress={applyOther} />
           </View>
         ) : null}
       </TimeRow>
+      </View>
       <View style={[styles.rule, { borderTopColor: colors.border }]} />
       <Text variant="bodySmall" color="textMuted" style={styles.hint}>
         Work nights? Pick a time after you usually wake up, for example 4:00 pm.

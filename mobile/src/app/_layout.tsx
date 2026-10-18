@@ -6,17 +6,23 @@ import { IBMPlexSans_600SemiBold } from '@expo-google-fonts/ibm-plex-sans/600Sem
 import { IBMPlexSansCondensed_400Regular } from '@expo-google-fonts/ibm-plex-sans-condensed/400Regular';
 import { IBMPlexSansCondensed_600SemiBold } from '@expo-google-fonts/ibm-plex-sans-condensed/600SemiBold';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
+import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { pageTitle } from '../lib/a11y';
 import { SessionProvider, useSession } from '../state/session';
 import { ThemeProvider, useTheme } from '../theme/theme';
 
 function Shell() {
   const { colors, isDark } = useTheme();
   const { loaded } = useSession();
+  const path = usePathname();
+  useEffect(() => {
+    if (Platform.OS === 'web') document.title = pageTitle(path);
+  }, [path]);
   // Wait for the saved session too, so the app doesn't flash Setup before it knows who's signed in.
   if (!loaded) return <View style={[styles.fill, { backgroundColor: colors.canvas }]} />;
   return (

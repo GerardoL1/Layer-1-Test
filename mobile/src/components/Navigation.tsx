@@ -68,10 +68,11 @@ export function Sidebar({ footer }: { footer?: string | null }) {
 
 const styles = StyleSheet.create({
   tabBar: { borderTopWidth: 1, flexDirection: 'row' },
-  tab: { flex: 1, alignItems: 'center', paddingTop: 16 },
+  tab: { flex: 1, alignItems: 'center', paddingTop: 16, minHeight: 44 },
   tabMark: { position: 'absolute', top: -1, height: 3, width: 32 },
   sidebar: { width: 232, borderRightWidth: 1, paddingTop: 40, paddingHorizontal: 24, paddingBottom: 24 },
   brand: { fontSize: 28, marginBottom: 40 },
-  link: { paddingVertical: 10, paddingLeft: 14, borderLeftWidth: 2, marginBottom: 6 },
+  link: { minHeight: 44, justifyContent: 'center', paddingVertical: 10, paddingLeft: 14, borderLeftWidth: 2,
+    marginBottom: 6 },
   spacer: { flex: 1 },
 });

@@ -38,7 +38,7 @@ export function TestBuild({ next = '/today' }: { next?: Href }) {
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
-  const input = [styles.input, { color: colors.textPrimary, borderColor: colors.border }];
+  const input = [styles.input, { color: colors.textPrimary, borderColor: colors.borderStrong }];
 
   async function use() {
     setNote(addressProblem(serverUrl));

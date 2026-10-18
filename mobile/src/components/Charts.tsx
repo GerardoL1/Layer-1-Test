@@ -7,7 +7,7 @@
  */
 import { ReactNode, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, G, Line, Path, Rect } from 'react-native-svg';
 
 import { useTheme } from '../theme/theme';
 import { describeHistory, describeSleep, describeTrend } from './chartText';
@@ -78,6 +78,8 @@ export function TrendLine({ points, height = 90, label, color, lastLabel, unit }
 
           // Usual band: a shaded shape following each night's range, broken where there's no baseline.
           const bands: string[] = [];
+          // The shade alone is too faint to see for some people (about 1.2:1), so its top and bottom get a line.
+          const edges: string[] = [];
           let run: number[] = [];
           const flush = () => {
             if (run.length) {
@@ -86,6 +88,10 @@ export function TrendLine({ points, height = 90, label, color, lastLabel, unit }
               const widen = run.length === 1 ? 3 : 0;   // a single night still shows as a sliver
               bands.push(`M${x(run[0]) - widen},${y(points[run[0]].usualHigh!)} L${top.join(' L')} `
                 + `L${x(run[run.length - 1]) + widen},${y(points[run[run.length - 1]].usualLow!)} L${bottom.join(' L')} Z`);
+              const edge = (key: 'usualHigh' | 'usualLow') => `M${x(run[0]) - widen},${y(points[run[0]][key]!)} `
+                + run.map((i) => `L${x(i)},${y(points[i][key]!)}`).join(' ')
+                + ` L${x(run[run.length - 1]) + widen},${y(points[run[run.length - 1]][key]!)}`;
+              edges.push(edge('usualHigh'), edge('usualLow'));
             }
             run = [];
           };
@@ -111,6 +117,9 @@ export function TrendLine({ points, height = 90, label, color, lastLabel, unit }
           return (
             <Svg width={w} height={height}>
               {bands.map((b, i) => <Path key={i} d={b} fill={colors.baseline} />)}
+              {edges.map((e, i) => (
+                <Path key={`edge-${i}`} d={e} stroke={colors.textMuted} strokeWidth={1} strokeDasharray="3 3" fill="none" />
+              ))}
               <Path d={d} stroke={color ?? colors.hrv} strokeWidth={1.5} fill="none" strokeLinejoin="round" />
               {lone.map((i) => (
                 <Circle key={`lone-${i}`} cx={x(i)} cy={y(points[i].value!)} r={dot / 2} fill={color ?? colors.hrv} />
@@ -190,12 +199,19 @@ export function SleepStages({ nights, height = 110 }: { nights: SleepNight[]; he
               {nights.map((n, i) => {
                 let base = height;
                 // Bottom to top: deep, core, REM, then sleep without a stage (older watches).
+                // Neighbouring stage colors are close, so a 1px gap in the background color separates them.
                 return [[n.deep, colors.sleepDeep], [n.core, colors.sleepCore], [n.rem, colors.sleepRem],
                   [n.other, colors.sleep]].map(([min, fill], k) => {
                   const hh = h((min as number | null) ?? 0);
                   if (hh <= 0) return null;
+                  const below = base < height;
                   base -= hh;
-                  return <Rect key={`${n.date}-${k}`} x={i * (bw + gap)} y={base} width={bw} height={hh} fill={fill as string} />;
+                  return (
+                    <G key={`${n.date}-${k}`}>
+                      <Rect x={i * (bw + gap)} y={base} width={bw} height={hh} fill={fill as string} />
+                      {below ? <Rect x={i * (bw + gap)} y={base + hh - 0.5} width={bw} height={1} fill={colors.canvas} /> : null}
+                    </G>
+                  );
                 });
               })}
             </Svg>

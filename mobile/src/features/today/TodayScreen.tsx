@@ -56,7 +56,7 @@ export default function TodayScreen() {
     return (
       <Page>
         {top}
-        <Text variant="h1">No nights yet</Text>
+        <Text variant="h1" accessibilityRole="header">No nights yet</Text>
         <Text variant="bodyLarge" color="textSecondary" style={styles.noNights}>
           Once your watch has recorded a night of sleep and it has synced, your first night shows here.
           Your score starts after 7 nights.

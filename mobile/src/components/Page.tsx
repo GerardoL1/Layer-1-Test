@@ -8,7 +8,7 @@ import { LiveText } from './LiveText';
 export function Page({ children }: { children: ReactNode }) {
   const { colors, isWide } = useTheme();
   return (
-    <ScrollView style={[styles.page, { backgroundColor: colors.canvas }]}
+    <ScrollView role="main" style={[styles.page, { backgroundColor: colors.canvas }]}
       contentContainerStyle={isWide ? styles.contentWide : styles.content}>
       <View style={[styles.column, isWide && styles.columnWide]}>{children}</View>
     </ScrollView>

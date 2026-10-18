@@ -40,13 +40,14 @@ export function DropZone({ onFile, disabled, note }: Props) {
       </svg>
       <View style={styles.content}>
         <Text variant="h3">Drop export.zip here</Text>
-        <Text variant="bodySmall" color="textMuted">or</Text>
+        {/* Muted text is too faint on the highlighted background while a file is dragged over. */}
+        <Text variant="bodySmall" color={over ? 'textSecondary' : 'textMuted'}>or</Text>
         <Button title="Choose file" kind="secondary" disabled={disabled} style={styles.choose}
           onPress={async () => {
             const file = await pickFile('.zip,.xml');
             if (file) onFile(file);
           }} />
-        {note ? <Text variant="bodySmall" color="textMuted" style={styles.note}>{note}</Text> : null}
+        {note ? <Text variant="bodySmall" color={over ? 'textSecondary' : 'textMuted'} style={styles.note}>{note}</Text> : null}
       </View>
     </div>
   );

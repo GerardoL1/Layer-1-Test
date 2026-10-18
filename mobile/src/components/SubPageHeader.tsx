@@ -14,8 +14,8 @@ export function SubPageHeader({ back, label, title, intro }: Props) {
   const { colors, isWide } = useTheme();
   return (
     <View style={isWide ? [styles.headerWide, { borderBottomColor: colors.borderStrong }] : styles.header}>
-      <Pressable accessibilityRole="link" onPress={() => (router.canGoBack() ? router.back() : router.replace('/profile'))}
-        style={styles.back}>
+      <Pressable accessibilityRole="link" accessibilityLabel={`Back to ${back}`}
+        onPress={() => (router.canGoBack() ? router.back() : router.replace('/profile'))} style={styles.back}>
         <Text variant="button" color="textSecondary">← {back}</Text>
       </Pressable>
       <Text variant="labelSmall" color="textSecondary" style={styles.label}>{label}</Text>
@@ -32,7 +32,7 @@ export function SubPageHeader({ back, label, title, intro }: Props) {
 const styles = StyleSheet.create({
   header: { marginBottom: 12 },
   headerWide: { paddingBottom: 12, marginBottom: 20, borderBottomWidth: 1 },
-  back: { alignSelf: 'flex-start', paddingVertical: 4 },
+  back: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
   label: { marginTop: 6 },
   title: { marginTop: 4 },
   intro: { marginTop: 8 },

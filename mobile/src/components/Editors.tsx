@@ -76,8 +76,9 @@ export function DaysPicker({ value, onChange }: { value: number[]; onChange: (da
   );
 }
 
-export function TextEditor({ initial, placeholder, keyboard, onSave, hint }: {
-  initial: string; placeholder?: string; keyboard?: 'number-pad' | 'default'; hint?: string;
+/** label: what screen readers call the box, like "Time zone". The placeholder is only an example. */
+export function TextEditor({ initial, label, placeholder, keyboard, onSave, hint }: {
+  initial: string; label: string; placeholder?: string; keyboard?: 'number-pad' | 'default'; hint?: string;
   onSave: (text: string) => Promise<void>;
 }) {
   const { colors } = useTheme();
@@ -96,8 +97,8 @@ export function TextEditor({ initial, placeholder, keyboard, onSave, hint }: {
       <View style={styles.inputRow}>
         <TextInput value={text} onChangeText={setText} placeholder={placeholder} keyboardType={keyboard}
           autoCapitalize="none" autoCorrect={false} placeholderTextColor={colors.textMuted}
-          accessibilityLabel={placeholder} onSubmitEditing={submit} returnKeyType="done"
-          style={[styles.input, { color: colors.textPrimary, borderColor: colors.border }]} />
+          accessibilityLabel={label} accessibilityHint={hint} onSubmitEditing={submit} returnKeyType="done"
+          style={[styles.input, { color: colors.textPrimary, borderColor: colors.borderStrong }]} />
         <Button title="Save" busy={busy} onPress={submit} />
       </View>
       {hint ? <Text variant="bodySmall" color="textMuted">{hint}</Text> : null}
@@ -111,7 +112,7 @@ export function EditRow({ label, value, children, open, onToggle, error }: {
 }) {
   return (
     <View>
-      <ListRow label={label} value={value} onPress={onToggle} />
+      <ListRow label={label} value={value} onPress={onToggle} expanded={open} />
       {open ? (
         <View style={styles.opened}>
           {children}
@@ -123,7 +124,8 @@ export function EditRow({ label, value, children, open, onToggle, error }: {
 }
 
 const styles = StyleSheet.create({
-  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.sm, borderWidth: 1 },
+  chip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.sm,
+    borderWidth: 1 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   editor: { gap: 8 },
   inputRow: { flexDirection: 'row', gap: 8 },

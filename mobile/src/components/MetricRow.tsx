@@ -15,31 +15,50 @@ type Props = {
   direction: Direction;
 };
 
-/** One line of the "Last night" table: measure, value, and change against your usual. */
+const SPOKEN: Partial<Record<NonNullable<Direction>, string>> = {
+  worse: 'worse than usual',
+  better: 'better than usual',
+  usual: 'within your usual',
+};
+
+/** "+5 bpm" -> "▲ +5 bpm". Words like "Usual" or "More" are left alone. */
+function withArrow(delta: string): string {
+  if (delta.startsWith('+')) return `▲ ${delta}`;
+  if (delta.startsWith('−') || delta.startsWith('-')) return `▼ ${delta}`;
+  return delta;
+}
+
+/**
+ * One line of the "Last night" table: measure, value, and change against your usual.
+ * Color says better or worse, so the arrow and the spoken words carry it too for anyone who can't see the color.
+ */
 export function MetricRow({ label, shortLabel, value, unit, delta, direction }: Props) {
   const { colors, isNarrow } = useTheme();
   const deltaColor = direction === 'worse' ? colors.low : direction === 'better' ? colors.ready : colors.textMuted;
+  const judged = direction ? SPOKEN[direction] : undefined;
+  const spoken = [`${label}: ${value} ${unit ?? ''}`.trim(), delta, judged].filter(Boolean).join(', ');
   return (
-    <View accessible accessibilityLabel={`${label}: ${value} ${unit ?? ''}${delta ? `, ${delta}` : ''}`}
-      style={[styles.row, { borderTopColor: colors.border }]}>
-      <Text variant="bodyLarge" style={styles.label}>{isNarrow && shortLabel ? shortLabel : label}</Text>
-      <View style={styles.reading}>
-        <Text variant="scoreMetric">{value}</Text>
-        <Text variant="bodySmall" color="textMuted" numberOfLines={1} style={styles.unit}>
-          {unit ?? ''}
+    <View accessible role="group" accessibilityLabel={spoken} style={[styles.row, { borderTopColor: colors.border }]}>
+      {/* The row's label says it all, so the parts aren't read again one by one on the web. */}
+      <View aria-hidden style={styles.parts}>
+        <Text variant="bodyLarge" style={styles.label}>{isNarrow && shortLabel ? shortLabel : label}</Text>
+        <View style={styles.reading}>
+          <Text variant="scoreMetric">{value}</Text>
+          <Text variant="bodySmall" color="textMuted" style={styles.unit}>{unit ?? ''}</Text>
+        </View>
+        <Text variant="labelSmall" style={[styles.delta, { minWidth: isNarrow ? 70 : 84, color: deltaColor }]}>
+          {delta ? withArrow(delta) : ''}
         </Text>
       </View>
-      <Text variant="labelSmall" style={[styles.delta, { width: isNarrow ? 70 : 84, color: deltaColor }]}>
-        {delta ?? ''}
-      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { borderTopWidth: 1, minHeight: 58, flexDirection: 'row', alignItems: 'center' },
-  label: { flex: 1 },
+  row: { borderTopWidth: 1, minHeight: 58, justifyContent: 'center' },
+  parts: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', paddingVertical: 6 },
+  label: { flex: 1, minWidth: 120 },
   reading: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', minWidth: 96 },
-  unit: { marginLeft: 4, width: 28 },
+  unit: { marginLeft: 4, minWidth: 28 },
   delta: { textAlign: 'right' },
 });

@@ -26,5 +26,5 @@ export function RangeSwitch({ value, onChange }: { value: Range; onChange: (r: R
 
 const styles = StyleSheet.create({
   tabs: { flexDirection: 'row', gap: 20 },
-  tab: { paddingBottom: 5, borderBottomWidth: 2 },
+  tab: { minHeight: 44, justifyContent: 'flex-end', paddingBottom: 5, borderBottomWidth: 2 },
 });

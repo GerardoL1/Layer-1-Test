@@ -31,7 +31,7 @@ export default function AboutStep() {
       </Text>
       <EditRow label="Age" value={s?.age ? String(s.age) : 'Choose'} open={isOpen('age')} onToggle={() => toggle('age')}
         error={error}>
-        <TextEditor initial={s?.age ? String(s.age) : ''} keyboard="number-pad" placeholder="Age"
+        <TextEditor initial={s?.age ? String(s.age) : ''} label="Age" keyboard="number-pad" placeholder="Age"
           onSave={(t) => (t && !/^\d+$/.test(t) ? invalid(AGE_HINT) : save({ age: t ? Number(t) : null }))} />
       </EditRow>
       <EditRow label="Main training" value={s?.training ?? 'Choose'} open={isOpen('training')}

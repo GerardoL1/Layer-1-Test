@@ -26,7 +26,7 @@ export function ProfileSettings({ settings: s, reload }: { settings: Settings; r
       <SectionHeader title="About you" />
       <EditRow label="Age" value={s.age ? String(s.age) : 'Choose'} open={isOpen('age')} onToggle={() => toggle('age')}
         error={error}>
-        <TextEditor initial={s.age ? String(s.age) : ''} keyboard="number-pad" placeholder="Age"
+        <TextEditor initial={s.age ? String(s.age) : ''} label="Age" keyboard="number-pad" placeholder="Age"
           onSave={(t) => (t && !/^\d+$/.test(t) ? invalid(AGE_HINT) : save({ age: t ? Number(t) : null }))} />
       </EditRow>
       <EditRow label="Main training" value={s.training ?? 'Choose'} open={isOpen('training')}
@@ -48,7 +48,7 @@ export function ProfileSettings({ settings: s, reload }: { settings: Settings; r
         <ListRow label="Update time" value={clock(s.update_time)} onPress={() => router.push('/profile/update-time')} />
         <EditRow label="Time zone" value={s.timezone ?? 'From your watch data'} open={isOpen('tz')}
           onToggle={() => toggle('tz')} error={error}>
-          <TextEditor initial={s.timezone ?? deviceTimeZone()} placeholder="America/Chicago"
+          <TextEditor initial={s.timezone ?? deviceTimeZone()} label="Time zone" placeholder="America/Chicago"
             hint={`This device is in ${deviceTimeZone()}.`} onSave={(t) => save({ timezone: t || null })} />
         </EditRow>
         <ListRow label="Check-in reminder" comingSoon onPress={() => {}} />
