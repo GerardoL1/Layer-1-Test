@@ -226,3 +226,54 @@ def test_a_damaged_export_gets_a_plain_message():
     r = client.post("/api/v1/users/damaged/imports", files={"file": ("export.xml", broken, "text/xml")})
     status = client.get(r.headers["location"]).json()
     assert status["state"] == "error" and "damaged" in status["error"]
+
+
+# ---------------------------------------------------------------- units and finding the export
+
+
+def _values(user_id: str, metric: str) -> list[float]:
+    with db.connect() as conn:
+        rows = conn.execute("SELECT value FROM samples WHERE user_id = ? AND metric = ?", (user_id, metric))
+        return sorted(r[0] for r in rows)
+
+
+def test_units_are_converted_on_every_route_and_unknown_ones_refused():
+    rows = [{"date": "2026-09-30 23:14:05 -0500", "qty": 0.05}]
+    hae = {"data": {"metrics": [{"name": "heart_rate_variability", "units": "s", "data": rows}]}}
+    assert client.post(HAE.format("units"), json=hae).json()["new"] == 1
+    hae["data"]["metrics"][0]["units"] = "kHz"
+    r = client.post(HAE.format("units_bad"), json=hae).json()
+    assert r["new"] == 0 and r["unreadable"] == 1 and "kHz" in r["notes"][0]
+
+    line = "2026-09-30T23:30:00-05:00 | 2026-09-30T23:30:00-05:00 | {} | Apple Watch"
+    client.post("/api/v1/users/units/readings/shortcuts", data={"metric": "hrv_sdnn", "rows": line.format("0,04 s")})
+    r = client.post("/api/v1/users/units/readings/shortcuts", data={"metric": "hrv_sdnn", "rows": line.format("4 kHz")})
+    assert "1 lines could not be read" in r.text
+
+    sample = {"uuid": "u1", "metric": "heart_rate", "value": 1, "unit": "count/s", "start_ms": 1, "end_ms": 1}
+    assert client.post("/api/v1/users/units/readings", json={"samples": [{**sample, "tz_offset_min": 0}]}).is_success
+    bad = {**sample, "uuid": "u2", "unit": "kHz", "tz_offset_min": 0}
+    assert client.post("/api/v1/users/units/readings", json={"samples": [bad]}).status_code == 400
+
+    assert _values("units", "hrv_sdnn") == pytest.approx([40, 50])
+    assert _values("units", "heart_rate") == pytest.approx([60])
+
+
+def test_export_under_another_name_is_imported_and_only_it_counts_toward_the_size_limit(monkeypatch, tmp_path):
+    import zipfile
+
+    from app.core import limits
+
+    record = (
+        '<Record type="HKQuantityTypeIdentifierHeartRate" sourceName="Apple Watch" unit="count/min" '
+        'startDate="2026-09-30 23:14:05 -0500" endDate="2026-09-30 23:14:05 -0500" value="52"/>'
+    )
+    path = tmp_path / "export.zip"
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+        cda = "<ClinicalDocument>" + " " * 2_000_000 + "</ClinicalDocument>"
+        zf.writestr("apple_health_export/export_cda.xml", cda)
+        zf.writestr("apple_health_export/exportar.xml", f"<HealthData>{record}</HealthData>")
+    monkeypatch.setattr(limits, "MAX_UNZIPPED_BYTES", 1_000_000)  # less than the whole zip, more than the export
+    with db.connect() as conn:
+        counts = apple_export.import_export(path, conn, "renamed_export")
+    assert counts["heart_rate"] == 1 and counts["new"] == 1

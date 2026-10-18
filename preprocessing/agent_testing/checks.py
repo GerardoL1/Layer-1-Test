@@ -33,7 +33,7 @@ TOL_REL = 1e-6
 
 SPEC: dict[str, Any] = {  # values from docs/layer1_spec.md, deliberately not imported from config.py
     "min_tst": 180,
-    "min_hr_per_hour": 2,
+    "min_hr_slots_per_hour": 2,
     "baseline_nights": 28,
     "baseline_min": 7,
     "sd_floor": 0.02,
@@ -220,12 +220,12 @@ def spec_checks(nights: pd.DataFrame, ml: pd.DataFrame) -> list[Result]:
         uh != df["usable_hrv"].astype(bool),
         ["hrv_count", "usable_hrv"],
     )
-    per_h = df["hr_night_count"] / (df["tst_min"] / 60)
-    ur = us & df["rhr_night_bpm"].notna() & (per_h >= SPEC["min_hr_per_hour"])
+    per_h = df["hr_slot_count"] / (df["tst_min"] / 60)
+    ur = us & df["rhr_night_bpm"].notna() & (per_h >= SPEC["min_hr_slots_per_hour"])
     rule(
-        "usable_rhr = usable sleep, valid RHR and ≥ 2 HR readings per hour",
+        "usable_rhr = usable sleep, valid RHR and ≥ 2 five-minute slots with HR per hour",
         ur != df["usable_rhr"].astype(bool),
-        ["hr_night_count", "rhr_night_bpm", "usable_rhr"],
+        ["hr_slot_count", "rhr_night_bpm", "usable_rhr"],
     )
     incomplete = ~(df["usable_sleep"].astype(bool) & df["usable_hrv"].astype(bool) & df["usable_rhr"].astype(bool))
     notes = df["quality_notes"].fillna("") != ""

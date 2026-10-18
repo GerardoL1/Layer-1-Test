@@ -11,7 +11,7 @@ class Sample(BaseModel):
     end_ms: int
     tz_offset_min: int | None = None  # minutes ahead of UTC when the reading was taken
     source: str | None = None
-    unit: str | None = None  # ignored, each metric has one fixed unit
+    unit: str | None = None  # converted to bpm or ms, left out means it already is
 
 
 class SleepStage(BaseModel):

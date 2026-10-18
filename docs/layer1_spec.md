@@ -15,6 +15,13 @@ Settings live in `preprocessing/layer1/config.py`; if this document and the conf
   In Bed counts as the iPhone's when the name contains "iPhone" (`IN_BED_SOURCE_KEYWORDS`). Known gaps: a
   third-party app named "... for Apple Watch" is counted as the watch, and a watch renamed without those words is
   missed. Matching on the device type instead is planned for the production work.
+- Before matching, source names are folded to plain text (Unicode NFKC, runs of spaces made one space), so a
+  non-breaking space, a double space or full-width letters in a device name still match.
+- **Units:** heart rate and resting HR are kept in bpm, HRV in ms. Known other units are converted (count/s to
+  count/min, s to ms, `UNIT_FACTORS`). A reading in a unit we don't know is dropped ("Unknown unit") rather than
+  guessed. A reading with no unit is taken to be in the usual one.
+- **Export zips:** the export is the `.xml` file whose top element is `<HealthData>`, whatever it is called
+  (so `export_cda.xml` and Mac `__MACOSX/` copies are skipped). The 4 GB unzipped limit applies to that file only.
 - Remove exact duplicates and physically impossible values (HR outside 30–220 bpm, resting HR outside 30–120, SDNN outside 5–300 ms).
 - Remove sleep pieces shorter than 30 s or longer than 16 h.
 - **Overlapping pieces** (two watches, or a stage written on top of another) never count the same minute twice.
@@ -24,6 +31,9 @@ Settings live in `preprocessing/layer1/config.py`; if this document and the conf
 - **Primary sleep window** = first asleep piece (onset) to last asleep piece (final awakening). Awake time before onset or after final awakening does not count.
 - Sleep pieces less than 60 min apart form one session. Each night's **main sleep is its longest session**; other sessions are naps and are ignored.
 - A night is labelled by the evening it starts: onset minus 12 h, then take the local date.
+  - Known limit: crossing the date line changes the local date by a whole day, so one calendar date can be
+    skipped (it shows as a night with no data) or two sleeps can fall on the same date (the longer one is the
+    main sleep). This is left as is.
 - *Motion-artifact filtering is not possible:* HealthKit only provides processed values, not raw motion signals.
 
 ## 2. Core metrics (per night)
@@ -64,7 +74,9 @@ Why two fragmentation columns: without In Bed data, time in bed = TST + awake mi
   z-scores and stays out of every baseline. The app shows it as a short night, with its own wording, rather than
   "no sleep recorded".
 - `usable_hrv`: usable sleep and ≥ 1 HRV reading in the window.
-- `usable_rhr`: usable sleep, a valid overnight resting HR, and ≥ 2 HR readings per hour of sleep.
+- `usable_rhr`: usable sleep, a valid overnight resting HR, and heart rate in ≥ 2 five-minute slots per hour of
+  sleep (`HR_COVERAGE_SLOT_MIN`, `MIN_HR_SLOTS_PER_SLEEP_HOUR`). Slots, not readings, so a burst of readings
+  in a few minutes doesn't make a night look covered.
 - `quality_notes` explains every incomplete night; empty when complete, except the informational
   note "no sleep stages" (older watches), which can appear on an otherwise usable night.
 

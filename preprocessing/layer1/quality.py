@@ -31,8 +31,8 @@ def flag_quality(nights: pd.DataFrame, first_night=None, last_night=None) -> pd.
         has_sleep & (df["unspecified_min"].fillna(0) >= df["tst_min"].fillna(0)) & (df["tst_min"] > 0)
     )
     df["flag_no_hrv"] = has_sleep & (df["hrv_count"].fillna(0) == 0)
-    hr_per_hour = df["hr_night_count"] / (df["tst_min"] / 60)
-    df["flag_low_hr_coverage"] = has_sleep & (hr_per_hour.fillna(0) < C.MIN_HR_SAMPLES_PER_SLEEP_HOUR)
+    slots_per_hour = df["hr_slot_count"] / (df["tst_min"] / 60)
+    df["flag_low_hr_coverage"] = has_sleep & (slots_per_hour.fillna(0) < C.MIN_HR_SLOTS_PER_SLEEP_HOUR)
     df["flag_no_rhr"] = has_sleep & df["rhr_night_bpm"].isna()
 
     df["usable_sleep"] = has_sleep & ~df["flag_short_sleep"]

@@ -137,8 +137,9 @@ def test_zip_size_is_checked_before_reading(monkeypatch, tmp_path):
     path = tmp_path / "export.zip"
     path.write_bytes(big_zip())
     opened = []
-    real_iterparse = apple_export.ET.iterparse
-    monkeypatch.setattr(apple_export.ET, "iterparse", lambda *a, **k: opened.append(1) or real_iterparse(*a, **k))
+    # Finding the export peeks at each file's first tag, so the record reader is what's watched.
+    real_iter = apple_export.iter_records
+    monkeypatch.setattr(apple_export, "iter_records", lambda *a, **k: opened.append(1) or real_iter(*a, **k))
     with db.connect() as conn, pytest.raises(apple_export.ExportTooLarge):
         apple_export.import_export(path, conn, "bomb_cli")
     assert not opened

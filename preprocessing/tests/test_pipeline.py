@@ -343,3 +343,50 @@ def test_in_bed_from_another_app_says_so_in_the_removal_log():
     stages = [*night("2026-09-01", "2026-09-02"), sleep("2026-09-01 21:00:00", "2026-09-02 09:00:00", "InBed", "Oura")]
     log = P.run_pipeline(export(*stages), days=None).removal_log
     assert "In Bed from another app" in set(log["reason"])
+
+
+# ---------------------------------------------------------------- spec decisions 4 to 7
+
+
+def test_a_burst_of_heart_rate_does_not_count_as_coverage():
+    # 120 readings, but all inside 02:00-02:10, so only 2 five-minute slots in about 7 hours of sleep.
+    t0 = pd.Timestamp("2026-09-02 02:00:00")
+    burst = [hr((t0 + pd.Timedelta(seconds=5 * i)).strftime("%Y-%m-%d %H:%M:%S"), 55) for i in range(120)]
+    row = P.run_pipeline(export(*night("2026-09-01", "2026-09-02"), *burst), days=None).nights.iloc[0]
+    assert row["hr_night_count"] == 120 and row["hr_slot_count"] == 2
+    assert row["flag_low_hr_coverage"] and not row["usable_rhr"]
+
+
+def test_known_units_are_converted_and_unknown_ones_dropped():
+    hrv_type = "HKQuantityTypeIdentifierHeartRateVariabilitySDNN"
+    hr_type = "HKQuantityTypeIdentifierHeartRate"
+    extra = [
+        rec(hrv_type, "2026-09-02 01:00:00", value=0.05, unit="s"),
+        rec(hrv_type, "2026-09-02 02:00:00", value=40, unit="ms"),
+        rec(hr_type, "2026-09-02 02:30:00", value=1, unit="count/s"),
+        rec(hr_type, "2026-09-02 03:30:00", value=55, unit="kHz"),
+    ]
+    res = P.run_pipeline(export(*night("2026-09-01", "2026-09-02"), *extra), days=None)
+    assert sorted(res.cleaned["hrv_sdnn"]["value"]) == pytest.approx([40, 50])
+    assert list(res.cleaned["heart_rate"]["value"]) == pytest.approx([60])
+    log = res.removal_log.set_index("reason")
+    assert log.loc["Unknown unit", "removed"] == 1
+
+
+@pytest.mark.parametrize("name", ["Test’s Apple Watch", "Test’s Apple  Watch", "Ｔｅｓｔ Ａｐｐｌｅ Ｗａｔｃｈ"])
+def test_watch_names_with_odd_spacing_or_width_still_match(name):
+    res = P.run_pipeline(export(hr("2026-09-01 10:00:00", 70, source=name)), days=None)
+    assert len(res.cleaned["heart_rate"]) == 1
+
+
+def test_the_export_in_a_zip_is_found_by_content_not_name():
+    xml = "<?xml version='1.0'?>\n<!DOCTYPE HealthData [<!ELEMENT HealthData ANY>]>\n<HealthData>"
+    xml += hr("2026-09-01 10:00:00", 70) + "</HealthData>"
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("__MACOSX/apple_health_export/._exportar.xml", b"\x00\x05\x16\x07 not xml")
+        zf.writestr("apple_health_export/export_cda.xml", "<ClinicalDocument/>")
+        zf.writestr("apple_health_export/exportar.xml", xml)
+    buf.name = "exportar.zip"
+    records, _ = P.load_export(buf, days=None)
+    assert list(records["metric"]) == ["heart_rate"]

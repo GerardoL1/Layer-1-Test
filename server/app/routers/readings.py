@@ -17,6 +17,7 @@ from app.routers.large_form import LargeFormRoute
 from app.schemas.readings import HealthAutoExportResult, ReadingsBatch, ReadingsResult
 from app.services import health_auto_export, shortcuts
 from app.services.readings import save_readings
+from layer1.units import factor
 
 log = logging.getLogger("recovery.ingest")
 
@@ -49,7 +50,10 @@ def add_readings(user_id: str, payload: ReadingsBatch, background: BackgroundTas
         if q.metric not in db.METRICS:
             raise HTTPException(400, f"Unknown metric '{q.metric}'. Use one of: {', '.join(db.METRICS)}")
         tz = require_offset(q.tz_offset_min, f"{q.metric} sample {q.uuid}")
-        samples.append((q.uuid, q.metric, q.value, q.start_ms, q.end_ms, tz, q.source))
+        scale = factor(q.metric, q.unit)
+        if scale is None:
+            raise HTTPException(400, f"{q.metric} sample {q.uuid} is in '{q.unit}', a unit we can't convert.")
+        samples.append((q.uuid, q.metric, q.value * scale, q.start_ms, q.end_ms, tz, q.source))
     for st in payload.sleep:
         if st.stage not in db.STAGES:
             raise HTTPException(400, f"Unknown sleep stage '{st.stage}'. Use one of: {', '.join(db.STAGES)}")
@@ -97,6 +101,11 @@ async def add_health_auto_export(user_id: str, request: Request, background: Bac
             "stages, so they weren't saved. In Health Auto Export, turn off 'Aggregate sleep data' and send again."
         )
         log.warning("health-auto-export %s: %d aggregated sleep rows refused", user_id, parsed.aggregated_sleep)
+    if parsed.unknown_units:
+        notes.append(
+            f"Not saved, in a unit we can't convert: {', '.join(sorted(parsed.unknown_units))}. "
+            "Set Health Auto Export to send heart rate in count/min and HRV in ms."
+        )
     return {
         "samples": len(parsed.samples),
         "sleep_stages": len(parsed.stages),

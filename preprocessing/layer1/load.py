@@ -13,8 +13,35 @@ import numpy as np
 import pandas as pd
 
 from layer1 import config as C
+from layer1 import units
 
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S %z"
+
+
+def _root_tag(f) -> str | None:
+    """The first element's name. Only the start of the file is read."""
+    try:
+        for _, elem in ET.iterparse(f, events=("start",)):
+            return elem.tag
+    except ET.ParseError:
+        pass
+    return None
+
+
+def find_export_xml(zf: zipfile.ZipFile) -> str | None:
+    """
+    The Health export inside a zip, found by what's in it (a <HealthData> file) rather than its name,
+    since an iOS version in another language or a renamed file can call it something else.
+    That also skips export_cda.xml and the ._ copies a Mac adds under __MACOSX/. The server uses this too.
+    """
+    names = [n for n in zf.namelist() if n.lower().endswith(".xml") and not n.startswith("__MACOSX/")]
+    # Try the usual name first so a normal export is found straight away.
+    names.sort(key=lambda n: n.rsplit("/", 1)[-1] != "export.xml")
+    for n in names:
+        with zf.open(n) as f:
+            if _root_tag(f) == "HealthData":
+                return n
+    return None
 
 
 def _open_xml(source) -> IO[bytes]:
@@ -22,9 +49,7 @@ def _open_xml(source) -> IO[bytes]:
     name = getattr(source, "name", str(source))
     if str(name).lower().endswith(".zip"):
         zf = zipfile.ZipFile(source)
-        # The same rule as the server. A zip made on a Mac can also hold __MACOSX/.../._export.xml, which isn't XML.
-        names = [n for n in zf.namelist() if not n.startswith("__MACOSX/")]
-        inner = next((n for n in names if n == "export.xml" or n.endswith("/export.xml")), None)
+        inner = find_export_xml(zf)
         if inner is None:
             raise ValueError(
                 "No export.xml inside this zip. Use the zip made by the Health app "
@@ -100,6 +125,9 @@ def load_export(source, days: int | None = C.DEFAULT_DAYS) -> tuple[pd.DataFrame
     records["value"] = np.where(
         records["kind"] == "quantity", pd.to_numeric(records["raw_value"], errors="coerce"), np.nan
     )
+    # A unit we can't convert leaves the value empty, and clean() drops it as an unknown unit.
+    quantity = records["kind"] == "quantity"
+    records.loc[quantity, "value"] *= units.factors(records.loc[quantity, "metric"], records.loc[quantity, "unit"])
     records["stage"] = records["raw_value"].map(C.SLEEP_VALUES).where(records["kind"] == "sleep")
 
     # Records dated more than a day ahead come from a wrong clock (say 2099). Kept, one of them would

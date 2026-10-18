@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 
 from app.core import db
 from app.services.apple_export import parse_date
+from layer1.units import factor
 
 HAE_METRICS = {
     "heart_rate": "heart_rate",
@@ -43,6 +44,7 @@ class Parsed:
     samples: list[tuple] = field(default_factory=list)
     stages: list[tuple] = field(default_factory=list)
     ignored: set[str] = field(default_factory=set)  # metric names we don't use, like steps
+    unknown_units: set[str] = field(default_factory=set)  # "heart_rate in kHz", refused rather than guessed
     bad: int = 0  # rows that couldn't be read: bad dates, impossible offsets, values that aren't numbers
     aggregated_sleep: int = 0  # nightly sleep summaries, which have no stages to work with
 
@@ -73,6 +75,11 @@ def parse_payload(payload, user_id: str) -> Parsed:
 
         if name in HAE_METRICS:
             metric = HAE_METRICS[name]
+            scale = factor(metric, m.get("units"))
+            if scale is None:
+                out.unknown_units.add(f"{name} in {m.get('units')}")
+                out.bad += len(rows)
+                continue
             for row in rows:
                 # Heart rate comes as Min/Avg/Max per interval, other metrics as qty.
                 value = row.get("qty", row.get("Avg"))
@@ -81,7 +88,7 @@ def parse_payload(payload, user_id: str) -> Parsed:
                 source = row.get("source")
                 try:
                     t, tz = parse_date(row["date"])
-                    value = float(value)
+                    value = float(value) * scale
                 except (TypeError, ValueError, OverflowError):  # OverflowError: a number too big for a float
                     out.bad += 1
                     continue

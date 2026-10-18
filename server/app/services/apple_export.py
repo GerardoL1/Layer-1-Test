@@ -16,6 +16,8 @@ from datetime import datetime
 from pathlib import Path
 
 from app.core import db, limits
+from layer1.load import find_export_xml
+from layer1.units import factor
 
 
 class ExportTooLarge(ValueError):
@@ -23,12 +25,16 @@ class ExportTooLarge(ValueError):
 
 
 def check_unzipped_size(path: str | Path) -> None:
-    """Refuse a zip whose entries add up to more than the limit, before reading any of it."""
+    """
+    Refuse a zip whose export file unpacks to more than the limit, before reading it.
+    Only that file counts. The rest of the zip (ECGs, routes, clinical records) is never unpacked.
+    """
     path = Path(path)
     if path.suffix.lower() != ".zip":
         return
     with zipfile.ZipFile(path) as zf:
-        total = sum(info.file_size for info in zf.infolist())
+        name = find_export_xml(zf)
+        total = zf.getinfo(name).file_size if name else 0
     if total > limits.MAX_UNZIPPED_BYTES:
         raise ExportTooLarge(
             f"This export unzips to {limits.size_text(total)}, over the "
@@ -89,7 +95,7 @@ def xml_size(path: str | Path) -> int:
     if path.suffix.lower() != ".zip":
         return path.stat().st_size
     with zipfile.ZipFile(path) as zf:
-        name = next((n for n in zf.namelist() if n.endswith("/export.xml") or n == "export.xml"), None)
+        name = find_export_xml(zf)
         return zf.getinfo(name).file_size if name else 0
 
 
@@ -104,7 +110,7 @@ def open_export_xml(path: str | Path):
         return
     # Close the zip itself too, or Windows won't let us delete the uploaded file afterwards.
     with zipfile.ZipFile(path) as zf:
-        name = next((n for n in zf.namelist() if n.endswith("/export.xml") or n == "export.xml"), None)
+        name = find_export_xml(zf)
         if name is None:
             raise ValueError("No export.xml found inside the zip. Is this the Apple Health export?")
         with zf.open(name) as f:
@@ -203,11 +209,15 @@ def import_export(
                 counts["sleep_stages"] += 1
             else:
                 metric = QUANTITY_TYPES[r["type"]]
+                scale = factor(metric, r.get("unit"))
                 try:
                     value = float(r["value"])
                 except (KeyError, ValueError):
+                    scale = None
+                if scale is None:  # not a number, or a unit we can't convert
                     counts["skipped"] += 1
                     continue
+                value *= scale
                 samples.append(
                     (
                         db.sample_id(user_id, metric, start_ms, end_ms, value, source),

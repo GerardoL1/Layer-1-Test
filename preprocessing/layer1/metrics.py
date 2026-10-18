@@ -39,7 +39,13 @@ def overnight_rhr(hr: pd.DataFrame, lo, hi) -> dict:
     Returns the value, where it happened, and the rolling series (for charts).
     """
     w = hr[(hr["start_utc"] >= lo) & (hr["start_utc"] <= hi)].sort_values("start_utc")
-    result = {"rhr_night_bpm": np.nan, "rhr_window_end_utc": pd.NaT, "hr_night_count": len(w), "rolling": None}
+    result = {
+        "rhr_night_bpm": np.nan,
+        "rhr_window_end_utc": pd.NaT,
+        "hr_night_count": len(w),
+        "hr_slot_count": w["start_utc"].dt.floor(f"{C.HR_COVERAGE_SLOT_MIN}min").nunique(),
+        "rolling": None,
+    }
     if w.empty:
         return result
     series = w.set_index("start_utc")["value"]
@@ -78,6 +84,7 @@ NIGHT_COLUMNS = [
     "hrv_count",
     "rhr_night_bpm",
     "hr_night_count",
+    "hr_slot_count",
     "apple_rhr_bpm",
     "naps",
 ]
@@ -142,6 +149,7 @@ def nightly_metrics(sessions: pd.DataFrame, stages: pd.DataFrame, cleaned: dict[
                 "hrv_count": int(len(night_hrv)),
                 "rhr_night_bpm": rhr["rhr_night_bpm"],
                 "hr_night_count": rhr["hr_night_count"],
+                "hr_slot_count": rhr["hr_slot_count"],
                 "apple_rhr_bpm": apple_rhr_by_day.get(s["wake_local"].date(), np.nan),
                 "naps": int(((sessions["night_date"] == s["night_date"]) & ~sessions["is_main"]).sum()),
             }

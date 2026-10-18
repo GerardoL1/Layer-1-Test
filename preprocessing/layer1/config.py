@@ -28,6 +28,15 @@ ASLEEP_STAGES = ("core", "deep", "rem", "asleep_unspecified")
 # "In Bed" is kept separately and is not part of this.
 SLEEP_STAGE_PRIORITY = {"deep": 0, "rem": 0, "core": 0, "asleep_unspecified": 1, "awake": 2}
 
+# Units we can turn into bpm (heart rate) and ms (HRV), written lower case with spaces removed.
+# Apple's export uses count/min and ms. Anything not listed is refused rather than guessed.
+_BPM = {"count/min": 1, "bpm": 1, "beats/min": 1, "count/s": 60, "count/sec": 60}
+UNIT_FACTORS = {
+    "heart_rate": _BPM,
+    "resting_heart_rate": _BPM,
+    "hrv_sdnn": {"ms": 1, "s": 1000, "sec": 1000},
+}
+
 # Only process this many days back from the newest record (None = everything).
 DEFAULT_DAYS = 90
 
@@ -71,7 +80,10 @@ HRV_LOG_TRANSFORM = True
 
 # ---------------------------------------------------------------- 5. Missing data / quality
 MIN_TST_FOR_USABLE_MIN = 180  # nights with less sleep are flagged short_sleep
-MIN_HR_SAMPLES_PER_SLEEP_HOUR = 2  # fewer readings than this -> low_hr_coverage
+# Heart rate coverage is counted in slots, not readings: a workout left running or a burst of readings
+# in one minute shouldn't make a night look covered. Fewer filled slots per hour of sleep -> low_hr_coverage.
+HR_COVERAGE_SLOT_MIN = 5
+MIN_HR_SLOTS_PER_SLEEP_HOUR = 2
 
 # ---------------------------------------------------------------- 6. Baselines and z-scores
 # Personal baseline = previous nights only (tonight is never in its own baseline).

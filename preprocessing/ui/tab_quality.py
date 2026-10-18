@@ -25,8 +25,8 @@ def render(data: AppData) -> None:
         f"- **Sleep** is usable if the watch recorded at least {C.MIN_TST_FOR_USABLE_MIN / 60:g} hours.\n"
         "- **HRV** needs usable sleep plus at least one HRV reading in the window.\n"
         "- **Overnight resting HR** needs usable sleep, a valid overnight resting HR "
-        f"(a full {C.RHR_WINDOW_MIN}-minute stretch), and at least {C.MIN_HR_SAMPLES_PER_SLEEP_HOUR} "
-        "heart rate readings per hour of sleep."
+        f"(a full {C.RHR_WINDOW_MIN}-minute stretch), and heart rate in at least {C.MIN_HR_SLOTS_PER_SLEEP_HOUR} "
+        f"{C.HR_COVERAGE_SLOT_MIN}-minute slots per hour of sleep."
     )
     if not nights.empty:
         c = st.columns(4)
@@ -73,7 +73,7 @@ def render(data: AppData) -> None:
         st.plotly_chart(style(fig, 230, legend=False), use_container_width=True)
 
         flagged = nights[nights["quality_notes"] != ""][
-            ["night_date", "quality_notes", "tst_min", "hrv_count", "hr_night_count"]
+            ["night_date", "quality_notes", "tst_min", "hrv_count", "hr_slot_count"]
         ]
         if len(flagged):
             st.markdown("**Flagged nights**")
@@ -82,4 +82,4 @@ def render(data: AppData) -> None:
             )
         else:
             st.success("Every night is complete.")
-    settings("MIN_TST_FOR_USABLE_MIN", "MIN_HR_SAMPLES_PER_SLEEP_HOUR")
+    settings("MIN_TST_FOR_USABLE_MIN", "HR_COVERAGE_SLOT_MIN", "MIN_HR_SLOTS_PER_SLEEP_HOUR")

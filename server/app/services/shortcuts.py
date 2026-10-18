@@ -7,6 +7,7 @@ import math
 from datetime import datetime
 
 from app.core import db
+from layer1.units import factor
 
 SHORTCUT_METRICS = ("heart_rate", "resting_heart_rate", "hrv_sdnn", "sleep")
 # HealthKit's numeric sleep values, in case Shortcuts sends numbers instead of names
@@ -78,11 +79,17 @@ def parse_rows(user: str, metric: str, rows: str) -> tuple[list[tuple], list[tup
             stages.append((db.sleep_id(user, stage, s, e, source), stage, s, e, s_tz, e_tz, source))
         else:
             try:
-                # Strip units if the whole sample was inserted, and accept "48,5" decimals.
-                value = float(value_txt.split()[0].replace(",", "."))
-            except (ValueError, IndexError):
+                # The whole sample may have been inserted, like "48,5 ms". Its unit is converted
+                # (a unit we don't know makes the line unreadable), and "48,5" decimals are accepted.
+                number, _, unit = value_txt.partition(" ")
+                value = float(number.replace(",", "."))
+                scale = factor(metric, unit)
+            except ValueError:
+                scale = None
+            if scale is None:
                 bad.append(line)
                 continue
+            value *= scale
             if not math.isfinite(value):  # "inf" and "nan" read as numbers, but aren't readings
                 bad.append(line)
                 continue

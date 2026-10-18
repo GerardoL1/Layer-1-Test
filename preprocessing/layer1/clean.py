@@ -4,16 +4,29 @@ Step 2. Clean: Apple Watch only, no duplicates, no impossible values.
 
 from __future__ import annotations
 
+import unicodedata
+
 import pandas as pd
 
 from layer1 import config as C
+from layer1 import units
+
+
+def _plain(text: str) -> str:
+    """
+    Device names can hold a non-breaking space, a double space or full-width letters
+    (a phone set to Japanese, say). Folded to plain text here so they still match.
+    """
+    return " ".join(unicodedata.normalize("NFKC", text).split())
 
 
 def _named(source: pd.Series, keywords) -> pd.Series:
     """True where the source name contains one of the keywords."""
+    names = source.fillna("").astype(str)
+    plain = names.map({n: _plain(n) for n in names.unique()})
     mask = pd.Series(False, index=source.index)
     for kw in keywords:
-        mask |= source.str.contains(kw, case=False, regex=False)
+        mask |= plain.str.contains(_plain(kw), case=False, regex=False)
     return mask
 
 
@@ -51,6 +64,10 @@ def clean(records: pd.DataFrame) -> tuple[dict[str, pd.DataFrame], pd.DataFrame,
     # Exact duplicates (same data, same time, same source), e.g. from re-imports or sync glitches.
     dup = df.duplicated(subset=["metric", "stage", "value", "source", "start_utc", "end_utc"])
     drop(dup, "Exact duplicate")
+
+    # Heart rate or HRV in a unit we can't convert (load() left the value empty).
+    quantity = df["kind"] == "quantity"
+    drop(quantity & units.factors(df["metric"], df["unit"]).isna(), "Unknown unit")
 
     # Impossible values.
     bad = pd.Series(False, index=df.index)
