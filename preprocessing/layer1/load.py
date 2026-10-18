@@ -58,7 +58,8 @@ def find_export_xml(zf: zipfile.ZipFile) -> str | None:
             continue
         if _root_tag(head) == "HealthData":
             return n
-        damaged |= n.rsplit("/", 1)[-1] == "export.xml"
+        # Named export.xml, or a renamed file that plainly starts as one but couldn't be read.
+        damaged |= n.rsplit("/", 1)[-1] == "export.xml" or b"<HealthData" in head
     if damaged:
         raise DamagedExport(
             "The export file in this zip is damaged or can't be unpacked. "

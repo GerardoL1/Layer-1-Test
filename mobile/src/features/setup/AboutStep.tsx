@@ -36,7 +36,7 @@ export default function AboutStep() {
       </EditRow>
       <EditRow label="Main training" value={s?.training ?? 'Choose'} open={isOpen('training')}
         onToggle={() => toggle('training')} error={error}>
-        <Chips options={TRAINING.map((t) => ({ value: t, label: t }))} value={s?.training ?? null}
+        <Chips name="Main training" options={TRAINING.map((t) => ({ value: t, label: t }))} value={s?.training ?? null}
           onPick={(t) => save({ training: t })} />
       </EditRow>
       <EditRow label="Training days"

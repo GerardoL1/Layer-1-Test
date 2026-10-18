@@ -27,11 +27,13 @@ function Chip({ label, on, onPress, multi }: { label: string; on: boolean; onPre
   );
 }
 
-export function Chips<T extends string | number>({ options, value, onPick, label }: {
+/** name: what screen readers call the group, like "Main training". */
+export function Chips<T extends string | number>({ options, value, onPick, label, name }: {
   options: { value: T; label: string }[]; value: T | null; onPick: (v: T) => void; label?: (v: T) => string;
+  name: string;
 }) {
   return (
-    <View accessibilityRole="radiogroup" style={styles.chips}>
+    <View accessibilityRole="radiogroup" accessibilityLabel={name} style={styles.chips}>
       {options.map((o) => <Chip key={String(o.value)} label={label ? label(o.value) : o.label} on={o.value === value}
         onPress={() => onPick(o.value)} />)}
     </View>
@@ -70,7 +72,7 @@ export function DaysPicker({ value, onChange }: { value: number[]; onChange: (da
     }, DAYS_SAVE_DELAY_MS);
   }
   return (
-    <View style={styles.chips}>
+    <View role="group" accessibilityLabel="Training days" style={styles.chips}>
       {WEEKDAYS.map((d, i) => <Chip key={d} label={d} on={days.includes(i)} multi onPress={() => toggle(i)} />)}
     </View>
   );
@@ -124,7 +126,7 @@ export function EditRow({ label, value, children, open, onToggle, error }: {
 }
 
 const styles = StyleSheet.create({
-  chip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.sm,
+  chip: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.sm,
     borderWidth: 1 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   editor: { gap: 8 },

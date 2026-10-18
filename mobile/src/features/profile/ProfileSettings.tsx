@@ -31,7 +31,7 @@ export function ProfileSettings({ settings: s, reload }: { settings: Settings; r
       </EditRow>
       <EditRow label="Main training" value={s.training ?? 'Choose'} open={isOpen('training')}
         onToggle={() => toggle('training')} error={error}>
-        <Chips options={TRAINING.map((t) => ({ value: t, label: t }))} value={s.training}
+        <Chips name="Main training" options={TRAINING.map((t) => ({ value: t, label: t }))} value={s.training}
           onPick={(t) => save({ training: t })} />
       </EditRow>
       <EditRow label="Training days" value={s.training_days.length ? s.training_days.map((d) => WEEKDAYS[d]).join(' · ') : 'Choose'}
@@ -43,7 +43,7 @@ export function ProfileSettings({ settings: s, reload }: { settings: Settings; r
         <SectionHeader title="Settings" />
         <EditRow label="Appearance" value={APPEARANCE.find((a) => a.value === session.appearance)!.label}
           open={isOpen('appearance')} onToggle={() => toggle('appearance')}>
-          <Chips options={APPEARANCE} value={session.appearance} onPick={(a) => session.update({ appearance: a })} />
+          <Chips name="Appearance" options={APPEARANCE} value={session.appearance} onPick={(a) => session.update({ appearance: a })} />
         </EditRow>
         <ListRow label="Update time" value={clock(s.update_time)} onPress={() => router.push('/profile/update-time')} />
         <EditRow label="Time zone" value={s.timezone ?? 'From your watch data'} open={isOpen('tz')}
@@ -54,7 +54,7 @@ export function ProfileSettings({ settings: s, reload }: { settings: Settings; r
         <ListRow label="Check-in reminder" comingSoon onPress={() => {}} />
         <EditRow label="Units" value={s.units === 'imperial' ? 'lb · ft' : 'kg · m'} open={isOpen('units')}
           onToggle={() => toggle('units')} error={error}>
-          <Chips options={UNITS} value={s.units} onPick={(u) => save({ units: u })} />
+          <Chips name="Units" options={UNITS} value={s.units} onPick={(u) => save({ units: u })} />
         </EditRow>
       </View>
 

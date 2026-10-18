@@ -18,8 +18,9 @@ def _plain(text: str) -> str:
     Japanese, say) or invisible zero-width characters. Folded to plain text here so they still match.
     """
     text = unicodedata.normalize("NFKC", text)
-    # Format characters (zero-width space and joiner, byte order mark) are invisible, so they're dropped.
-    text = "".join(ch for ch in text if unicodedata.category(ch) != "Cf")
+    # Format characters (zero-width space and joiner, soft hyphen, byte order mark) are invisible.
+    # They become a space, since one can stand where the space was, and extra spaces are folded below.
+    text = "".join(" " if unicodedata.category(ch) == "Cf" else ch for ch in text)
     return " ".join(text.split())
 
 

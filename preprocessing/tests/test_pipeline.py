@@ -375,7 +375,14 @@ def test_known_units_are_converted_and_unknown_ones_dropped():
 
 @pytest.mark.parametrize(
     "name",
-    ["Test’s Apple Watch", "Test’s Apple  Watch", "Ｔｅｓｔ Ａｐｐｌｅ Ｗａｔｃｈ", "\ufeffTest’s Apple\u200b Watch"],
+    [
+        "Test’s Apple Watch",
+        "Test’s Apple  Watch",
+        "Ｔｅｓｔ Ａｐｐｌｅ Ｗａｔｃｈ",
+        "\ufeffTest’s Apple\u200b Watch",
+        "Test’s Apple\u200bWatch",
+        "Test’s Apple\u00adWatch",
+    ],
 )
 def test_watch_names_with_odd_spacing_or_width_still_match(name):
     res = P.run_pipeline(export(hr("2026-09-01 10:00:00", 70, source=name)), days=None)
@@ -413,3 +420,12 @@ def test_only_the_start_of_each_xml_is_read_when_looking_for_the_export():
         zf.writestr("padded.xml", "<?xml version='1.0'?><!--" + " " * (2 * EXPORT_PEEK_BYTES) + "--><HealthData/>")
     with zipfile.ZipFile(buf) as zf:
         assert find_export_xml(zf) is None
+
+
+def test_a_renamed_export_that_cannot_be_read_is_reported_as_damaged():
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("apple_health_export/exportar.xml", '<?xml version="1.0" encoding="x-nope"?><HealthData/>')
+    buf.name = "export.zip"
+    with pytest.raises(ValueError, match="damaged"):
+        P.load_export(buf, days=None)

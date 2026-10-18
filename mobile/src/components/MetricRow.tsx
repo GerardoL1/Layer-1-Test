@@ -36,7 +36,9 @@ export function MetricRow({ label, shortLabel, value, unit, delta, direction }: 
   const { colors, isNarrow } = useTheme();
   const deltaColor = direction === 'worse' ? colors.low : direction === 'better' ? colors.ready : colors.textMuted;
   const judged = direction ? SPOKEN[direction] : undefined;
-  const spoken = [`${label}: ${value} ${unit ?? ''}`.trim(), delta, judged].filter(Boolean).join(', ');
+  // A change of zero ("0 bpm") sounds odd read aloud.
+  const change = delta && /^[+−-]?0(\D|$)/.test(delta) ? 'no change' : delta;
+  const spoken = [`${label}: ${value} ${unit ?? ''}`.trim(), change, judged].filter(Boolean).join(', ');
   return (
     <View accessible role="group" accessibilityLabel={spoken} style={[styles.row, { borderTopColor: colors.border }]}>
       {/* The row's label says it all, so the parts aren't read again one by one on the web. */}
