@@ -29,7 +29,13 @@ def shortcut_date(text: str) -> tuple[int, int]:
     minutes = int(offset.total_seconds() // 60)
     if not db.valid_offset(minutes):
         raise ValueError(f"impossible UTC offset: {text}")
-    return int(dt.timestamp() * 1000), minutes
+    try:
+        ms = int(dt.timestamp() * 1000)
+    except OverflowError:  # year 1 with a positive offset falls before year 1 in UTC
+        raise ValueError(f"date out of range: {text}") from None
+    if not db.valid_time(ms):
+        raise ValueError(f"date out of range: {text}")
+    return ms, minutes
 
 
 def sleep_stage(value: str) -> str | None:
@@ -81,9 +87,9 @@ def parse_rows(user: str, metric: str, rows: str) -> tuple[list[tuple], list[tup
             try:
                 # The whole sample may have been inserted, like "48,5 ms". Its unit is converted
                 # (a unit we don't know makes the line unreadable), and "48,5" decimals are accepted.
-                number, _, unit = value_txt.partition(" ")
+                number, *unit = value_txt.split(None, 1)  # any space, including the no-break kind
                 value = float(number.replace(",", "."))
-                scale = factor(metric, unit)
+                scale = factor(metric, unit[0] if unit else None)
             except ValueError:
                 scale = None
             if scale is None:

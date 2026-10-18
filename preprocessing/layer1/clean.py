@@ -14,10 +14,13 @@ from layer1 import units
 
 def _plain(text: str) -> str:
     """
-    Device names can hold a non-breaking space, a double space or full-width letters
-    (a phone set to Japanese, say). Folded to plain text here so they still match.
+    Device names can hold a non-breaking space, a double space, full-width letters (a phone set to
+    Japanese, say) or invisible zero-width characters. Folded to plain text here so they still match.
     """
-    return " ".join(unicodedata.normalize("NFKC", text).split())
+    text = unicodedata.normalize("NFKC", text)
+    # Format characters (zero-width space and joiner, byte order mark) are invisible, so they're dropped.
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Cf")
+    return " ".join(text.split())
 
 
 def _named(source: pd.Series, keywords) -> pd.Series:

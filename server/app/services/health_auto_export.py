@@ -77,7 +77,10 @@ def parse_payload(payload, user_id: str) -> Parsed:
             metric = HAE_METRICS[name]
             scale = factor(metric, m.get("units"))
             if scale is None:
-                out.unknown_units.add(f"{name} in {m.get('units')}")
+                units = m.get("units")
+                out.unknown_units.add(
+                    f"{name} in {units}" if isinstance(units, str) else f"{name} in an unreadable unit"
+                )
                 out.bad += len(rows)
                 continue
             for row in rows:

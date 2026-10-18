@@ -125,6 +125,16 @@ def sleep_id(user_id, stage, start_ms, end_ms, source) -> str:
     return stable_id(user_id, "sleep", stage, start_ms, end_ms, source)
 
 
+# Readings must fall between these. A wrong clock (year 1, year 9999) would otherwise reach the
+# date maths and break that person's processing for good. Nothing on an Apple Watch predates 2000.
+EARLIEST_MS = 946_684_800_000  # 2000-01-01 UTC
+FUTURE_SLACK_MS = 24 * 3600 * 1000  # a day ahead, the same as the pipeline allows
+
+
+def valid_time(ms) -> bool:
+    return isinstance(ms, int) and EARLIEST_MS <= ms <= int(time.time() * 1000) + FUTURE_SLACK_MS
+
+
 def valid_offset(minutes) -> bool:
     return isinstance(minutes, int) and MIN_OFFSET_MIN <= minutes <= MAX_OFFSET_MIN
 

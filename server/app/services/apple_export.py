@@ -6,6 +6,7 @@ The file can be several GB, so it is streamed record by record instead of
 loaded into memory.
 """
 
+import math
 import sqlite3
 import time
 import xml.etree.ElementTree as ET
@@ -86,7 +87,13 @@ def parse_date(date_str: str) -> tuple[int, int]:
     minutes = int(offset.total_seconds() // 60)
     if not db.valid_offset(minutes):
         raise ValueError(f"impossible UTC offset: {date_str}")
-    return int(dt.timestamp() * 1000), minutes
+    try:
+        ms = int(dt.timestamp() * 1000)
+    except OverflowError:  # year 1 with a positive offset falls before year 1 in UTC
+        raise ValueError(f"date out of range: {date_str}") from None
+    if not db.valid_time(ms):
+        raise ValueError(f"date out of range: {date_str}")
+    return ms, minutes
 
 
 def xml_size(path: str | Path) -> int:
@@ -214,10 +221,11 @@ def import_export(
                     value = float(r["value"])
                 except (KeyError, ValueError):
                     scale = None
-                if scale is None:  # not a number, or a unit we can't convert
+                if scale is not None:
+                    value *= scale
+                if scale is None or not math.isfinite(value):  # not a number, an unknown unit, or inf
                     counts["skipped"] += 1
                     continue
-                value *= scale
                 samples.append(
                     (
                         db.sample_id(user_id, metric, start_ms, end_ms, value, source),

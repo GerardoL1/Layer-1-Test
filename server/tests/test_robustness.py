@@ -20,6 +20,8 @@ from app.services.shortcuts import shortcut_date
 client = TestClient(main.app)
 
 HAE = "/api/v1/users/{}/readings/health-auto-export"
+# A real moment (October 2025). Readings dated before 2000 are refused.
+T = 1_760_000_000_000
 NOT_A_ZIP = {"file": ("export.zip", b"not really a zip", "application/zip")}
 
 # ---------------------------------------------------------------- Health Auto Export bodies
@@ -250,7 +252,7 @@ def test_units_are_converted_on_every_route_and_unknown_ones_refused():
     r = client.post("/api/v1/users/units/readings/shortcuts", data={"metric": "hrv_sdnn", "rows": line.format("4 kHz")})
     assert "1 lines could not be read" in r.text
 
-    sample = {"uuid": "u1", "metric": "heart_rate", "value": 1, "unit": "count/s", "start_ms": 1, "end_ms": 1}
+    sample = {"uuid": "u1", "metric": "heart_rate", "value": 1, "unit": "count/s", "start_ms": T, "end_ms": T}
     assert client.post("/api/v1/users/units/readings", json={"samples": [{**sample, "tz_offset_min": 0}]}).is_success
     bad = {**sample, "uuid": "u2", "unit": "kHz", "tz_offset_min": 0}
     assert client.post("/api/v1/users/units/readings", json={"samples": [bad]}).status_code == 400
@@ -277,3 +279,78 @@ def test_export_under_another_name_is_imported_and_only_it_counts_toward_the_siz
     with db.connect() as conn:
         counts = apple_export.import_export(path, conn, "renamed_export")
     assert counts["heart_rate"] == 1 and counts["new"] == 1
+
+
+# ---------------------------------------------------------------- batch A: dates, damaged zips, units
+
+
+def test_readings_dated_far_outside_real_life_are_refused_and_never_break_the_user():
+    hr_row = {"date": "0001-01-02 00:00:00 +0000", "Avg": 52}
+    r = client.post(HAE.format("year_one"), json={"data": {"metrics": [{"name": "heart_rate", "data": [hr_row]}]}})
+    assert r.json()["new"] == 0 and r.json()["unreadable"] == 1
+    line = "0001-01-01T00:00:00+14:00 | 0001-01-01T00:00:00+14:00 | 50 | Apple Watch"
+    r = client.post("/api/v1/users/year_one/readings/shortcuts", data={"metric": "heart_rate", "rows": line})
+    assert "new 0" in r.text
+    for start_ms in (10**15, -(10**15), 10**20):
+        sample = {"uuid": "far", "metric": "heart_rate", "value": 50, "start_ms": start_ms, "end_ms": start_ms}
+        r = client.post("/api/v1/users/year_one/readings", json={"samples": [{**sample, "tz_offset_min": 0}]})
+        assert r.status_code == 400 and "before 2000" in r.json()["detail"]
+    with pytest.raises(ValueError):
+        parse_date("9999-12-31 23:59:59 -1400")
+    assert client.get("/api/v1/users/year_one/today").status_code != 500
+
+
+def _damaged_zip(tmp_path, how: str):
+    import zipfile
+
+    path = tmp_path / f"{how}.zip"
+    body = "<HealthData>" + "<Record/>" * 5000 + "</HealthData>"
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("apple_health_export/export.xml", body)
+    data = bytearray(path.read_bytes())
+    if how == "encrypted":
+        data[6] |= 1  # the "encrypted" flag in the file's local header
+        central = data.find(b"PK\x01\x02")
+        data[central + 8] |= 1
+    else:  # corrupt compressed data
+        start = 30 + len("apple_health_export/export.xml")
+        for i in range(start, start + 40):
+            data[i] ^= 0xFF
+    return bytes(data)
+
+
+@pytest.mark.parametrize("how", ["encrypted", "corrupt"])
+def test_a_zip_that_cannot_be_unpacked_gets_a_clear_400(tmp_path, how):
+    files = {"file": ("export.zip", _damaged_zip(tmp_path, how), "application/zip")}
+    r = client.post(f"/api/v1/users/damaged_{how}/imports", files=files)
+    assert r.status_code == 400 and "damaged" in r.json()["detail"]
+
+
+def test_a_unit_conversion_that_overflows_is_never_stored(tmp_path):
+    sample = {"uuid": "big", "metric": "hrv_sdnn", "value": 1e306, "unit": "s", "start_ms": 1, "end_ms": 1}
+    sample.update(start_ms=T, end_ms=T, tz_offset_min=0)
+    assert client.post("/api/v1/users/overflow/readings", json={"samples": [sample]}).status_code == 400
+
+    record = (
+        '<Record type="HKQuantityTypeIdentifierHeartRateVariabilitySDNN" sourceName="Apple Watch" unit="{}" '
+        'startDate="2026-09-30 23:14:05 -0500" endDate="2026-09-30 23:14:05 -0500" value="{}"/>'
+    )
+    path = tmp_path / "export.xml"
+    path.write_text(f"<HealthData>{record.format('s', '1e306')}{record.format('ms', 'inf')}</HealthData>")
+    with db.connect() as conn:
+        counts = apple_export.import_export(path, conn, "overflow_import")
+    assert counts["new"] == 0 and counts["skipped"] == 2
+
+
+@pytest.mark.parametrize("gap", ["\u00a0", "\u202f", "\t", " "])
+def test_shortcuts_reads_a_unit_after_any_kind_of_space(gap):
+    line = f"2026-09-30T23:30:00-05:00 | 2026-09-30T23:30:00-05:00 | 48,5{gap}ms | Apple Watch"
+    r = client.post("/api/v1/users/sc_gap/readings/shortcuts", data={"metric": "hrv_sdnn", "rows": line})
+    assert "could not be read" not in r.text
+
+
+def test_health_auto_export_note_names_units_that_are_not_text():
+    rows = [{"date": "2026-09-30 23:14:05 -0500", "Avg": 52}]
+    metric = {"name": "heart_rate", "units": ["count/min"], "data": rows}
+    r = client.post(HAE.format("odd_units"), json={"data": {"metrics": [metric]}}).json()
+    assert "heart_rate in an unreadable unit" in r["notes"][0]

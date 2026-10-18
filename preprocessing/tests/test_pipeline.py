@@ -373,7 +373,10 @@ def test_known_units_are_converted_and_unknown_ones_dropped():
     assert log.loc["Unknown unit", "removed"] == 1
 
 
-@pytest.mark.parametrize("name", ["Test’s Apple Watch", "Test’s Apple  Watch", "Ｔｅｓｔ Ａｐｐｌｅ Ｗａｔｃｈ"])
+@pytest.mark.parametrize(
+    "name",
+    ["Test’s Apple Watch", "Test’s Apple  Watch", "Ｔｅｓｔ Ａｐｐｌｅ Ｗａｔｃｈ", "\ufeffTest’s Apple\u200b Watch"],
+)
 def test_watch_names_with_odd_spacing_or_width_still_match(name):
     res = P.run_pipeline(export(hr("2026-09-01 10:00:00", 70, source=name)), days=None)
     assert len(res.cleaned["heart_rate"]) == 1
@@ -390,3 +393,23 @@ def test_the_export_in_a_zip_is_found_by_content_not_name():
     buf.name = "exportar.zip"
     records, _ = P.load_export(buf, days=None)
     assert list(records["metric"]) == ["heart_rate"]
+
+
+def test_a_damaged_export_in_a_zip_gets_a_clear_message():
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("apple_health_export/export.xml", b"\x00\x01 not xml at all")
+    buf.name = "export.zip"
+    with pytest.raises(ValueError, match="damaged"):
+        P.load_export(buf, days=None)
+
+
+def test_only_the_start_of_each_xml_is_read_when_looking_for_the_export():
+    from layer1.load import EXPORT_PEEK_BYTES, find_export_xml
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        # A tag this far in is past what's read, so the file isn't taken for an export.
+        zf.writestr("padded.xml", "<?xml version='1.0'?><!--" + " " * (2 * EXPORT_PEEK_BYTES) + "--><HealthData/>")
+    with zipfile.ZipFile(buf) as zf:
+        assert find_export_xml(zf) is None

@@ -7,6 +7,7 @@ All under /api/v1/users/{user_id}/readings:
 """
 
 import logging
+import math
 
 from fastapi import APIRouter, BackgroundTasks, Form, HTTPException, Request
 from fastapi.responses import PlainTextResponse
@@ -25,6 +26,11 @@ router = APIRouter(prefix=USER + "/readings", tags=["readings"])
 
 
 # ---------------------------------------------------------------- 1. our iPhone app
+
+
+def require_times(start_ms: int, end_ms: int, what: str) -> None:
+    if not (db.valid_time(start_ms) and db.valid_time(end_ms)):
+        raise HTTPException(400, f"{what} is dated before 2000 or in the future. Check the phone's clock.")
 
 
 def require_offset(minutes, what: str) -> int:
@@ -50,15 +56,20 @@ def add_readings(user_id: str, payload: ReadingsBatch, background: BackgroundTas
         if q.metric not in db.METRICS:
             raise HTTPException(400, f"Unknown metric '{q.metric}'. Use one of: {', '.join(db.METRICS)}")
         tz = require_offset(q.tz_offset_min, f"{q.metric} sample {q.uuid}")
+        require_times(q.start_ms, q.end_ms, f"{q.metric} sample {q.uuid}")
         scale = factor(q.metric, q.unit)
         if scale is None:
             raise HTTPException(400, f"{q.metric} sample {q.uuid} is in '{q.unit}', a unit we can't convert.")
-        samples.append((q.uuid, q.metric, q.value * scale, q.start_ms, q.end_ms, tz, q.source))
+        value = q.value * scale
+        if not math.isfinite(value):  # a huge number in seconds can overflow once turned into ms
+            raise HTTPException(400, f"{q.metric} sample {q.uuid} is too large to be a reading.")
+        samples.append((q.uuid, q.metric, value, q.start_ms, q.end_ms, tz, q.source))
     for st in payload.sleep:
         if st.stage not in db.STAGES:
             raise HTTPException(400, f"Unknown sleep stage '{st.stage}'. Use one of: {', '.join(db.STAGES)}")
         start_tz = require_offset(st.start_tz_min, f"sleep stage {st.uuid}")
         end_tz = require_offset(st.end_tz_min, f"sleep stage {st.uuid}")
+        require_times(st.start_ms, st.end_ms, f"sleep stage {st.uuid}")
         stages.append((st.uuid, st.stage, st.start_ms, st.end_ms, start_tz, end_tz, st.source))
 
     added = save_readings(background, user_id, samples, stages)

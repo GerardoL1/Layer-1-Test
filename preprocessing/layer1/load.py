@@ -18,12 +18,23 @@ from layer1 import units
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S %z"
 
 
-def _root_tag(f) -> str | None:
-    """The first element's name. Only the start of the file is read."""
+# How much of each .xml in a zip is read to see whether it's the export. Apple's export opens with a
+# DTD of a few KB, so this is plenty, and a file built to be huge before its first tag can't tie up memory.
+EXPORT_PEEK_BYTES = 1024 * 1024
+
+
+class DamagedExport(ValueError):
+    """The zip holds an export we can't open: damaged, encrypted or packed in a way zipfile can't read."""
+
+
+def _root_tag(head: bytes) -> str | None:
+    """The first element's name, from the start of a file. None if it isn't readable XML."""
+    parser = ET.XMLPullParser(events=("start",))
     try:
-        for _, elem in ET.iterparse(f, events=("start",)):
+        parser.feed(head)
+        for _, elem in parser.read_events():
             return elem.tag
-    except ET.ParseError:
+    except (ET.ParseError, LookupError, ValueError):  # LookupError: an encoding Python doesn't know
         pass
     return None
 
@@ -33,14 +44,27 @@ def find_export_xml(zf: zipfile.ZipFile) -> str | None:
     The Health export inside a zip, found by what's in it (a <HealthData> file) rather than its name,
     since an iOS version in another language or a renamed file can call it something else.
     That also skips export_cda.xml and the ._ copies a Mac adds under __MACOSX/. The server uses this too.
+    Raises DamagedExport when nothing matched but an export.xml, or a file we couldn't unpack, was there.
     """
     names = [n for n in zf.namelist() if n.lower().endswith(".xml") and not n.startswith("__MACOSX/")]
     # Try the usual name first so a normal export is found straight away.
     names.sort(key=lambda n: n.rsplit("/", 1)[-1] != "export.xml")
+    damaged = False
     for n in names:
-        with zf.open(n) as f:
-            if _root_tag(f) == "HealthData":
-                return n
+        try:
+            with zf.open(n) as f:
+                head = f.read(EXPORT_PEEK_BYTES)
+        except Exception:  # encrypted, Deflate64, corrupt data: zipfile raises many different errors
+            damaged = True
+            continue
+        if _root_tag(head) == "HealthData":
+            return n
+        damaged |= n.rsplit("/", 1)[-1] == "export.xml"
+    if damaged:
+        raise DamagedExport(
+            "The export file in this zip is damaged or can't be unpacked. "
+            "Export again from the Health app and upload the new file."
+        )
     return None
 
 

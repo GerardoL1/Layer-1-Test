@@ -15,6 +15,7 @@ from app.core.urls import USER
 from app.schemas.imports import ImportJob
 from app.services import import_jobs
 from app.services.apple_export import ExportTooLarge, check_unzipped_size
+from layer1.load import DamagedExport
 
 router = APIRouter(prefix=USER + "/imports", tags=["imports"])
 
@@ -48,11 +49,18 @@ def _save_upload(file: UploadFile, filename: str) -> Path:
     except ExportTooLarge as e:
         Path(tmp.name).unlink(missing_ok=True)
         raise HTTPException(413, str(e)) from None
+    except DamagedExport as e:
+        Path(tmp.name).unlink(missing_ok=True)
+        raise HTTPException(400, str(e)) from None
     except zipfile.BadZipFile:
         Path(tmp.name).unlink(missing_ok=True)
         raise HTTPException(
             400, "That zip file can't be opened. Upload the export.zip made by the Health app."
         ) from None
+    except Exception:
+        # Anything else still gets a 500, but the upload isn't left behind on disk.
+        Path(tmp.name).unlink(missing_ok=True)
+        raise
     return Path(tmp.name)
 
 

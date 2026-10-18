@@ -54,19 +54,20 @@ def night_payload(user, start_ms, end_ms, start_tz, end_tz, prefix="n"):
 
 
 def test_night_across_the_clock_change():
-    # US clocks go back at 2 am on 1 Nov 2026. Asleep 22:00 CDT (-5 h) to 06:00 CST (-6 h): 9 real hours.
+    # US clocks go back at 2 am on 2 Nov 2025. Asleep 22:00 CDT (-5 h) to 06:00 CST (-6 h): 9 real hours.
+    # A past date, since readings more than a day ahead are refused.
     user = "dst"
     with db.connect() as conn:
-        conn.execute("INSERT INTO users (user_id, clock_local) VALUES (?, ?)", (user, "2026-11-01T09:00:00"))
+        conn.execute("INSERT INTO users (user_id, clock_local) VALUES (?, ?)", (user, "2025-11-02T09:00:00"))
     r = client.post(
-        f"/api/v1/users/{user}/readings", json=night_payload(user, ms(2026, 11, 1, 3), ms(2026, 11, 1, 12), -300, -360)
+        f"/api/v1/users/{user}/readings", json=night_payload(user, ms(2025, 11, 2, 3), ms(2025, 11, 2, 12), -300, -360)
     )
     assert r.status_code == 200
     with db.connect() as conn:
-        night = processing.load_nights(conn, user).set_index("night_date").loc[date(2026, 10, 31)]
+        night = processing.load_nights(conn, user).set_index("night_date").loc[date(2025, 11, 1)]
     assert night["tst_min"] == 540  # real time asleep, not 8 clock hours
-    assert str(night["sleep_onset"]) == "2026-10-31 22:00:00"
-    assert str(night["final_wake"]) == "2026-11-01 06:00:00"
+    assert str(night["sleep_onset"]) == "2025-11-01 22:00:00"
+    assert str(night["final_wake"]) == "2025-11-02 06:00:00"
 
 
 def test_two_runs_at_once_dont_clash():

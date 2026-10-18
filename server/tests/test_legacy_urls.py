@@ -15,6 +15,8 @@ from app.core import limits
 from app.routers.legacy import REPLACEMENTS
 
 client = TestClient(main.app)
+# A real moment (October 2025). Readings dated before 2000 are refused.
+T = 1_760_000_000_000
 
 V1 = "/api/v1/users/demo-sam"
 
@@ -51,7 +53,7 @@ def test_old_screen_urls_match_the_new_ones(caplog):
 
 
 def test_old_ingest_urls_still_store_data(caplog):
-    sample = {"uuid": "legacy-1", "metric": "heart_rate", "value": 50.0, "start_ms": 1, "end_ms": 1}
+    sample = {"uuid": "legacy-1", "metric": "heart_rate", "value": 50.0, "start_ms": T, "end_ms": T}
     body = {"user_id": "legacy", "samples": [{**sample, "tz_offset_min": 0}]}
     assert old("POST", "/upload", caplog, json=body).json() == {"received": 1, "new": 1}
     assert old("POST", "/upload", caplog, json={"samples": []}).status_code == 422  # the old body needed user_id

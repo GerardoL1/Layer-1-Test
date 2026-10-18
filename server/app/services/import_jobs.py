@@ -6,6 +6,8 @@ Only the latest import is remembered, and only until the server restarts.
 
 import threading
 import uuid
+import zipfile
+import zlib
 from pathlib import Path
 from xml.etree.ElementTree import ParseError
 
@@ -104,7 +106,8 @@ def run_import(path: str, user_id: str, since_days: int | None):
         )
         reason = (
             "The export file is damaged and couldn't be read. Export again from the Health app and upload the new file."
-            if isinstance(e, ParseError)
+            # Damage deeper in a zip shows up as a decompression error rather than bad XML.
+            if isinstance(e, (ParseError, zlib.error, EOFError, zipfile.BadZipFile))
             else str(e)
         )
         IMPORT_STATUS.update(state="error", error=f"{reason}{note}")

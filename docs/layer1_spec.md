@@ -15,13 +15,17 @@ Settings live in `preprocessing/layer1/config.py`; if this document and the conf
   In Bed counts as the iPhone's when the name contains "iPhone" (`IN_BED_SOURCE_KEYWORDS`). Known gaps: a
   third-party app named "... for Apple Watch" is counted as the watch, and a watch renamed without those words is
   missed. Matching on the device type instead is planned for the production work.
-- Before matching, source names are folded to plain text (Unicode NFKC, runs of spaces made one space), so a
-  non-breaking space, a double space or full-width letters in a device name still match.
+- Before matching, source names are folded to plain text (Unicode NFKC, invisible zero-width characters removed,
+  runs of spaces made one space), so a non-breaking space, a double space or full-width letters still match.
 - **Units:** heart rate and resting HR are kept in bpm, HRV in ms. Known other units are converted (count/s to
   count/min, s to ms, `UNIT_FACTORS`). A reading in a unit we don't know is dropped ("Unknown unit") rather than
   guessed. A reading with no unit is taken to be in the usual one.
 - **Export zips:** the export is the `.xml` file whose top element is `<HealthData>`, whatever it is called
   (so `export_cda.xml` and Mac `__MACOSX/` copies are skipped). The 4 GB unzipped limit applies to that file only.
+  Only the first 1 MB of each `.xml` is read to find it (`EXPORT_PEEK_BYTES`). An export that is damaged,
+  encrypted or packed in a way we can't unpack is refused with a message to export again.
+- **Dates:** readings dated before 2000 or more than a day in the future are refused (counted as unreadable,
+  or a 400 for our app's batches). The pipeline also drops records more than a day ahead.
 - Remove exact duplicates and physically impossible values (HR outside 30–220 bpm, resting HR outside 30–120, SDNN outside 5–300 ms).
 - Remove sleep pieces shorter than 30 s or longer than 16 h.
 - **Overlapping pieces** (two watches, or a stage written on top of another) never count the same minute twice.
