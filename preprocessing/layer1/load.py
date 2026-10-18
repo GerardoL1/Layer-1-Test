@@ -4,6 +4,7 @@ Step 1. Load: read the records Layer 1 needs from export.zip / export.xml.
 
 from __future__ import annotations
 
+import io
 import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
@@ -29,10 +30,8 @@ class DamagedExport(ValueError):
 
 def _root_tag(head: bytes) -> str | None:
     """The first element's name, from the start of a file. None if it isn't readable XML."""
-    parser = ET.XMLPullParser(events=("start",))
     try:
-        parser.feed(head)
-        for _, elem in parser.read_events():
+        for _, elem in ET.iterparse(io.BytesIO(head), events=("start",)):
             return elem.tag
     except (ET.ParseError, LookupError, ValueError):  # LookupError: an encoding Python doesn't know
         pass
