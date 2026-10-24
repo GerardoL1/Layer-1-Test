@@ -1226,6 +1226,42 @@
         ],
         "title": "Body_shortcut_api_shortcut_post"
       },
+      "Contribution": {
+        "properties": {
+          "input": {
+            "type": "string",
+            "title": "Input"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "points": {
+            "type": "number",
+            "title": "Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "input",
+          "label",
+          "value",
+          "points"
+        ],
+        "title": "Contribution",
+        "description": "How far one input moved the score, in points. input is the Last night row key when there is one."
+      },
       "Cutoffs": {
         "properties": {
           "low_below": {
@@ -1686,6 +1722,59 @@
           "placeholder": {
             "type": "boolean",
             "title": "Placeholder"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "high",
+                  "medium",
+                  "low",
+                  "sleep_only"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "contributions": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Contribution"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contributions"
+          },
+          "illness_flag": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Illness Flag"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
           }
         },
         "type": "object",
@@ -2274,6 +2363,17 @@
               }
             ],
             "title": "Reason"
+          },
+          "advice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Advice"
           },
           "text_placeholder": {
             "anyOf": [

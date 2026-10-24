@@ -22,4 +22,5 @@ class Today(BaseModel):
     # Only once there's a night to talk about.
     verdict: str | None = None
     reason: str | None = None
+    advice: str | None = None  # also at the end of reason, so older app builds still show it
     text_placeholder: bool | None = None

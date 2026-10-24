@@ -514,6 +514,20 @@ export interface components {
              */
             rows: string;
         };
+        /**
+         * Contribution
+         * @description How far one input moved the score, in points. input is the Last night row key when there is one.
+         */
+        Contribution: {
+            /** Input */
+            input: string;
+            /** Label */
+            label: string;
+            /** Value */
+            value: number | null;
+            /** Points */
+            points: number;
+        };
         /** Cutoffs */
         Cutoffs: {
             /** Low Below */
@@ -661,6 +675,14 @@ export interface components {
             z_count: number;
             /** Placeholder */
             placeholder: boolean;
+            /** Confidence */
+            confidence?: ("high" | "medium" | "low" | "sleep_only") | null;
+            /** Contributions */
+            contributions?: components["schemas"]["Contribution"][] | null;
+            /** Illness Flag */
+            illness_flag?: boolean | null;
+            /** Model Version */
+            model_version?: string | null;
         };
         /** ReadingsBatch */
         ReadingsBatch: {
@@ -812,6 +834,8 @@ export interface components {
             verdict?: string | null;
             /** Reason */
             reason?: string | null;
+            /** Advice */
+            advice?: string | null;
             /** Text Placeholder */
             text_placeholder?: boolean | null;
         };

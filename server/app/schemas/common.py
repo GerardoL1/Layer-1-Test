@@ -6,6 +6,16 @@ from pydantic import BaseModel
 
 ReadinessStatus = Literal["low", "moderate", "ready", "building_baseline", "short_sleep", "no_data"]
 Direction = Literal["better", "usual", "worse"]
+Confidence = Literal["high", "medium", "low", "sleep_only"]
+
+
+class Contribution(BaseModel):
+    """How far one input moved the score, in points. input is the Last night row key when there is one."""
+
+    input: str
+    label: str
+    value: float | None
+    points: float
 
 
 class Readiness(BaseModel):
@@ -13,6 +23,11 @@ class Readiness(BaseModel):
     status: ReadinessStatus
     z_count: int
     placeholder: bool
+    # Added for the readiness model. Today has all four, Trends leaves out contributions.
+    confidence: Confidence | None = None
+    contributions: list[Contribution] | None = None
+    illness_flag: bool | None = None
+    model_version: str | None = None
 
 
 class Cutoffs(BaseModel):

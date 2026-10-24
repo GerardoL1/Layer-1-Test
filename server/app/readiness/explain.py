@@ -2,8 +2,13 @@
 PLACEHOLDER wording for Today's verdict and reason, and the one-line Trends summaries.
 
 Simple templates built from the Worse / Usual / Better labels until the LLM writes
-these. Keep the inputs and outputs the same and only this file needs replacing.
+these. The LLM will be another Explainer (bottom of this file) with the same outputs.
 """
+
+from dataclasses import dataclass
+from typing import Protocol
+
+from app.readiness.model import ReadinessResult
 
 VERDICT = {
     "low": "Take a recovery day.",
@@ -168,3 +173,43 @@ def trends_summaries(rows: list[dict]) -> dict:
         "sleep": sleep_summary(rows),
         "efficiency": band_summary(rows, "efficiency"),
     }
+
+
+@dataclass
+class TodayText:
+    verdict: str
+    reason: str  # still ends with the advice, as before, so the app doesn't change
+    advice: str | None
+
+
+class Explainer(Protocol):
+    """
+    Writes the words around a score. The templates below are one explainer, and an LLM will be another.
+    Rule for every explainer: only talk about inputs whose Last night row isn't "usual", so the text
+    never contradicts the rows next to it.
+    """
+
+    placeholder: bool
+
+    def today(self, result: ReadinessResult, metrics: list[dict], context: dict) -> TodayText: ...
+
+    def trends(self, rows: list[dict]) -> dict: ...
+
+
+class TemplateExplainer:
+    """The fixed sentences above. Also what an LLM explainer falls back to when it's slow or fails."""
+
+    placeholder = True
+
+    def today(self, result: ReadinessResult, metrics: list[dict], context: dict) -> TodayText:
+        verdict, reason = today_text(
+            result.status, metrics, context.get("baseline_nights"), context["min_nights"], context.get("tst_min")
+        )
+        return TodayText(verdict, reason, ADVICE.get(result.status))
+
+    def trends(self, rows: list[dict]) -> dict:
+        return trends_summaries(rows)
+
+
+def get_explainer() -> Explainer:
+    return TemplateExplainer()

@@ -10,8 +10,10 @@ from fastapi import APIRouter
 from app.core import db
 from app.core.json_values import clean, r1
 from app.core.urls import USER
-from app.readiness import explain
-from app.readiness.scoring import LOW_BELOW, READINESS_METHOD, READY_FROM, readiness
+from app.readiness.explain import get_explainer
+from app.readiness.features import build_features
+from app.readiness.model import get_model
+from app.readiness.scoring import LOW_BELOW, READY_FROM
 from app.readiness.usual import metric_rows
 from app.schemas.today import Today
 from app.services import processing
@@ -48,6 +50,7 @@ def today(user_id: str):
         ready_through = date.fromisoformat(run["ready_through"]) if run and run["ready_through"] else None
         update_now_ok = can_update_now(conn, user_id, now, update_time, ready_through)
     nights = night_rows(user_id)
+    model = get_model()
 
     last_night = now.date() - timedelta(days=1)  # the night that started yesterday evening
     base = {
@@ -57,7 +60,7 @@ def today(user_id: str):
         "next_update": next_update(now, update_time).isoformat(timespec="minutes"),
         "updated_at": run["sync_local"] if run else None,
         "can_update_now": update_now_ok,
-        "readiness_method": READINESS_METHOD,
+        "readiness_method": model.method,
         "cutoffs": {"low_below": LOW_BELOW, "ready_from": READY_FROM, "placeholder": True},
     }
     if nights.empty:
@@ -77,21 +80,26 @@ def today(user_id: str):
     message = None
     if shown < last_night:
         message = f"Last night updates at {base['update_time']}" + (", or tap Update now." if update_now_ok else ".")
-    ready = readiness(row)
+    result = model.score(build_features(nights))
     metrics = metric_rows(row)
-    verdict, reason = explain.today_text(
-        ready["status"], metrics, clean(row.get("tst_min_base_n")), C.BASELINE_MIN_NIGHTS, clean(row.get("tst_min"))
-    )
+    explainer = get_explainer()
+    context = {
+        "baseline_nights": clean(row.get("tst_min_base_n")),
+        "min_nights": C.BASELINE_MIN_NIGHTS,
+        "tst_min": clean(row.get("tst_min")),
+    }
+    text = explainer.today(result, metrics, context)
     return {
         **base,
         "night_date": shown.isoformat(),
         "is_last_night": shown == last_night,
         "message": message,
-        "readiness": ready,
+        "readiness": result.to_api(),
         "metrics": metrics,
         "sleep": sleep_block(row),
         "quality_notes": row.get("quality_notes") or None,
-        "verdict": verdict,
-        "reason": reason,
-        "text_placeholder": True,
+        "verdict": text.verdict,
+        "reason": text.reason,
+        "advice": text.advice,
+        "text_placeholder": explainer.placeholder,
     }

@@ -5,6 +5,10 @@ Not decided yet, so don't tune these numbers without the team.
 
 import pandas as pd
 
+from app.core.json_values import r1
+from app.readiness.model import Confidence, Contribution, ReadinessResult
+from app.readiness.usual import METRICS
+
 # +1 means a higher value is better, -1 means higher is worse.
 READINESS_SIGNS = {"z_hrv": 1, "z_rhr": -1, "z_tst": 1, "z_eff": 1, "z_frag": -1}
 READINESS_CENTER, READINESS_POINTS_PER_SD = 50, 10
@@ -33,3 +37,42 @@ def readiness(row) -> dict:
         score = int(round(min(100, max(0, READINESS_CENTER + READINESS_POINTS_PER_SD * sum(zs) / len(zs)))))
         status = "low" if score < LOW_BELOW else "moderate" if score < READY_FROM else "ready"
     return {"score": score, "status": status, "z_count": len(zs), "placeholder": True}
+
+
+def _confidence(row, z_count: int) -> Confidence | None:
+    """Placeholder rule: the more of the five inputs a night has, the more the score can be trusted."""
+    if z_count == 0:
+        return None
+    if pd.isna(row.get("z_hrv")) and pd.isna(row.get("z_rhr")):
+        return "sleep_only"
+    return "high" if z_count == 5 else "medium" if z_count >= 3 else "low"
+
+
+class PlaceholderModel:
+    """The formula above behind the ReadinessModel interface, so it can be swapped for the trained model."""
+
+    version = "placeholder-1"
+    method = READINESS_METHOD
+
+    def score(self, features: dict) -> ReadinessResult:
+        base = readiness(features)
+        n = base["z_count"]
+        contributions = []
+        if base["score"] is not None:
+            # Each z-score moves the score by its share of the average, so 50 plus these adds up to
+            # the score before it's clipped to 0-100 and rounded.
+            for key, col, label, _unit, zcol, _up in METRICS:
+                z = features.get(zcol)
+                if z is not None and pd.notna(z):
+                    points = READINESS_POINTS_PER_SD * READINESS_SIGNS[zcol] * z / n
+                    contributions.append(Contribution(key, label, r1(features.get(col)), round(points, 1)))
+        return ReadinessResult(
+            score=base["score"],
+            status=base["status"],
+            confidence=_confidence(features, n),
+            contributions=contributions,
+            illness_flag=False,
+            model_version=self.version,
+            placeholder=True,
+            z_count=n,
+        )

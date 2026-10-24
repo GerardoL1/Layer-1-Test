@@ -7,8 +7,10 @@ from fastapi import APIRouter, HTTPException
 from app.core import db
 from app.core.json_values import r1
 from app.core.urls import USER
-from app.readiness import explain
-from app.readiness.scoring import LOW_BELOW, READY_FROM, readiness
+from app.readiness.explain import get_explainer
+from app.readiness.features import build_features
+from app.readiness.model import get_model
+from app.readiness.scoring import LOW_BELOW, READY_FROM
 from app.readiness.usual import METRICS, usual_range
 from app.schemas.trends import Trends
 from app.services import processing
@@ -30,12 +32,17 @@ def trends(user_id: str, nights: int = 14):
     if table.empty:
         return {"user_id": user_id, "nights": nights, "rows": []}
     last = table["night_date"].iloc[-1]
-    table = table[table["night_date"] > last - timedelta(days=nights)]
+    model = get_model()
+    # Each night's score uses the full history up to that night, not just the nights on screen.
+    first = int((table["night_date"] > last - timedelta(days=nights)).to_numpy().argmax())
     rows = []
-    for row in table.to_dict(orient="records"):
+    for i in range(first, len(table)):
+        row = table.iloc[i].to_dict()
+        # Trends stays light: the contributions are only on Today.
+        result = model.score(build_features(table.iloc[: i + 1]))
         entry = {
             "night_date": row["night_date"].isoformat(),
-            "readiness": readiness(row),
+            "readiness": result.to_api(with_contributions=False),
             "usable_sleep": bool(row["usable_sleep"]),
             "quality_notes": row.get("quality_notes") or None,
             "deep_min": r1(row.get("deep_min")),
@@ -53,5 +60,5 @@ def trends(user_id: str, nights: int = 14):
         "cutoffs": {"low_below": LOW_BELOW, "ready_from": READY_FROM},
         "placeholder": True,
         "rows": rows,
-        "summaries": explain.trends_summaries(rows),
+        "summaries": get_explainer().trends(rows),
     }
