@@ -23,6 +23,9 @@ venv/
 # Raw Health Auto Export payloads (real health data)
 hae_raw/
 
+# Datasets dropped in the repo root, like the EMG fatigue dataset. The mock exports in preprocessing/ are kept.
+/*.zip
+
 # Generated mock exports (rebuild with server/mock/make_mock_export.py)
 mock_exports/
 

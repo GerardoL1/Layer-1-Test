@@ -21,11 +21,15 @@ const SPOKEN: Partial<Record<NonNullable<Direction>, string>> = {
   usual: 'within your usual',
 };
 
-/** "+5 bpm" -> "▲ +5 bpm". Words like "Usual" or "More" are left alone. */
-function withArrow(delta: string): string {
-  if (delta.startsWith('+')) return `▲ ${delta}`;
-  if (delta.startsWith('−') || delta.startsWith('-')) return `▼ ${delta}`;
-  return delta;
+/**
+ * "+5 bpm" -> "▲ +5 bpm · worse". The arrow says which way the number moved and the word says whether that's
+ * good, since up isn't always better (resting HR). Words like "Usual" or "More" are left alone.
+ */
+function shownChange(delta: string, direction: Direction): string {
+  const arrow = delta.startsWith('+') ? '▲' : delta.startsWith('−') || delta.startsWith('-') ? '▼' : null;
+  if (!arrow) return delta;
+  const judged = direction === 'worse' || direction === 'better' ? ` · ${direction}` : '';
+  return `${arrow} ${delta}${judged}`;
 }
 
 /**
@@ -49,7 +53,7 @@ export function MetricRow({ label, shortLabel, value, unit, delta, direction }: 
           <Text variant="bodySmall" color="textMuted" style={styles.unit}>{unit ?? ''}</Text>
         </View>
         <Text variant="labelSmall" style={[styles.delta, { minWidth: isNarrow ? 70 : 84, color: deltaColor }]}>
-          {delta ? withArrow(delta) : ''}
+          {delta ? shownChange(delta, direction) : ''}
         </Text>
       </View>
     </View>

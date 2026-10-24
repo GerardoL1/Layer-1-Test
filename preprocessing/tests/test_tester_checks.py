@@ -50,7 +50,9 @@ def test_runner_exits_non_zero_on_a_bad_expectation(tmp_path):
     run = subprocess.run(
         [
             sys.executable,
-            str(HERE / "agent_testing" / "run_layer1_tests.py"),
+            # As a module from preprocessing/, so it finds agent_testing whether or not the package is installed.
+            "-m",
+            "agent_testing.run_layer1_tests",
             "--skip-unit",
             "--skip-daily",
             "--scenarios",
