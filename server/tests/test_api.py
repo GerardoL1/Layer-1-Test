@@ -104,6 +104,7 @@ def test_settings_round_trip_and_validation():
         "training": "strength",
         "training_days": [0, 2, 4],
         "units": "imperial",
+        "weight_kg": None,
     }
     # Only the fields sent change.
     assert client.patch(f"/api/v1/users/{user}/settings", json={"age": 22}).json()["update_time"] == "07:05"

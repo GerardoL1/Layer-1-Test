@@ -28,6 +28,7 @@ from app.core import db
 from app.core.errors import validation_error
 from app.middleware.size_limit import LimitRequestSize
 from app.routers import (
+    checkins,
     demo,
     health,
     imports,
@@ -38,6 +39,7 @@ from app.routers import (
     settings,
     today,
     trends,
+    workouts,
 )
 from app.services import processing
 
@@ -46,7 +48,20 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 app = FastAPI(title="Recovery platform", version="1")
 
-for module in (health, readings, imports, today, trends, profile, settings, processing_runs, demo, legacy):
+for module in (
+    health,
+    readings,
+    imports,
+    today,
+    trends,
+    profile,
+    settings,
+    checkins,
+    workouts,
+    processing_runs,
+    demo,
+    legacy,
+):
     app.include_router(module.router)
 app.add_exception_handler(RequestValidationError, validation_error)
 

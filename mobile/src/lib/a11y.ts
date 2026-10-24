@@ -28,6 +28,8 @@ export function headingLevel(level: number | undefined): Record<string, number> 
 
 const PAGE_TITLES: [string, string][] = [
   ['/profile/update-time', 'Update time'],
+  ['/profile/weight', 'Weight'],
+  ['/setup/weight', 'Weight'],
   ['/profile/import', 'Import'],
   ['/profile', 'Profile'],
   ['/today', 'Today'],

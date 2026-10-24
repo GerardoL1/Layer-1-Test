@@ -1,0 +1,71 @@
+"""The morning check-in, as designed in Figma (Check-in v2). Every scale is 1 to 10 and 10 is always the good end."""
+
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, Field, field_validator
+
+Scale = Annotated[int, Field(ge=1, le=10)]
+# The 14 groups on the body map, front then back.
+MuscleGroup = Literal[
+    "shoulders",
+    "chest",
+    "biceps",
+    "forearms",
+    "abs",
+    "quads",
+    "shins",
+    "traps",
+    "lats",
+    "triceps",
+    "lower_back",
+    "glutes",
+    "hamstrings",
+    "calves",
+]
+Unusual = Literal["alcohol", "feeling_sick", "late_caffeine", "travel", "poor_diet"]
+Rehydrated = Literal["not_really", "somewhat", "fully"]
+
+
+class MorningAnswers(BaseModel):
+    ready_to_train: Scale  # the main training label, so it's the one answer that's required
+    sleep_quality: Scale | None = None
+    fatigue: Scale | None = None
+    energy: Scale | None = None
+    stress: Scale | None = None
+    motivation: Scale | None = None
+    hydration: Scale | None = None
+    soreness: Scale | None = None
+    sore_muscles: list[MuscleGroup] = []
+    # [] means "None" was picked. null means the question wasn't answered.
+    unusual: list[Unusual] | None = None
+    # Only asked when there was a workout yesterday.
+    rehydrated: Rehydrated | None = None
+
+    @field_validator("sore_muscles")
+    @classmethod
+    def once_each(cls, v):
+        return list(dict.fromkeys(v))
+
+
+class MorningCheckinIn(BaseModel):
+    answered_at_ms: int
+    tz_offset_min: int
+    survey_version: str = Field("v2", max_length=20)
+    answers: MorningAnswers
+
+
+class SnapshotRef(BaseModel):
+    """The score that was first shown for the same night, the one this answer labels."""
+
+    score: int | None
+    status: str
+    model_version: str
+
+
+class MorningCheckin(BaseModel):
+    night_date: str
+    answered_at_ms: int
+    tz_offset_min: int
+    survey_version: str
+    answers: MorningAnswers
+    snapshot: SnapshotRef | None

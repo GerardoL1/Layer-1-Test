@@ -8,6 +8,7 @@ import { SectionHeader } from '../../components/SectionHeader';
 import { clock, WEEKDAYS } from '../../lib/format';
 import { canPickFile } from '../../lib/pickFile';
 import { deviceTimeZone } from '../../lib/timeZone';
+import { weightText } from '../../lib/weight';
 import { Appearance, useSession } from '../../state/session';
 import { useSettingsEditor } from '../settings/useSettingsEditor';
 
@@ -29,6 +30,7 @@ export function ProfileSettings({ settings: s, reload }: { settings: Settings; r
         <TextEditor initial={s.age ? String(s.age) : ''} label="Age" keyboard="number-pad" placeholder="Age"
           onSave={(t) => (t && !/^\d+$/.test(t) ? invalid(AGE_HINT) : save({ age: t ? Number(t) : null }))} />
       </EditRow>
+      <ListRow label="Weight" value={weightText(s.weight_kg, s.units)} onPress={() => router.push('/profile/weight')} />
       <EditRow label="Main training" value={s.training ?? 'Choose'} open={isOpen('training')}
         onToggle={() => toggle('training')} error={error}>
         <Chips name="Main training" options={TRAINING.map((t) => ({ value: t, label: t }))} value={s.training}

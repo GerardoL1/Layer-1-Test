@@ -202,6 +202,108 @@ export interface paths {
         patch: operations["update_settings_api_v1_users__user_id__settings_patch"];
         trace?: never;
     };
+    "/api/v1/users/{user_id}/checkins/morning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Morning Checkins
+         * @description The newest check-ins, oldest first.
+         */
+        get: operations["list_morning_checkins_api_v1_users__user_id__checkins_morning_get"];
+        put?: never;
+        /**
+         * Save Morning Checkin
+         * @description Saves this morning's answers. Answering again the same morning replaces them.
+         */
+        post: operations["save_morning_checkin_api_v1_users__user_id__checkins_morning_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/checkins/morning/{night_date}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Morning Checkin */
+        get: operations["get_morning_checkin_api_v1_users__user_id__checkins_morning__night_date__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/workouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Workouts
+         * @description Workouts that started in the last N days, oldest first.
+         */
+        get: operations["list_workouts_api_v1_users__user_id__workouts_get"];
+        put?: never;
+        /**
+         * Save Workout
+         * @description Adds a workout, or updates it when the same id is sent again. A rating already given is kept.
+         */
+        post: operations["save_workout_api_v1_users__user_id__workouts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/workouts/{workout_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workout */
+        get: operations["get_workout_api_v1_users__user_id__workouts__workout_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/workouts/{workout_id}/rating": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Rate Workout
+         * @description The after-workout check-in. Rating again replaces the earlier answer.
+         */
+        put: operations["rate_workout_api_v1_users__user_id__workouts__workout_id__rating_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{user_id}/processing-runs": {
         parameters: {
             query?: never;
@@ -629,6 +731,60 @@ export interface components {
             /** Placeholder */
             placeholder: boolean;
         };
+        /** MorningAnswers */
+        MorningAnswers: {
+            /** Ready To Train */
+            ready_to_train: number;
+            /** Sleep Quality */
+            sleep_quality?: number | null;
+            /** Fatigue */
+            fatigue?: number | null;
+            /** Energy */
+            energy?: number | null;
+            /** Stress */
+            stress?: number | null;
+            /** Motivation */
+            motivation?: number | null;
+            /** Hydration */
+            hydration?: number | null;
+            /** Soreness */
+            soreness?: number | null;
+            /**
+             * Sore Muscles
+             * @default []
+             */
+            sore_muscles: ("shoulders" | "chest" | "biceps" | "forearms" | "abs" | "quads" | "shins" | "traps" | "lats" | "triceps" | "lower_back" | "glutes" | "hamstrings" | "calves")[];
+            /** Unusual */
+            unusual?: ("alcohol" | "feeling_sick" | "late_caffeine" | "travel" | "poor_diet")[] | null;
+            /** Rehydrated */
+            rehydrated?: ("not_really" | "somewhat" | "fully") | null;
+        };
+        /** MorningCheckin */
+        MorningCheckin: {
+            /** Night Date */
+            night_date: string;
+            /** Answered At Ms */
+            answered_at_ms: number;
+            /** Tz Offset Min */
+            tz_offset_min: number;
+            /** Survey Version */
+            survey_version: string;
+            answers: components["schemas"]["MorningAnswers"];
+            snapshot: components["schemas"]["SnapshotRef"] | null;
+        };
+        /** MorningCheckinIn */
+        MorningCheckinIn: {
+            /** Answered At Ms */
+            answered_at_ms: number;
+            /** Tz Offset Min */
+            tz_offset_min: number;
+            /**
+             * Survey Version
+             * @default v2
+             */
+            survey_version: string;
+            answers: components["schemas"]["MorningAnswers"];
+        };
         /** ProcessingRun */
         ProcessingRun: {
             /** Processed */
@@ -661,6 +817,15 @@ export interface components {
             sources: string[];
             /** Last Update Local */
             last_update_local: string | null;
+        };
+        /** RatingIn */
+        RatingIn: {
+            /** Effort */
+            effort: number;
+            /** Satisfaction */
+            satisfaction?: number | null;
+            /** Answered At Ms */
+            answered_at_ms: number;
         };
         /** Readiness */
         Readiness: {
@@ -742,6 +907,8 @@ export interface components {
              * @enum {string}
              */
             units: "metric" | "imperial";
+            /** Weight Kg */
+            weight_kg?: number | null;
         };
         /**
          * SettingsUpdate
@@ -760,6 +927,8 @@ export interface components {
             training_days?: number[] | null;
             /** Units */
             units?: ("metric" | "imperial") | null;
+            /** Weight Kg */
+            weight_kg?: number | null;
         };
         /** SleepBlock */
         SleepBlock: {
@@ -800,6 +969,18 @@ export interface components {
             end_tz_min?: number | null;
             /** Source */
             source?: string | null;
+        };
+        /**
+         * SnapshotRef
+         * @description The score that was first shown for the same night, the one this answer labels.
+         */
+        SnapshotRef: {
+            /** Score */
+            score: number | null;
+            /** Status */
+            status: string;
+            /** Model Version */
+            model_version: string;
         };
         /** Today */
         Today: {
@@ -936,6 +1117,61 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** Workout */
+        Workout: {
+            /** Id */
+            id: string;
+            /** Start Ms */
+            start_ms: number;
+            /** End Ms */
+            end_ms: number;
+            /** Start Tz Min */
+            start_tz_min: number;
+            /** End Tz Min */
+            end_tz_min: number;
+            /** Start Local */
+            start_local: string;
+            /** End Local */
+            end_local: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "manual" | "apple_health" | "patch";
+            /** Type */
+            type: string;
+            /** Duration Min */
+            duration_min: number;
+            /** Effort */
+            effort: number | null;
+            /** Satisfaction */
+            satisfaction: number | null;
+            /** Rated At Ms */
+            rated_at_ms: number | null;
+            /** Load */
+            load: number | null;
+        };
+        /** WorkoutIn */
+        WorkoutIn: {
+            /** Id */
+            id: string;
+            /** Start Ms */
+            start_ms: number;
+            /** End Ms */
+            end_ms: number;
+            /** Start Tz Min */
+            start_tz_min: number;
+            /** End Tz Min */
+            end_tz_min: number;
+            /**
+             * Source
+             * @default manual
+             * @enum {string}
+             */
+            source: "manual" | "apple_health" | "patch";
+            /** Type */
+            type: string;
         };
     };
     responses: never;
@@ -1313,6 +1549,242 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Settings"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_morning_checkins_api_v1_users__user_id__checkins_morning_get: {
+        parameters: {
+            query?: {
+                nights?: number;
+            };
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MorningCheckin"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_morning_checkin_api_v1_users__user_id__checkins_morning_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MorningCheckinIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MorningCheckin"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_morning_checkin_api_v1_users__user_id__checkins_morning__night_date__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                night_date: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MorningCheckin"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_workouts_api_v1_users__user_id__workouts_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workout"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_workout_api_v1_users__user_id__workouts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkoutIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workout"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_workout_api_v1_users__user_id__workouts__workout_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                workout_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workout"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rate_workout_api_v1_users__user_id__workouts__workout_id__rating_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                workout_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RatingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workout"];
                 };
             };
             /** @description Validation Error */

@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS users (
     training         TEXT,
     training_days    TEXT,                          -- JSON list of weekdays
     units            TEXT,
+    weight_kg        REAL,                          -- for sweat loss as a share of body weight
     data_changed_ms  INTEGER,                       -- when new readings last arrived
     changed_from_ms  INTEGER,                       -- local time of the earliest reading added since the last run
     clock_local      TEXT                           -- demo users only: a fixed local clock
@@ -67,6 +68,33 @@ CREATE TABLE IF NOT EXISTS sleep_stages (
     start_tz_min  INTEGER NOT NULL,   -- two offsets since a night can cross a clock change
     end_tz_min    INTEGER NOT NULL,
     source        TEXT,
+    PRIMARY KEY (user_id, id)
+);
+-- Morning check-in answers. These are the labels the readiness model is trained on.
+-- The check-in on day D belongs to the night of D-1, the night just slept.
+CREATE TABLE IF NOT EXISTS checkins (
+    user_id         TEXT NOT NULL,
+    night_date      TEXT NOT NULL,
+    answered_at_ms  INTEGER NOT NULL,
+    tz_offset_min   INTEGER NOT NULL,
+    survey_version  TEXT NOT NULL,
+    answers         TEXT NOT NULL,     -- JSON, see app/schemas/checkins.py
+    PRIMARY KEY (user_id, night_date)
+);
+-- Workouts, from the app or later from Apple Health and the patch. The after-workout check-in rates them,
+-- and effort times minutes is the training load. Patch and sweat sessions link here by id.
+CREATE TABLE IF NOT EXISTS workouts (
+    user_id         TEXT NOT NULL,
+    id              TEXT NOT NULL,     -- made by the sender, so sending the same workout twice is safe
+    start_ms        INTEGER NOT NULL,
+    end_ms          INTEGER NOT NULL,
+    start_tz_min    INTEGER NOT NULL,
+    end_tz_min      INTEGER NOT NULL,
+    source          TEXT NOT NULL,     -- manual, apple_health, patch
+    type            TEXT NOT NULL,
+    effort          INTEGER,           -- 1 to 10, from the after-workout check-in
+    satisfaction    INTEGER,           -- 1 to 10
+    rated_at_ms     INTEGER,
     PRIMARY KEY (user_id, id)
 );
 CREATE INDEX IF NOT EXISTS idx_samples_user ON samples(user_id, start_ms);
@@ -99,6 +127,8 @@ def init_db():
             conn.execute("ALTER TABLE users ADD COLUMN clock_local TEXT")
         if "changed_from_ms" not in have:
             conn.execute("ALTER TABLE users ADD COLUMN changed_from_ms INTEGER")
+        if "weight_kg" not in have:
+            conn.execute("ALTER TABLE users ADD COLUMN weight_kg REAL")
         # Early databases keyed readings by id alone. Rebuild those tables keyed by (user_id, id).
         for table in ("samples", "sleep_stages"):
             key = [

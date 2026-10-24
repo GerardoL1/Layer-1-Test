@@ -3,11 +3,13 @@ import { StyleSheet } from 'react-native';
 
 import { useApi } from '../../api/useApi';
 import { Button } from '../../components/Button';
+import { ListRow } from '../../components/ListRow';
 import { Chips, DaysPicker, EditRow, TextEditor, TRAINING } from '../../components/Editors';
 import { SetupFrame } from '../../components/SetupFrame';
 import { Text } from '../../components/Text';
 import { WEEKDAYS } from '../../lib/format';
 import { useLoad } from '../../lib/useLoad';
+import { weightText } from '../../lib/weight';
 import { useSettingsEditor } from '../settings/useSettingsEditor';
 
 const AGE_HINT = 'Type your age as a whole number, like 21.';
@@ -34,6 +36,7 @@ export default function AboutStep() {
         <TextEditor initial={s?.age ? String(s.age) : ''} label="Age" keyboard="number-pad" placeholder="Age"
           onSave={(t) => (t && !/^\d+$/.test(t) ? invalid(AGE_HINT) : save({ age: t ? Number(t) : null }))} />
       </EditRow>
+      <ListRow label="Weight" value={weightText(s?.weight_kg, s?.units ?? 'metric')} onPress={() => router.push('/setup/weight')} />
       <EditRow label="Main training" value={s?.training ?? 'Choose'} open={isOpen('training')}
         onToggle={() => toggle('training')} error={error}>
         <Chips name="Main training" options={TRAINING.map((t) => ({ value: t, label: t }))} value={s?.training ?? null}

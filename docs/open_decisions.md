@@ -14,6 +14,7 @@ Team decisions the code is waiting on. Until each is made, the code uses a clear
 | Whether a short night should force Low | A night under 3 hours gets no score (status `short_sleep`), and is kept out of the baselines | `scoring.py`, `preprocessing/layer1/quality.py` |
 | How much sweat data (Layer 3) can move the score | Not used yet. Proposed cap: ±5 points | Future readiness model |
 | "Your usual" range | Baseline mean ± 1 standard deviation | `server/app/readiness/usual.py` |
+| Do measures inside the usual range move the score? | Yes, every measure moves it a little, even inside the usual range. The Figma "Why this score" screen says they don't ("Measures within your usual range don't move it"), so either that sentence or the formula has to change | `scoring.py`, Figma Round 6 |
 
 The trained readiness model will replace the first, fourth and sixth rows. The team still has to agree what
 the model may and may not do (for example the cut-offs and the Layer 3 cap) before it ships.

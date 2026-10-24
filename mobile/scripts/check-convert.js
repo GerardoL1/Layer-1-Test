@@ -1,5 +1,6 @@
 /**
- * Checks src/health/convert.ts (HealthKit sample -> server upload) without an iPhone.
+ * Checks src/health/convert.ts (HealthKit sample -> server upload) and src/lib/weight.ts (kg and lb)
+ * without an iPhone.
  * Uses the TypeScript compiler the app already has, so no test framework is needed.
  *
  *   npm test
@@ -10,13 +11,17 @@ const Module = require('module');
 const path = require('path');
 const ts = require('typescript');
 
-const file = path.join(__dirname, '..', 'src', 'health', 'convert.ts');
-const js = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
-}).outputText;
-const m = new Module(file);
-m._compile(js, file);
-const c = m.exports;
+function load(...parts) {
+  const file = path.join(__dirname, '..', 'src', ...parts);
+  const js = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+  }).outputText;
+  const m = new Module(file);
+  m._compile(js, file);
+  return m.exports;
+}
+const c = load('health', 'convert.ts');
+const w = load('lib', 'weight.ts');
 
 const checks = {
   'UTC offset in a named time zone': () => {
@@ -46,6 +51,20 @@ const checks = {
   },
   'uploads are split into pieces': () => {
     assert.deepStrictEqual(c.chunks([1, 2, 3, 4, 5], 2), [[1, 2], [3, 4], [5]]);
+  },
+  'weight shows in the units from Settings': () => {
+    assert.strictEqual(w.weightText(72.1, 'imperial'), '159 lb');
+    assert.strictEqual(w.weightText(72.1, 'metric'), '72.1 kg');
+    assert.strictEqual(w.weightText(null, 'metric'), 'Choose');
+    assert.strictEqual(w.weightInput(80, 'metric'), '80');
+  },
+  'typed weight becomes kg and stays in range': () => {
+    assert.deepStrictEqual(w.parseWeight('159', 'imperial'), { kg: 72.1 });
+    assert.deepStrictEqual(w.parseWeight('72,5', 'metric'), { kg: 72.5 });
+    assert.deepStrictEqual(w.parseWeight('66', 'imperial'), { kg: 30 });  // 29.94 kg, kept inside the server's range
+    assert.deepStrictEqual(w.parseWeight('', 'metric'), { kg: null });
+    assert.deepStrictEqual(w.parseWeight('15', 'imperial'), { error: 'Type a weight between 66 and 660 lb.' });
+    assert.deepStrictEqual(w.parseWeight('abc', 'metric'), { error: 'Type a weight between 30 and 300 kg.' });
   },
 };
 

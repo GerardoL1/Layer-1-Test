@@ -553,6 +553,391 @@
         }
       }
     },
+    "/api/v1/users/{user_id}/checkins/morning": {
+      "post": {
+        "tags": [
+          "checkins"
+        ],
+        "summary": "Save Morning Checkin",
+        "description": "Saves this morning's answers. Answering again the same morning replaces them.",
+        "operationId": "save_morning_checkin_api_v1_users__user_id__checkins_morning_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MorningCheckinIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MorningCheckin"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "checkins"
+        ],
+        "summary": "List Morning Checkins",
+        "description": "The newest check-ins, oldest first.",
+        "operationId": "list_morning_checkins_api_v1_users__user_id__checkins_morning_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "nights",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 366,
+              "minimum": 1,
+              "default": 28,
+              "title": "Nights"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MorningCheckin"
+                  },
+                  "title": "Response List Morning Checkins Api V1 Users  User Id  Checkins Morning Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/checkins/morning/{night_date}": {
+      "get": {
+        "tags": [
+          "checkins"
+        ],
+        "summary": "Get Morning Checkin",
+        "operationId": "get_morning_checkin_api_v1_users__user_id__checkins_morning__night_date__get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "night_date",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Night Date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MorningCheckin"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/workouts": {
+      "post": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Save Workout",
+        "description": "Adds a workout, or updates it when the same id is sent again. A rating already given is kept.",
+        "operationId": "save_workout_api_v1_users__user_id__workouts_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkoutIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workout"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "List Workouts",
+        "description": "Workouts that started in the last N days, oldest first.",
+        "operationId": "list_workouts_api_v1_users__user_id__workouts_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 366,
+              "minimum": 1,
+              "default": 28,
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Workout"
+                  },
+                  "title": "Response List Workouts Api V1 Users  User Id  Workouts Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/workouts/{workout_id}": {
+      "get": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Get Workout",
+        "operationId": "get_workout_api_v1_users__user_id__workouts__workout_id__get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workout Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workout"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/workouts/{workout_id}/rating": {
+      "put": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Rate Workout",
+        "description": "The after-workout check-in. Rating again replaces the earlier answer.",
+        "operationId": "rate_workout_api_v1_users__user_id__workouts__workout_id__rating_put",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workout Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RatingIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workout"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users/{user_id}/processing-runs": {
       "post": {
         "tags": [
@@ -1575,6 +1960,244 @@
         "title": "MetricRow",
         "description": "One row of \"Last night vs your usual\"."
       },
+      "MorningAnswers": {
+        "properties": {
+          "ready_to_train": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Ready To Train"
+          },
+          "sleep_quality": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sleep Quality"
+          },
+          "fatigue": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fatigue"
+          },
+          "energy": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Energy"
+          },
+          "stress": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stress"
+          },
+          "motivation": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivation"
+          },
+          "hydration": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hydration"
+          },
+          "soreness": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Soreness"
+          },
+          "sore_muscles": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "shoulders",
+                "chest",
+                "biceps",
+                "forearms",
+                "abs",
+                "quads",
+                "shins",
+                "traps",
+                "lats",
+                "triceps",
+                "lower_back",
+                "glutes",
+                "hamstrings",
+                "calves"
+              ]
+            },
+            "type": "array",
+            "title": "Sore Muscles",
+            "default": []
+          },
+          "unusual": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "alcohol",
+                    "feeling_sick",
+                    "late_caffeine",
+                    "travel",
+                    "poor_diet"
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unusual"
+          },
+          "rehydrated": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "not_really",
+                  "somewhat",
+                  "fully"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rehydrated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ready_to_train"
+        ],
+        "title": "MorningAnswers"
+      },
+      "MorningCheckin": {
+        "properties": {
+          "night_date": {
+            "type": "string",
+            "title": "Night Date"
+          },
+          "answered_at_ms": {
+            "type": "integer",
+            "title": "Answered At Ms"
+          },
+          "tz_offset_min": {
+            "type": "integer",
+            "title": "Tz Offset Min"
+          },
+          "survey_version": {
+            "type": "string",
+            "title": "Survey Version"
+          },
+          "answers": {
+            "$ref": "#/components/schemas/MorningAnswers"
+          },
+          "snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SnapshotRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "night_date",
+          "answered_at_ms",
+          "tz_offset_min",
+          "survey_version",
+          "answers",
+          "snapshot"
+        ],
+        "title": "MorningCheckin"
+      },
+      "MorningCheckinIn": {
+        "properties": {
+          "answered_at_ms": {
+            "type": "integer",
+            "title": "Answered At Ms"
+          },
+          "tz_offset_min": {
+            "type": "integer",
+            "title": "Tz Offset Min"
+          },
+          "survey_version": {
+            "type": "string",
+            "maxLength": 20,
+            "title": "Survey Version",
+            "default": "v2"
+          },
+          "answers": {
+            "$ref": "#/components/schemas/MorningAnswers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "answered_at_ms",
+          "tz_offset_min",
+          "answers"
+        ],
+        "title": "MorningCheckinIn"
+      },
       "ProcessingRun": {
         "properties": {
           "processed": {
@@ -1689,6 +2312,39 @@
           "last_update_local"
         ],
         "title": "Profile"
+      },
+      "RatingIn": {
+        "properties": {
+          "effort": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Effort"
+          },
+          "satisfaction": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Satisfaction"
+          },
+          "answered_at_ms": {
+            "type": "integer",
+            "title": "Answered At Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "effort",
+          "answered_at_ms"
+        ],
+        "title": "RatingIn"
       },
       "Readiness": {
         "properties": {
@@ -1956,6 +2612,17 @@
               "imperial"
             ],
             "title": "Units"
+          },
+          "weight_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Kg"
           }
         },
         "type": "object",
@@ -2043,6 +2710,17 @@
               }
             ],
             "title": "Units"
+          },
+          "weight_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Kg"
           }
         },
         "type": "object",
@@ -2237,6 +2915,37 @@
           "end_ms"
         ],
         "title": "SleepStage"
+      },
+      "SnapshotRef": {
+        "properties": {
+          "score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "score",
+          "status",
+          "model_version"
+        ],
+        "title": "SnapshotRef",
+        "description": "The score that was first shown for the same night, the one this answer labels."
       },
       "Today": {
         "properties": {
@@ -2766,6 +3475,169 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "Workout": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "start_ms": {
+            "type": "integer",
+            "title": "Start Ms"
+          },
+          "end_ms": {
+            "type": "integer",
+            "title": "End Ms"
+          },
+          "start_tz_min": {
+            "type": "integer",
+            "title": "Start Tz Min"
+          },
+          "end_tz_min": {
+            "type": "integer",
+            "title": "End Tz Min"
+          },
+          "start_local": {
+            "type": "string",
+            "title": "Start Local"
+          },
+          "end_local": {
+            "type": "string",
+            "title": "End Local"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "apple_health",
+              "patch"
+            ],
+            "title": "Source"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "duration_min": {
+            "type": "number",
+            "title": "Duration Min"
+          },
+          "effort": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort"
+          },
+          "satisfaction": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Satisfaction"
+          },
+          "rated_at_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rated At Ms"
+          },
+          "load": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "start_ms",
+          "end_ms",
+          "start_tz_min",
+          "end_tz_min",
+          "start_local",
+          "end_local",
+          "source",
+          "type",
+          "duration_min",
+          "effort",
+          "satisfaction",
+          "rated_at_ms",
+          "load"
+        ],
+        "title": "Workout"
+      },
+      "WorkoutIn": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "start_ms": {
+            "type": "integer",
+            "title": "Start Ms"
+          },
+          "end_ms": {
+            "type": "integer",
+            "title": "End Ms"
+          },
+          "start_tz_min": {
+            "type": "integer",
+            "title": "Start Tz Min"
+          },
+          "end_tz_min": {
+            "type": "integer",
+            "title": "End Tz Min"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "apple_health",
+              "patch"
+            ],
+            "title": "Source",
+            "default": "manual"
+          },
+          "type": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "start_ms",
+          "end_ms",
+          "start_tz_min",
+          "end_tz_min",
+          "type"
+        ],
+        "title": "WorkoutIn"
       }
     }
   }

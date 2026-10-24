@@ -35,4 +35,5 @@ def read_settings(user_id: str) -> dict:
         "training": user["training"],
         "training_days": json.loads(user["training_days"]) if user["training_days"] else [],
         "units": user["units"] or "metric",
+        "weight_kg": user["weight_kg"],
     }

@@ -15,6 +15,7 @@ class Settings(BaseModel):
     training: str | None
     training_days: list[int]
     units: Units
+    weight_kg: float | None = None
 
 
 class SettingsUpdate(BaseModel):
@@ -26,6 +27,7 @@ class SettingsUpdate(BaseModel):
     training: str | None = None
     training_days: list[int] | None = None
     units: Units | None = None
+    weight_kg: float | None = None
 
     @field_validator("timezone")
     @classmethod
@@ -54,6 +56,16 @@ class SettingsUpdate(BaseModel):
     def sensible_age(cls, v):
         if v is not None and not 13 <= v <= 100:
             raise ValueError("age must be between 13 and 100")
+        return v
+
+    @field_validator("weight_kg")
+    @classmethod
+    def sensible_weight(cls, v):
+        # The app shows pounds when Units is imperial, so it converts before sending.
+        if v is not None:
+            if not 30 <= v <= 300:
+                raise ValueError("weight must be between 30 and 300 kg (66 and 660 lb)")
+            v = round(v, 1)
         return v
 
     @field_validator("training")
