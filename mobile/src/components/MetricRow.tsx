@@ -63,8 +63,9 @@ export function MetricRow({ label, shortLabel, value, unit, delta, direction }: 
 const styles = StyleSheet.create({
   row: { borderTopWidth: 1, minHeight: 58, justifyContent: 'center' },
   parts: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', paddingVertical: 6 },
-  label: { flex: 1, minWidth: 120 },
+  label: { flex: 1, minWidth: 100 },
   reading: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', minWidth: 96 },
   unit: { marginLeft: 4, minWidth: 28 },
-  delta: { textAlign: 'right' },
+  // Grows to fill its line, so when it wraps under the label it still lines up on the right.
+  delta: { textAlign: 'right', flexGrow: 1 },
 });

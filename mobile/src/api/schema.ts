@@ -217,7 +217,7 @@ export interface paths {
         put?: never;
         /**
          * Save Morning Checkin
-         * @description Saves this morning's answers. Answering again the same morning replaces them.
+         * @description Saves this morning's answers. A newer answer the same morning replaces an older one.
          */
         post: operations["save_morning_checkin_api_v1_users__user_id__checkins_morning_post"];
         delete?: never;
@@ -749,11 +749,8 @@ export interface components {
             hydration?: number | null;
             /** Soreness */
             soreness?: number | null;
-            /**
-             * Sore Muscles
-             * @default []
-             */
-            sore_muscles: ("shoulders" | "chest" | "biceps" | "forearms" | "abs" | "quads" | "shins" | "traps" | "lats" | "triceps" | "lower_back" | "glutes" | "hamstrings" | "calves")[];
+            /** Sore Muscles */
+            sore_muscles?: ("shoulders" | "chest" | "biceps" | "forearms" | "abs" | "quads" | "shins" | "traps" | "lats" | "triceps" | "lower_back" | "glutes" | "hamstrings" | "calves")[] | null;
             /** Unusual */
             unusual?: ("alcohol" | "feeling_sick" | "late_caffeine" | "travel" | "poor_diet")[] | null;
             /** Rehydrated */

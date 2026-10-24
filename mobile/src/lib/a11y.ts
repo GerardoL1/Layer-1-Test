@@ -45,3 +45,13 @@ export function pageTitle(path: string): string {
   const page = PAGE_TITLES.find(([prefix]) => path.startsWith(prefix))?.[1];
   return page ? `${page} · Recovery` : 'Recovery';
 }
+
+/**
+ * Ties a field to its error message on the web, so screen readers say the field is invalid and read why.
+ * React Native's types don't list these, but react-native-web passes them through. The error text needs
+ * nativeID set to errorId.
+ */
+export function fieldError(errorId: string, invalid: boolean): Record<string, string | boolean> {
+  if (Platform.OS !== 'web') return {};
+  return invalid ? { 'aria-invalid': true, 'aria-describedby': errorId } : {};
+}

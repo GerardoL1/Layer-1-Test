@@ -2,9 +2,10 @@
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, StrictInt, field_validator
 
-Scale = Annotated[int, Field(ge=1, le=10)]
+# Strict, so true, "7" and 7.0 aren't quietly turned into answers.
+Scale = Annotated[StrictInt, Field(ge=1, le=10)]
 # The 14 groups on the body map, front then back.
 MuscleGroup = Literal[
     "shoulders",
@@ -35,22 +36,22 @@ class MorningAnswers(BaseModel):
     motivation: Scale | None = None
     hydration: Scale | None = None
     soreness: Scale | None = None
-    sore_muscles: list[MuscleGroup] = []
-    # [] means "None" was picked. null means the question wasn't answered.
-    unusual: list[Unusual] | None = None
+    # For both lists, [] means "none" was picked and null means the question wasn't answered.
+    sore_muscles: list[MuscleGroup] | None = Field(None, max_length=14)
+    unusual: list[Unusual] | None = Field(None, max_length=5)
     # Only asked when there was a workout yesterday.
     rehydrated: Rehydrated | None = None
 
-    @field_validator("sore_muscles")
+    @field_validator("sore_muscles", "unusual", mode="before")
     @classmethod
     def once_each(cls, v):
-        return list(dict.fromkeys(v))
+        return list(dict.fromkeys(v)) if isinstance(v, list) else v
 
 
 class MorningCheckinIn(BaseModel):
-    answered_at_ms: int
-    tz_offset_min: int
-    survey_version: str = Field("v2", max_length=20)
+    answered_at_ms: StrictInt
+    tz_offset_min: StrictInt
+    survey_version: str = Field("v2", min_length=1, max_length=20)
     answers: MorningAnswers
 
 

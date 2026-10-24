@@ -9,6 +9,7 @@ with the team members building the model.
 """
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -26,8 +27,25 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
+
+def inside(path: Path, folder: Path) -> bool:
+    """
+    True when path is in folder. Paths are compared as folders on disk, not as text, so other spellings of the
+    same place (\\\\localhost\\C$\\..., \\\\?\\C:\\...) are caught too.
+    """
+    if path.is_relative_to(folder):
+        return True
+    for parent in [path, *path.parents]:
+        try:
+            if parent.exists() and os.path.samefile(parent, folder):
+                return True
+        except OSError:
+            continue
+    return False
+
+
 out = Path(args.out).resolve()
-if out.is_relative_to(REPO):
+if inside(out, REPO):
     sys.exit(f"Refusing to write health data inside the repo ({REPO}). Pick a folder outside it, like your Desktop.")
 
 db.init_db()

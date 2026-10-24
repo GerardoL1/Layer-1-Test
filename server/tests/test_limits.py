@@ -30,6 +30,10 @@ def test_the_real_limits():
         USER + "/readings",
         USER + "/readings/health-auto-export",
         USER + "/readings/shortcuts",
+        USER + "/settings",
+        USER + "/checkins/morning",
+        USER + "/workouts",
+        USER + "/workouts/{workout_id}/rating",
         # deprecated URLs, still limited
         "/api/import",
         "/upload",
@@ -40,6 +44,10 @@ def test_the_real_limits():
     assert limits.limit_for("/api/v1/users/sam/readings/shortcuts") == (
         USER + "/readings/shortcuts",
         limits.MAX_JSON_BYTES,
+    )
+    assert limits.limit_for("/api/v1/users/sam/workouts/w1/rating") == (
+        USER + "/workouts/{workout_id}/rating",
+        limits.MAX_SMALL_JSON_BYTES,
     )
     assert limits.limit_for("/api/v1/users/sam/today") is None
     assert limits.limit_for("/api/v1/users/sam/imports/abc") is None

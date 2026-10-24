@@ -93,7 +93,8 @@ def rate_workout(user_id: str, workout_id: str, rating: RatingIn):
         raise HTTPException(400, "The rating is dated before 2000 or in the future. Check the phone's clock.")
     with db.connect() as conn:
         require_user(conn, user_id)
-        _get(conn, user_id, workout_id)
+        if rating.answered_at_ms < _get(conn, user_id, workout_id)["start_ms"]:
+            raise HTTPException(400, "The rating is dated before the workout started.")
         conn.execute(
             "UPDATE workouts SET effort = ?, satisfaction = ?, rated_at_ms = ? WHERE user_id = ? AND id = ?",
             (rating.effort, rating.satisfaction, rating.answered_at_ms, user_id, workout_id),

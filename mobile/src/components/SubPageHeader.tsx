@@ -1,21 +1,22 @@
-import { router } from 'expo-router';
+import { Href, router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme/theme';
 import { Text } from './Text';
 
-type Props = { back: string; label: string; title: string; intro?: string };
+/** home: where back goes when there's no screen to go back to (after a reload or a deep link). */
+type Props = { back: string; label: string; title: string; intro?: string; home?: Href };
 
 /**
  * Top of a screen opened from another one (like Update time from Profile): a back link,
  * a small label, the title and a short intro. On a computer a dark rule closes it off.
  */
-export function SubPageHeader({ back, label, title, intro }: Props) {
+export function SubPageHeader({ back, label, title, intro, home = '/profile' }: Props) {
   const { colors, isWide } = useTheme();
   return (
     <View style={isWide ? [styles.headerWide, { borderBottomColor: colors.borderStrong }] : styles.header}>
       <Pressable accessibilityRole="link" accessibilityLabel={`Back to ${back}`}
-        onPress={() => (router.canGoBack() ? router.back() : router.replace('/profile'))} style={styles.back}>
+        onPress={() => (router.canGoBack() ? router.back() : router.replace(home))} style={styles.back}>
         <Text variant="button" color="textSecondary">← {back}</Text>
       </Pressable>
       <Text variant="labelSmall" color="textSecondary" style={styles.label}>{label}</Text>

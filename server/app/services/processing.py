@@ -165,7 +165,9 @@ def snapshot_new_nights(conn, user_id: str, new_nights: list, now_utc: datetime,
         return
     nights = load_nights(conn, user_id)
     dates = list(nights["night_date"])
-    newest = max(new_nights)
+    # Today shows the newest saved night, so only that one counts as shown. A history import that adds older
+    # nights after it has been shown makes every one of them catch-up.
+    newest = dates[-1]
     model = get_model()
     rows = []
     for night in new_nights:

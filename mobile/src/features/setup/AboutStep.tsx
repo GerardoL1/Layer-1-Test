@@ -1,4 +1,5 @@
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { useApi } from '../../api/useApi';
@@ -19,6 +20,8 @@ export default function AboutStep() {
   const api = useApi();
   const { data: s, reload } = useLoad(() => api.settings().catch(() => null), api);
   const { isOpen, toggle, save, invalid, error } = useSettingsEditor(reload);
+  // Coming back from the Weight screen should show the new weight.
+  useFocusEffect(useCallback(() => reload(), [reload]));
 
   return (
     <SetupFrame step={2} actions={

@@ -15,7 +15,8 @@ export function weightUnit(units: Units): 'kg' | 'lb' {
 /** What the box shows: "159" in pounds, "72.4" in kg, empty when there's no weight yet. */
 export function weightInput(kg: number | null | undefined, units: Units): string {
   if (kg === null || kg === undefined) return '';
-  if (units === 'imperial') return String(Math.round(kg * LB_PER_KG));
+  // 300 kg is 661.4 lb, so the shown pounds are kept inside the range the box accepts.
+  if (units === 'imperial') return String(Math.min(660, Math.max(66, Math.round(kg * LB_PER_KG))));
   return String(Math.round(kg * 10) / 10);
 }
 
@@ -30,7 +31,8 @@ export function parseWeight(text: string, units: Units): { kg: number | null } |
   const t = text.trim().replace(',', '.');
   if (!t) return { kg: null };
   const { lo, hi, unit } = LIMITS[units];
-  const n = /^\d+(\.\d+)?$/.test(t) ? Number(t) : NaN;
+  // "72", "72.5", "72." and ".5" are all fine.
+  const n = /^(\d+\.?\d*|\.\d+)$/.test(t) ? Number(t) : NaN;
   if (!(n >= lo && n <= hi)) return { error: `Type a weight between ${lo} and ${hi} ${unit}.` };
   const kg = Math.round((units === 'imperial' ? n / LB_PER_KG : n) * 10) / 10;
   // 66 lb is 29.94 kg. Rounding can land a hair outside the server's range, so keep it inside.

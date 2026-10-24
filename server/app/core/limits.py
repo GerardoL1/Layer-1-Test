@@ -17,6 +17,9 @@ MAX_EXPORT_UPLOAD_BYTES = 500 * MB
 # Health Auto Export and Shortcuts send a day or two of data.
 MAX_JSON_BYTES = 20 * MB
 
+# Settings, check-ins and workouts are a few hundred bytes each, so anything big is a mistake or abuse.
+MAX_SMALL_JSON_BYTES = 64 * 1024
+
 # Total unzipped size of everything inside an export zip. Checked from the zip's own listing
 # before anything is read, so a zip that would unpack to something enormous is refused early.
 MAX_UNZIPPED_BYTES = 4 * GB
@@ -27,6 +30,10 @@ LIMITS_BY_PATH = {
     USER + "/readings": MAX_JSON_BYTES,
     USER + "/readings/health-auto-export": MAX_JSON_BYTES,
     USER + "/readings/shortcuts": MAX_JSON_BYTES,
+    USER + "/settings": MAX_SMALL_JSON_BYTES,
+    USER + "/checkins/morning": MAX_SMALL_JSON_BYTES,
+    USER + "/workouts": MAX_SMALL_JSON_BYTES,
+    USER + "/workouts/{workout_id}/rating": MAX_SMALL_JSON_BYTES,
     # Old URLs, kept while older app builds and phone automations still use them.
     "/api/import": MAX_EXPORT_UPLOAD_BYTES,
     "/upload": MAX_JSON_BYTES,

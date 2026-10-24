@@ -66,6 +66,15 @@ const checks = {
     assert.deepStrictEqual(w.parseWeight('15', 'imperial'), { error: 'Type a weight between 66 and 660 lb.' });
     assert.deepStrictEqual(w.parseWeight('abc', 'metric'), { error: 'Type a weight between 30 and 300 kg.' });
   },
+  'the heaviest weights still show a value the box accepts': () => {
+    assert.strictEqual(w.weightInput(300, 'imperial'), '660');
+    assert.deepStrictEqual(w.parseWeight(w.weightInput(300, 'imperial'), 'imperial'), { kg: 299.4 });
+  },
+  'a trailing or leading dot is fine': () => {
+    assert.deepStrictEqual(w.parseWeight('72.', 'metric'), { kg: 72 });
+    assert.deepStrictEqual(w.parseWeight('.5', 'metric'), { error: 'Type a weight between 30 and 300 kg.' });
+    assert.deepStrictEqual(w.parseWeight('150.', 'imperial'), { kg: 68 });
+  },
 };
 
 let failed = 0;

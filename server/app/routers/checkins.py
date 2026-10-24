@@ -5,6 +5,7 @@ score first shown that morning.
 """
 
 import json
+import time
 from datetime import date, timedelta
 
 from fastapi import APIRouter, HTTPException, Query
@@ -16,6 +17,9 @@ from app.services.time_checks import local_time, require_time
 from app.services.users import require_user
 
 router = APIRouter(prefix=USER + "/checkins", tags=["checkins"])
+
+# Phone clocks drift a little, so a few minutes ahead is still fine.
+CLOCK_SLACK_MS = 10 * 60 * 1000
 
 
 def _out(conn, user_id: str, night: str) -> dict | None:
@@ -38,15 +42,20 @@ def _out(conn, user_id: str, night: str) -> dict | None:
 
 @router.post("/morning", response_model=MorningCheckin)
 def save_morning_checkin(user_id: str, checkin: MorningCheckinIn):
-    """Saves this morning's answers. Answering again the same morning replaces them."""
+    """Saves this morning's answers. A newer answer the same morning replaces an older one."""
     require_time(checkin.answered_at_ms, checkin.tz_offset_min, "The check-in")
+    if checkin.answered_at_ms > time.time() * 1000 + CLOCK_SLACK_MS:
+        # It would label a night that hasn't been slept yet.
+        raise HTTPException(400, "The check-in is dated in the future. Check the phone's clock.")
     night = (local_time(checkin.answered_at_ms, checkin.tz_offset_min).date() - timedelta(days=1)).isoformat()
     with db.connect() as conn:
         require_user(conn, user_id)
         conn.execute(
+            # A retry of an older answer that arrives late must not replace a newer one.
             "INSERT INTO checkins VALUES (?,?,?,?,?,?) ON CONFLICT(user_id, night_date) DO UPDATE SET "
             "answered_at_ms = excluded.answered_at_ms, tz_offset_min = excluded.tz_offset_min, "
-            "survey_version = excluded.survey_version, answers = excluded.answers",
+            "survey_version = excluded.survey_version, answers = excluded.answers "
+            "WHERE excluded.answered_at_ms >= checkins.answered_at_ms",
             (
                 user_id,
                 night,

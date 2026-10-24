@@ -48,6 +48,21 @@ def _confidence(row, z_count: int) -> Confidence | None:
     return "high" if z_count == 5 else "medium" if z_count >= 3 else "low"
 
 
+def _add_up(raw: list, total: float) -> list[Contribution]:
+    """
+    Scales the points so they add up to exactly how far the shown score is from 50, after it was clipped
+    to 0-100 and rounded. Otherwise "HRV -16" could appear next to a score that only dropped to 0.
+    """
+    moved = sum(p for *_rest, p in raw)
+    scale = total / moved if moved else 0.0
+    points = [round(p * scale, 1) for *_rest, p in raw]
+    if points:
+        # Rounding to one decimal can leave a few tenths over. The biggest input absorbs them.
+        biggest = max(range(len(points)), key=lambda i: abs(points[i]))
+        points[biggest] = round(points[biggest] + total - sum(points), 1)
+    return [Contribution(k, label, value, p + 0.0) for (k, label, value, _), p in zip(raw, points)]
+
+
 class PlaceholderModel:
     """The formula above behind the ReadinessModel interface, so it can be swapped for the trained model."""
 
@@ -59,13 +74,15 @@ class PlaceholderModel:
         n = base["z_count"]
         contributions = []
         if base["score"] is not None:
-            # Each z-score moves the score by its share of the average, so 50 plus these adds up to
-            # the score before it's clipped to 0-100 and rounded.
+            # Each z-score moves the score by its share of the average.
+            raw = []
             for key, col, label, _unit, zcol, _up in METRICS:
                 z = features.get(zcol)
                 if z is not None and pd.notna(z):
-                    points = READINESS_POINTS_PER_SD * READINESS_SIGNS[zcol] * z / n
-                    contributions.append(Contribution(key, label, r1(features.get(col)), round(points, 1)))
+                    raw.append(
+                        (key, label, r1(features.get(col)), READINESS_POINTS_PER_SD * READINESS_SIGNS[zcol] * z / n)
+                    )
+            contributions = _add_up(raw, base["score"] - READINESS_CENTER)
         return ReadinessResult(
             score=base["score"],
             status=base["status"],

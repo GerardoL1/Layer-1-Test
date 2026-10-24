@@ -559,7 +559,7 @@
           "checkins"
         ],
         "summary": "Save Morning Checkin",
-        "description": "Saves this morning's answers. Answering again the same morning replaces them.",
+        "description": "Saves this morning's answers. A newer answer the same morning replaces an older one.",
         "operationId": "save_morning_checkin_api_v1_users__user_id__checkins_morning_post",
         "parameters": [
           {
@@ -2060,28 +2060,35 @@
             "title": "Soreness"
           },
           "sore_muscles": {
-            "items": {
-              "type": "string",
-              "enum": [
-                "shoulders",
-                "chest",
-                "biceps",
-                "forearms",
-                "abs",
-                "quads",
-                "shins",
-                "traps",
-                "lats",
-                "triceps",
-                "lower_back",
-                "glutes",
-                "hamstrings",
-                "calves"
-              ]
-            },
-            "type": "array",
-            "title": "Sore Muscles",
-            "default": []
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "shoulders",
+                    "chest",
+                    "biceps",
+                    "forearms",
+                    "abs",
+                    "quads",
+                    "shins",
+                    "traps",
+                    "lats",
+                    "triceps",
+                    "lower_back",
+                    "glutes",
+                    "hamstrings",
+                    "calves"
+                  ]
+                },
+                "type": "array",
+                "maxItems": 14
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sore Muscles"
           },
           "unusual": {
             "anyOf": [
@@ -2096,7 +2103,8 @@
                     "poor_diet"
                   ]
                 },
-                "type": "array"
+                "type": "array",
+                "maxItems": 5
               },
               {
                 "type": "null"
@@ -2183,6 +2191,7 @@
           "survey_version": {
             "type": "string",
             "maxLength": 20,
+            "minLength": 1,
             "title": "Survey Version",
             "default": "v2"
           },
