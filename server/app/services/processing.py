@@ -12,6 +12,7 @@ when something changed: new readings, or the clock passing the user's update tim
 import json
 import math
 import threading
+from dataclasses import asdict
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -19,6 +20,8 @@ import numpy as np
 import pandas as pd
 
 from app.core import db
+from app.readiness.features import build_features
+from app.readiness.model import get_model
 from layer1 import config as C
 from layer1 import incremental as I
 from layer1 import pipeline as P
@@ -42,6 +45,23 @@ CREATE TABLE IF NOT EXISTS runs (
     changed          TEXT NOT NULL,      -- JSON {night: [columns that changed]}
     data_changed_ms  INTEGER,            -- users.data_changed_ms this run had seen
     PRIMARY KEY (user_id, run)
+);
+-- The first score each night got, with the exact inputs behind it, for training the readiness model.
+-- Written once when a night first appears and never overwritten, even when late data redoes the night.
+CREATE TABLE IF NOT EXISTS readiness_snapshots (
+    user_id        TEXT NOT NULL,
+    night_date     TEXT NOT NULL,
+    taken_at_ms    INTEGER NOT NULL,   -- real UTC time of the run that added the night
+    taken_local    TEXT NOT NULL,      -- the user's local clock at that run
+    catch_up       INTEGER NOT NULL,   -- 1 when a newer night came in the same run, so Today never showed this one
+    model_version  TEXT NOT NULL,
+    score          INTEGER,
+    status         TEXT NOT NULL,
+    confidence     TEXT,
+    contributions  TEXT NOT NULL,      -- JSON list
+    illness_flag   INTEGER NOT NULL,
+    features       TEXT NOT NULL,      -- JSON, exactly what the model was given
+    PRIMARY KEY (user_id, night_date)
 );
 """
 
@@ -133,6 +153,44 @@ def save_nights(conn, user_id: str, nights: pd.DataFrame):
         rows.append((user_id, data["night_date"], json.dumps(data)))
     conn.execute("DELETE FROM nights WHERE user_id = ?", (user_id,))
     conn.executemany("INSERT INTO nights VALUES (?,?,?)", rows)
+
+
+def snapshot_new_nights(conn, user_id: str, new_nights: list, now_utc: datetime, sync: datetime):
+    """
+    Scores each night that just appeared and keeps that first result, with its inputs, in readiness_snapshots.
+    It's scored from the saved rows, exactly as Today reads them. A night that's already there is left alone,
+    so what the model saw that morning survives late data and rebuilds.
+    """
+    if not new_nights:
+        return
+    nights = load_nights(conn, user_id)
+    dates = list(nights["night_date"])
+    newest = max(new_nights)
+    model = get_model()
+    rows = []
+    for night in new_nights:
+        if night not in dates:
+            continue
+        i = dates.index(night)
+        features = build_features(nights.iloc[: i + 1])
+        result = model.score(features)
+        rows.append(
+            (
+                user_id,
+                night.isoformat(),
+                int(now_utc.timestamp() * 1000),
+                sync.isoformat(),
+                int(night != newest),
+                result.model_version,
+                result.score,
+                result.status,
+                result.confidence,
+                json.dumps([asdict(c) for c in result.contributions]),
+                int(result.illness_flag),
+                json.dumps(features),
+            )
+        )
+    conn.executemany("INSERT OR IGNORE INTO readiness_snapshots VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", rows)
 
 
 def load_nights(conn, user_id: str) -> pd.DataFrame:
@@ -280,6 +338,7 @@ def process_user(
 
         if len(proc.nights):
             save_nights(conn, user_id, proc.nights)
+            snapshot_new_nights(conn, user_id, report.new_nights, now_utc, sync)
         run = (last["run"] + 1) if last is not None else 1
         conn.execute(
             "INSERT INTO runs VALUES (?,?,?,?,?,?,?,?,?,?)",
