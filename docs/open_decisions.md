@@ -19,6 +19,19 @@ Team decisions the code is waiting on. Until each is made, the code uses a clear
 The trained readiness model will replace the first, fourth and sixth rows. The team still has to agree what
 the model may and may not do (for example the cut-offs and the Layer 3 cap) before it ships.
 
+## Readiness model inputs to define
+
+`server/app/readiness/features.py` is where these go, but each needs a definition from the team before it's built.
+
+| Input | Questions |
+|---|---|
+| HRV trend (7 nights vs 28) | Average the log HRV or the raw ms? Compare as a difference in standard deviations, or a percentage? How many of the 7 nights must have HRV? |
+| Sleep debt (last 3 and 7 nights) | Debt against what: the person's usual sleep (baseline mean), a fixed need like 8 hours, or one based on age? Does a missing night count as zero sleep or get skipped? Does sleeping more than usual pay debt back? |
+| Poor nights in a row | What makes a night poor: total sleep below the usual range, efficiency below it, a Low score, or any of these? Does a missing night break the run? |
+| Bedtime and wake time vs usual | Usual means the baseline average of the onset and wake clock times? Measured in minutes earlier or later? |
+| Hard training day | Effort of at least some level (7?), a load over some amount, or the person's own heavy days? |
+| Training load balance | Use the last 7 days against the last 28 (acute to chronic), and if so as a ratio or a difference? |
+
 ## Later
 
 - Illness signals (respiratory rate, wrist temperature): when to start collecting them, and how the warning

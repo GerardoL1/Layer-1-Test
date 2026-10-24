@@ -18,6 +18,7 @@ Apple Watch ──> iPhone Health app ──> our iPhone app ─────┐
 | Folder | What it is |
 |---|---|
 | `docs/layer1_spec.md` | **Source of truth** for every Layer 1 formula and decision |
+| `docs/ml_llm_plan.md`, `docs/open_decisions.md` | How the readiness model, muscle fatigue model and LLM will plug in, and the team decisions still open |
 | `preprocessing/` | The Layer 1 pipeline (raw readings to one row per night), its tests, the Layer 1 tester and a Streamlit test platform. See `preprocessing/README.md` |
 | `server/` | FastAPI + SQLite. Receives data four ways, runs the pipeline, serves the app's API. See `server/README.md` |
 | `mobile/` | One Expo app for iPhone **and** computer (Expo web). Today, Trends, Profile, Setup. See `mobile/README.md` |
@@ -90,7 +91,9 @@ These work, but are clearly marked in code and in the API (`"placeholder": true`
 | Low / Moderate / Ready cut-offs | 40 / 70 | `server/app/readiness/scoring.py` |
 | "Your usual" range and Worse / Usual / Better | Baseline mean ± 1 SD | `server/app/readiness/usual.py` |
 | Verdict, reason and Trends sentences | Simple templates, to be written by the LLM | `server/app/readiness/explain.py` |
-| Morning check-in, reminder, export, delete | Shown as "Coming soon" | `mobile/` |
+| Morning check-in screens, reminder, export, delete | Shown as "Coming soon". The check-in and workout API is built | `mobile/` |
+
+The full list of open decisions is in `docs/open_decisions.md`.
 
 ## Tests
 
@@ -149,8 +152,10 @@ Never commit real health data. Only the mock exports in `preprocessing/sample_da
 
 ## Next steps
 
-- Team decision on the readiness weights and cut-offs, then the ML readiness model
-- LLM explanations (replace `server/app/readiness/explain.py`)
-- Morning check-in (training labels), data export and delete
+- Team decisions in `docs/open_decisions.md`, then the trained readiness model (plugs in as a `ReadinessModel`).
+  Training data: `python server/export_training_table.py` (see `server/README.md`)
+- LLM explanations (an `Explainer` that replaces the templates, with the templates as the fallback)
 - Layer 2 (sEMG patch) and Layer 3 (sweat biosensor), the Muscles and Train tabs
-- Figma: add the Update time row, Update now and Import Apple Health export
+- App screens for the Figma Round 6 designs (what moved your score, confidence, illness warning, why this score),
+  then the morning and after-workout check-in screens
+- Data export and delete

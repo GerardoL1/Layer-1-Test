@@ -47,9 +47,12 @@ A test fails if it's out of date.
 |---|---|
 | `samples` | Heart rate, resting heart rate, HRV: value, start/end (UTC ms), **UTC offset**, source |
 | `sleep_stages` | In bed / awake / core / deep / REM / unspecified: start/end, **offset at start and at end** (a night can cross a clock change), source |
-| `users` | Settings: time zone, update time, age, training, training days, units |
+| `users` | Settings: time zone, update time, age, training, training days, units, weight |
 | `nights` | Each person's processed nightly rows (everything the pipeline keeps, including baselines) |
 | `runs` | What each processing run did: new nights, redone nights, what changed |
+| `readiness_snapshots` | The first score each night got, with the exact inputs, kept for training even after late data changes the night |
+| `checkins` | Morning check-in answers, one per night. The labels for the readiness model |
+| `workouts` | Workouts and their effort and satisfaction ratings |
 
 Readings are keyed by user + ID, and repeats are ignored, so sending the same data twice is always safe.
 Readings from other apps and devices are stored too: the pipeline's cleaning step removes them, exactly as tested.
@@ -72,16 +75,24 @@ The API is versioned under `/api/v1`, and everything about one person is under `
 
 | Endpoint | Returns |
 |---|---|
-| `GET .../today` | Last night's readiness, verdict and reason, metric rows with usual range and change, sleep stages, quality notes, update time, whether Update now can do anything |
+| `GET .../today` | Last night's readiness (score, status, confidence, contributions in points, illness flag, model version), verdict, reason and advice, metric rows with usual range and change, sleep stages, quality notes, update time, whether Update now can do anything |
 | `GET .../trends?nights=14\|28\|90` | One entry per night (readiness, HRV, resting HR, sleep, efficiency, fragmentation, usual bands) plus one-line summaries |
 | `GET .../profile` | Usual ranges, nights recorded, data sources, last update, settings |
-| `GET .../settings`, `PATCH .../settings` | Time zone, update time (`HH:MM`), age, training, training days (0 = Monday), units. PATCH changes only the fields sent |
+| `GET .../settings`, `PATCH .../settings` | Time zone, update time (`HH:MM`), age, training, training days (0 = Monday), units, weight (`weight_kg`, 30 to 300). PATCH changes only the fields sent |
+| `POST .../checkins/morning`, `GET .../checkins/morning`, `GET .../checkins/morning/{night}` | The morning check-in (1 to 10 scales, sore muscles, anything unusual, rehydrated). One answered on day D labels the night of D−1, and comes back with the score first shown for that night. Answering again replaces it |
+| `POST .../workouts`, `GET .../workouts?days=28`, `GET .../workouts/{id}` | Workouts. The sender gives the id, so sending one again updates it |
+| `PUT .../workouts/{id}/rating` | The after-workout check-in: effort and satisfaction (1 to 10). Load = effort × minutes |
 | `POST .../processing-runs` | Update now: processes last night early if its sleep has ended |
 | `POST /api/v1/demo-users/sam\|alex\|jordan` | Loads a demo person (`demo-sam` ...) with the clock fixed at 1 Oct 2026, 8:30 am. Testing only |
 
 Placeholders, marked `"placeholder": true` in responses: the readiness formula and 40 / 70 cut-offs and the usual
 range (`app/readiness/scoring.py` and `usual.py`), and all wording (`app/readiness/explain.py`, to be replaced by
 the LLM).
+
+The score and the wording go through two small interfaces, so the team's trained model and the LLM drop in
+without touching the routes or the app: `ReadinessModel` (`app/readiness/model.py`, the placeholder formula is
+`PlaceholderModel`, the inputs come from `features.py`) and `Explainer` (`TemplateExplainer` in `explain.py`).
+See `docs/ml_llm_plan.md`.
 
 ## The four ways data arrives (`app/routers/readings.py` and `imports.py`)
 
