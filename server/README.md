@@ -123,6 +123,26 @@ python import_export.py C:\Users\you\Downloads\export.zip --user tester1
 
 Everything in the file is imported. `--days 90` keeps only the last 90 days, counted back from today.
 
+### Training table for the readiness model
+
+```bash
+python export_training_table.py C:\Users\you\Desktop\training.csv
+```
+
+One row per person per night:
+- the score first shown that morning and the exact inputs behind it (`readiness_snapshots`)
+- that morning's check-in, which is the label (the check-in on day D labels night D−1)
+- training load from rated workouts (effort × minutes) over the last 1, 3, 7 and 28 days up to that evening
+- body weight
+
+Options:
+- `--user tester1` for one person (repeat it for several).
+- `--labelled-only` keeps only nights with a check-in.
+- `--include-catch-up` adds nights that came in a first sync or an import, which Today never showed.
+
+`placeholder_score` is there to compare against, never to train on. It's real health data, so the command
+refuses to write inside the repo folder. See `docs/ml_llm_plan.md`.
+
 ### Health Auto Export (no Mac, automatic, paid app feature)
 
 1. Install **Health Auto Export – JSON+CSV** from the App Store. Sending to a server needs its **Premium** upgrade.
