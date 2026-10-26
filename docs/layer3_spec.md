@@ -135,7 +135,9 @@ Nix only counts sweat once it starts (often after about 15 minutes), and in a co
 
 One row per import or manual entry, and **at most one per workout**. Manual entry uses the same fields, so the
 model doesn't care where the numbers came from. Typed-in numbers are in ml, mg and L/h (the app converts from the
-person's Units first), count as sweat data, and use the workout's start and end times.
+person's Units first) and count as sweat data. They have no times of their own: they always use their workout's
+current start and end, so they follow it if the workout is moved. The smallest values are 1 ml, 1 mg and 0.01 L/h,
+so nothing typed in is stored as 0.
 
 `user_id`, `id`, `workout_id`, `source` (nix, manual), start and end (UTC ms plus UTC offset in minutes),
 `duration_min`, `fluid_loss_ml`, `sweat_rate_l_h`, `sodium_mg`, `sodium_rate_mg_h`, `electrolytes_mg`,
@@ -148,7 +150,20 @@ Ids are `nix-<start ms>-<end ms>` and `manual-<workout id>`. The raw `.xlsx` is 
 **Time zone:** the local times become real times with the person's **Time zone** setting for that date (so
 daylight saving is right). Without one, the offset of their newest reading is used, then the phone's offset sent
 with the upload (`tz_offset_min`). With none of these the import is refused and asks for a time zone. The times
-then follow the same rules as workouts: not before 2000, not more than a day ahead, at most 24 hours long.
+then follow the same rules as workouts: not before 2000, not more than a day ahead, at most 24 hours long, and the
+real end can't be before the real start.
+
+**Clock changes** (with a Time zone setting):
+- A time in the hour skipped when clocks go forward doesn't exist, so the file is refused with a plain 400.
+- A time in the hour repeated when clocks go back has two possible offsets. The pair of offsets whose length best
+  fits the file's Duration wins, and between equal fits the one that overlaps a workout (else summer time).
+- The reader lets an end be up to an hour before the start in local time (`DST_BACKWARD_MAX_MIN`), since 1:50 AM
+  summer time to 1:10 AM winter time is a real 20 minutes. The server then checks the real times.
+- The duration and minute-count warnings are worked out again with the real times, so a clock change doesn't
+  look like a wrong duration.
+
+**Saving is safe to repeat at the same moment** (a double tap): the save takes the database's write lock before
+looking at what's already saved, so the second save sees the first.
 
 **More precise data wins.** Precision: Metric Nix, then Customary Nix, then typed in. When a workout already has
 sweat data (or the same file was saved to another workout):
@@ -161,8 +176,10 @@ sweat data (or the same file was saved to another workout):
 
 - The session is matched to the workout (Layer 1 tab's table) it overlaps most in time.
 - No overlap: the preview lists workouts within `NEARBY_DAYS` (7), closest first, at most 5, and the person picks
-  one or saves the file as a new workout. A new workout uses source `manual`, the type from the file, the times from the file, and an id
-  built from the start time, so sending it again can't make a second workout.
+  one or saves the file as a new workout. A new workout uses source `manual`, the type from the file, the times
+  from the file, and an id built from the start time (`nix-<start ms>`), so sending it again can't make a second
+  workout. If a workout with that id already exists, the file is saved to it as it is, never changing it. The
+  precision check runs first, so a refused file never leaves an empty workout behind.
 - The upload returns a **preview** and saves nothing. **Save** sends the same file again with the chosen
   workout. The server never holds unsaved health data between the two steps.
 - The preview also offers the file's weight as a suggestion, only when Settings has no weight.
@@ -177,13 +194,17 @@ sweat data (or the same file was saved to another workout):
 | `GET /sweat/daily?nights=14\|28\|90` | Sweat per day for the Trends chart, by the day the workout started, plus a placeholder summary |
 
 Unreadable files get a 400 with the message from section 3. Uploads are limited to 5 MB (`MAX_NIX_UPLOAD_BYTES`).
+The upload routes read the form themselves: no file part (or one sent without a filename) gets "Choose the Nix file
+to upload.", and an odd or oversized text field gets a plain 400. Nothing from the upload is ever echoed back.
+An unknown person gets 404 before the file is read.
 
 ## 7. For the readiness model and Today
 
 - **Per-day table** (`daily_sweat_table`): `person_id`, `night_date`, `fluid_loss_pct_bw_1d`, `sodium_mg_1d`,
   `fluid_loss_pct_bw_2d`, `sodium_mg_2d`, `has_sweat_data`. Fluid loss as a share of body weight is
   `fluid_loss_ml` ÷ (`weight_kg` × 1000) × 100, Nix's total, which includes breathing. The 1d window is sessions
-  that ended on the night's date, or the next morning before the update time. The 2d window adds the day before.
+  that ended between the previous morning's update time and this night's morning (the next day at the update
+  time), so mornings never overlap and each session counts for one night. The 2d window starts a day earlier.
   Only sessions where sweat was detected count, and `has_sweat_data` is about the 2d window. Missing stays empty
   (NaN), never 0. It uses today's weight from Settings, since weight has no history yet. It joins the readiness
   training table on the night it leads into. Adding it to `server/export_training_table.py` is for the Layer 1 tab.
@@ -192,5 +213,7 @@ Unreadable files get a 400 with the message from section 3. Uploads are limited 
 - **Hydration line on Today:** `hydration_line(user_id, night_date)` returns the line, or None, for the morning
   after that night, for example "Yesterday's run cost about 0.7 L of sweat. Drink a little more than usual this
   morning." It uses the 1d window, only sweat-detected sessions, nothing under `HYDRATION_MIN_ML` (250 ml), the
-  workout's type ("workouts" for more than one), and litres or ounces from the person's Units. The Layer 1 tab
+  workout's type ("workouts" for more than one, lower case unless it's all capitals like HIIT), and litres or
+  ounces from the person's Units. It says "This morning's" when the workouts started that morning, before the
+  update time, else "Yesterday's". The Layer 1 tab
   wires it into `/today`. The wording and the advice are placeholders until the team decides them.

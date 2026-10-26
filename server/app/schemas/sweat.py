@@ -48,9 +48,10 @@ class NixPreview(BaseModel):
 
 
 # Typed-in numbers, in the stored units. The app converts from the person's Units setting before sending.
-Millilitres = Annotated[float, Field(strict=True, ge=0, le=30_000)]
-Milligrams = Annotated[float, Field(strict=True, ge=0, le=100_000)]
-LitresPerHour = Annotated[float, Field(strict=True, ge=0, le=10)]
+# The smallest values still show after rounding (1 decimal, L/h 4), so nothing typed in is stored as 0.
+Millilitres = Annotated[float, Field(strict=True, ge=1, le=30_000)]
+Milligrams = Annotated[float, Field(strict=True, ge=1, le=100_000)]
+LitresPerHour = Annotated[float, Field(strict=True, ge=0.01, le=10)]
 
 
 class ManualSweatIn(BaseModel):

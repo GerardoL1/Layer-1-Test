@@ -957,16 +957,6 @@
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_preview_nix_api_v1_users__user_id__sweat_nix_preview_post"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -988,6 +978,30 @@
               }
             }
           }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The .xlsx from Export Workout in Nix"
+                  },
+                  "tz_offset_min": {
+                    "type": "integer",
+                    "description": "The phone's UTC offset, used only as a last resort"
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -997,7 +1011,7 @@
           "sweat"
         ],
         "summary": "Save Nix",
-        "description": "Saves a Nix export, sent again after the preview. It goes to workout_id when given, else to a new\nworkout when new_workout is true, else to the workout it overlaps. 409 when the workout already has\nmore precise sweat data.",
+        "description": "Saves a Nix export, sent again after the preview. It goes to workout_id when given, else to a new\nworkout when new_workout is true, else to the workout it overlaps. 409 when more precise sweat data\nfor the session is already saved.",
         "operationId": "save_nix_api_v1_users__user_id__sweat_nix_post",
         "parameters": [
           {
@@ -1010,16 +1024,6 @@
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_save_nix_api_v1_users__user_id__sweat_nix_post"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1037,6 +1041,38 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The .xlsx from Export Workout in Nix"
+                  },
+                  "tz_offset_min": {
+                    "type": "integer",
+                    "description": "The phone's UTC offset, used only as a last resort"
+                  },
+                  "workout_id": {
+                    "type": "string",
+                    "description": "Save to this workout"
+                  },
+                  "new_workout": {
+                    "type": "boolean",
+                    "description": "Save as a new workout when nothing matches"
+                  }
                 }
               }
             }
@@ -1917,72 +1953,6 @@
         ],
         "title": "Body_import_upload_api_import_post"
       },
-      "Body_preview_nix_api_v1_users__user_id__sweat_nix_preview_post": {
-        "properties": {
-          "file": {
-            "type": "string",
-            "contentMediaType": "application/octet-stream",
-            "title": "File"
-          },
-          "tz_offset_min": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tz Offset Min"
-          }
-        },
-        "type": "object",
-        "required": [
-          "file"
-        ],
-        "title": "Body_preview_nix_api_v1_users__user_id__sweat_nix_preview_post"
-      },
-      "Body_save_nix_api_v1_users__user_id__sweat_nix_post": {
-        "properties": {
-          "file": {
-            "type": "string",
-            "contentMediaType": "application/octet-stream",
-            "title": "File"
-          },
-          "tz_offset_min": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tz Offset Min"
-          },
-          "workout_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Workout Id"
-          },
-          "new_workout": {
-            "type": "boolean",
-            "title": "New Workout",
-            "default": false
-          }
-        },
-        "type": "object",
-        "required": [
-          "file"
-        ],
-        "title": "Body_save_nix_api_v1_users__user_id__sweat_nix_post"
-      },
       "Body_shortcut_api_shortcut_post": {
         "properties": {
           "user": {
@@ -2254,7 +2224,7 @@
           "fluid_loss_ml": {
             "type": "number",
             "maximum": 30000.0,
-            "minimum": 0.0,
+            "minimum": 1.0,
             "title": "Fluid Loss Ml"
           },
           "sodium_mg": {
@@ -2262,7 +2232,7 @@
               {
                 "type": "number",
                 "maximum": 100000.0,
-                "minimum": 0.0
+                "minimum": 1.0
               },
               {
                 "type": "null"
@@ -2275,7 +2245,7 @@
               {
                 "type": "number",
                 "maximum": 10.0,
-                "minimum": 0.0
+                "minimum": 0.01
               },
               {
                 "type": "null"

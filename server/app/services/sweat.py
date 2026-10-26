@@ -8,7 +8,8 @@ table the readiness model can join. See docs/layer3_spec.md.
 import json
 import math
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
+from datetime import time as clock_time
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -81,9 +82,20 @@ HYDRATION_MIN_ML = 250
 
 ERR_PICK_WORKOUT = "This file doesn't match any workout. Pick one, or save it as a new workout."
 ERR_NO_TIME_ZONE = "We don't know your time zone yet. Set it in Profile, then import the file again."
-ERR_MORE_PRECISE = "This workout already has more precise sweat data, so it was kept."
+ERR_MORE_PRECISE = "More precise sweat data for this session is already saved, so it was kept."
 ERR_NO_SWEAT_DATA = "This workout has no sweat data yet."
 ERR_BAD_OFFSET = "The phone sent an impossible UTC offset."
+ERR_CLOCK_GAP = (
+    "This file has a time that doesn't exist on the clock (the hour skipped when clocks go forward). "
+    "Export the workout again from the Nix app."
+)
+ERR_NO_FILE = "Choose the Nix file to upload."
+ERR_BAD_FORM = "Part of the upload couldn't be read. Choose the Nix file and try again."
+# Text fields in an upload (time zone, workout id) are tiny. Anything bigger is refused with ERR_BAD_FORM.
+MAX_FORM_FIELD_BYTES = 1024
+
+# The reader's duration and minutes checks compare local times. These are redone here with the real times.
+_LOCAL_TIME_WARNINGS = tuple(w.split("{")[0] for w in (C3.WARN_DURATION_MISMATCH, C3.WARN_MINUTES_MISMATCH))
 
 NUMBERS = (
     "fluid_loss_ml",
@@ -127,16 +139,30 @@ def _parse(data: bytes) -> NixSession:
         raise HTTPException(400, str(e)) from None
 
 
-def _offset(conn, user_id: str, local: datetime, phone_offset: int | None) -> int:
-    """Nix times have no time zone. Settings time zone for that date, else the newest reading's, else the phone's."""
+def _offsets(conn, user_id: str, local: datetime, phone_offset: int | None) -> list[int]:
+    """
+    The UTC offsets a Nix time could have (it has no time zone): from the Settings time zone for that date,
+    else the newest reading's, else the phone's. Two in the hour repeated when clocks go back, and a time
+    in the hour skipped when clocks go forward is refused.
+    """
     user = conn.execute("SELECT timezone FROM users WHERE user_id = ?", (user_id,)).fetchone()
     if user and user["timezone"]:
         try:
-            off = local.replace(tzinfo=ZoneInfo(user["timezone"])).utcoffset()
-            if off is not None:
-                return int(off.total_seconds() // 60)
+            zone = ZoneInfo(user["timezone"])
         except (ZoneInfoNotFoundError, ValueError):
-            pass
+            zone = None
+        if zone is not None:
+            first = local.replace(tzinfo=zone, fold=0)
+            # A skipped time comes back as a different wall-clock time after a round trip through UTC.
+            if first.astimezone(timezone.utc).astimezone(zone).replace(tzinfo=None) != local:
+                raise HTTPException(400, ERR_CLOCK_GAP)
+            out = []
+            for fold in (0, 1):
+                off = local.replace(tzinfo=zone, fold=fold).utcoffset()
+                if off is not None and int(off.total_seconds() // 60) not in out:
+                    out.append(int(off.total_seconds() // 60))
+            if out:
+                return out
     latest = conn.execute(
         "SELECT tz FROM (SELECT start_ms, tz_offset_min AS tz FROM samples WHERE user_id = ? "
         "UNION ALL SELECT start_ms, end_tz_min FROM sleep_stages WHERE user_id = ?) "
@@ -144,9 +170,9 @@ def _offset(conn, user_id: str, local: datetime, phone_offset: int | None) -> in
         (user_id, user_id),
     ).fetchone()
     if latest:
-        return int(latest["tz"])
+        return [int(latest["tz"])]
     if phone_offset is not None:
-        return phone_offset
+        return [phone_offset]
     raise HTTPException(400, ERR_NO_TIME_ZONE)
 
 
@@ -154,14 +180,46 @@ def _utc_ms(local: datetime, offset_min: int) -> int:
     return (local - timedelta(minutes=offset_min) - datetime(1970, 1, 1)) // timedelta(milliseconds=1)
 
 
+def _real_times(conn, user_id: str, s: NixSession, phone_offset: int | None) -> tuple[int, int, int, int]:
+    """
+    Start and end in UTC with their offsets. In the repeated hour, the copy whose length fits the file's
+    duration wins, and between equal fits the one overlapping a workout (else summer time, the first).
+    """
+    choices = []
+    for start_tz in _offsets(conn, user_id, s.start_local, phone_offset):
+        for end_tz in _offsets(conn, user_id, s.end_local, phone_offset):
+            start_ms, end_ms = _utc_ms(s.start_local, start_tz), _utc_ms(s.end_local, end_tz)
+            if end_ms >= start_ms:
+                choices.append((start_ms, end_ms, start_tz, end_tz))
+    if not choices:
+        raise HTTPException(400, C3.ERR_END_BEFORE_START)
+
+    def misfit(c: tuple[int, int, int, int]) -> float:
+        return 0 if s.file_duration_min is None else abs((c[1] - c[0]) / 60000 - s.file_duration_min)
+
+    best = min(misfit(c) for c in choices)
+    ties = [c for c in choices if misfit(c) == best]
+
+    def overlap(c: tuple[int, int, int, int]) -> int:
+        matched, _ = _match(conn, user_id, c[0], c[1])
+        return 0 if matched is None else min(matched["end_ms"], c[1]) - max(matched["start_ms"], c[0])
+
+    return max(ties, key=overlap) if len(ties) > 1 else ties[0]
+
+
 def _from_nix(conn, user_id: str, s: NixSession, phone_offset: int | None) -> tuple[dict, list[tuple]]:
-    start_tz = _offset(conn, user_id, s.start_local, phone_offset)
-    end_tz = _offset(conn, user_id, s.end_local, phone_offset)
-    start_ms, end_ms = _utc_ms(s.start_local, start_tz), _utc_ms(s.end_local, end_tz)
+    start_ms, end_ms, start_tz, end_tz = _real_times(conn, user_id, s, phone_offset)
     require_time(start_ms, start_tz, "The Nix workout start")
     require_time(end_ms, end_tz, "The Nix workout end")
     if end_ms - start_ms > MAX_SESSION_HOURS * HOUR_MS:
         raise HTTPException(400, f"A workout can't be longer than {MAX_SESSION_HOURS} hours.")
+    span_min = (end_ms - start_ms) / 60000
+    used_min = s.file_duration_min if s.file_duration_min is not None else span_min
+    warnings = [w for w in s.warnings if not w.startswith(_LOCAL_TIME_WARNINGS)]
+    if abs(len(s.minutes) - used_min) > C3.MINUTES_CHECK_TOLERANCE:
+        warnings.insert(0, C3.WARN_MINUTES_MISMATCH.format(rows=len(s.minutes), minutes=used_min))
+    if s.file_duration_min is not None and abs(s.file_duration_min - span_min) > C3.DURATION_CHECK_TOLERANCE_MIN:
+        warnings.insert(0, C3.WARN_DURATION_MISMATCH.format(duration=s.file_duration_min, span=span_min))
     session = {
         "id": f"nix-{start_ms}-{end_ms}",
         "workout_id": None,
@@ -170,7 +228,7 @@ def _from_nix(conn, user_id: str, s: NixSession, phone_offset: int | None) -> tu
         "end_ms": end_ms,
         "start_tz_min": start_tz,
         "end_tz_min": end_tz,
-        "duration_min": round(s.duration_min, 1),
+        "duration_min": round(used_min, 1),
         "fluid_loss_ml": _round("fluid_loss_ml", s.fluid_loss_ml),
         "sweat_rate_l_h": _round("sweat_rate_l_h", s.sweat_rate_l_h),
         "sodium_mg": _round("sodium_mg", s.sodium_mg),
@@ -182,7 +240,7 @@ def _from_nix(conn, user_id: str, s: NixSession, phone_offset: int | None) -> tu
         "workout_type": s.workout_type,
         "sweat_detected": s.sweat_detected,
         "unit_system": s.unit_system,
-        "warnings": list(s.warnings),
+        "warnings": warnings,
         "imported_at_ms": None,
     }
     minutes = [(m.minute, *(_round(c, getattr(m, c)) for c in MINUTE_COLUMNS)) for m in s.minutes]
@@ -243,6 +301,10 @@ def _existing(new: dict, conflicts: list[dict]) -> str:
 
 
 def _store(conn, user_id: str, new: dict, minutes: list[tuple]) -> None:
+    # Take the write lock before looking at what's saved. Otherwise two saves at once (a double tap) both
+    # see nothing saved, and the second one breaks the one-per-workout rule.
+    if not conn.in_transaction:
+        conn.execute("BEGIN IMMEDIATE")
     conflicts = _conflicts(conn, user_id, new["id"], new["workout_id"])
     if _existing(new, conflicts) == "keeps_more_precise":
         raise HTTPException(409, ERR_MORE_PRECISE)
@@ -321,10 +383,10 @@ def preview_nix(user_id: str, data: bytes, phone_offset: int | None) -> dict:
 def save_nix(user_id: str, data: bytes, phone_offset: int | None, workout_id: str | None, new_workout: bool) -> dict:
     """Saves the file to the workout picked, else a new workout if asked for, else the one it overlaps."""
     _check_offset(phone_offset)
-    nix = _parse(data)
+    make_workout = False
     with db.connect() as conn:
         require_user(conn, user_id)
-        new, minutes = _from_nix(conn, user_id, nix, phone_offset)
+        new, minutes = _from_nix(conn, user_id, _parse(data), phone_offset)
         if workout_id is not None:
             _workout(conn, user_id, workout_id)
         elif not new_workout:
@@ -332,9 +394,19 @@ def save_nix(user_id: str, data: bytes, phone_offset: int | None, workout_id: st
             if matched is None:
                 raise HTTPException(400, ERR_PICK_WORKOUT)
             workout_id = matched["id"]
-    if workout_id is None:
-        # The id comes from the start time, so saving the same file as new again can't make a second workout.
-        workout_id = f"nix-{new['start_ms']}"
+        else:
+            # The id comes from the start time, so saving the same file as new again can't make a second
+            # workout. A workout that already has this id is used as it is, never changed.
+            workout_id = f"nix-{new['start_ms']}"
+            make_workout = (
+                conn.execute("SELECT 1 FROM workouts WHERE user_id = ? AND id = ?", (user_id, workout_id)).fetchone()
+                is None
+            )
+            # Refuse before making the workout, so a 409 doesn't leave an empty one behind.
+            new["workout_id"] = workout_id
+            if _existing(new, _conflicts(conn, user_id, new["id"], workout_id)) == "keeps_more_precise":
+                raise HTTPException(409, ERR_MORE_PRECISE)
+    if make_workout:
         save_workout(
             user_id,
             WorkoutIn(
@@ -382,55 +454,86 @@ def save_manual(user_id: str, workout_id: str, fluid_loss_ml: float, sodium_mg, 
         return _out(new, _weight(conn, user_id))
 
 
+_SESSIONS_SQL = (
+    "SELECT s.*, w.type AS w_type, w.start_ms AS w_start_ms, w.end_ms AS w_end_ms, "
+    "w.start_tz_min AS w_start_tz, w.end_tz_min AS w_end_tz FROM sweat_sessions s LEFT JOIN workouts w "
+    "ON w.user_id = s.user_id AND w.id = s.workout_id WHERE s.user_id = ?"
+)
+
+
+def _session_row(r) -> dict:
+    """A saved session. Typed-in numbers have no times of their own, so they follow their workout if it moves."""
+    d = dict(r)
+    if d["source"] == "manual" and d["w_start_ms"] is not None:
+        d.update(
+            start_ms=d["w_start_ms"],
+            end_ms=d["w_end_ms"],
+            start_tz_min=d["w_start_tz"],
+            end_tz_min=d["w_end_tz"],
+            duration_min=round((d["w_end_ms"] - d["w_start_ms"]) / 60000, 1),
+        )
+    return d
+
+
 def for_workout(user_id: str, workout_id: str) -> dict:
     with db.connect() as conn:
         require_user(conn, user_id)
         _workout(conn, user_id, workout_id)
-        row = conn.execute(
-            "SELECT * FROM sweat_sessions WHERE user_id = ? AND workout_id = ?", (user_id, workout_id)
-        ).fetchone()
+        row = conn.execute(_SESSIONS_SQL + " AND s.workout_id = ?", (user_id, workout_id)).fetchone()
         if row is None:
             raise HTTPException(404, ERR_NO_SWEAT_DATA)
-        return _out(dict(row), _weight(conn, user_id))
+        return _out(_session_row(row), _weight(conn, user_id))
 
 
 def list_sessions(user_id: str, days: int) -> list[dict]:
     since = int(time.time() * 1000) - days * 24 * HOUR_MS
     with db.connect() as conn:
         require_user(conn, user_id)
-        rows = conn.execute(
-            "SELECT * FROM sweat_sessions WHERE user_id = ? AND start_ms >= ? ORDER BY start_ms", (user_id, since)
-        ).fetchall()
+        rows = [_session_row(r) for r in conn.execute(_SESSIONS_SQL, (user_id,)).fetchall()]
         weight = _weight(conn, user_id)
-    return [_out(dict(r), weight) for r in rows]
+    rows = sorted((r for r in rows if r["start_ms"] >= since), key=lambda r: r["start_ms"])
+    return [_out(r, weight) for r in rows]
 
 
 # ---------------------------------------------------------------- Today, Trends and the readiness model
 
 
 def _sessions(conn, user_id: str) -> list[dict]:
-    """Every session with its local end time and its workout's type."""
-    rows = conn.execute(
-        "SELECT s.*, w.type AS w_type FROM sweat_sessions s LEFT JOIN workouts w "
-        "ON w.user_id = s.user_id AND w.id = s.workout_id WHERE s.user_id = ? ORDER BY s.start_ms",
-        (user_id,),
-    ).fetchall()
+    """Every session with its local start and end times and its workout's type."""
     out = []
-    for r in rows:
-        d = dict(r)
-        d["start_at"] = local_time(r["start_ms"], r["start_tz_min"])
-        d["end_at"] = local_time(r["end_ms"], r["end_tz_min"])
+    for r in conn.execute(_SESSIONS_SQL, (user_id,)).fetchall():
+        d = _session_row(r)
+        d["start_at"] = local_time(d["start_ms"], d["start_tz_min"])
+        d["end_at"] = local_time(d["end_ms"], d["end_tz_min"])
         out.append(d)
-    return out
+    return sorted(out, key=lambda d: d["start_ms"])
+
+
+def _morning(night: date, update_time: tuple[int, int]) -> datetime:
+    """When the night's row is made: the next day at the person's update time."""
+    return datetime.combine(night + timedelta(days=1), clock_time(*update_time))
 
 
 def _window(sessions: list[dict], night: date, days: int, update_time: tuple[int, int]) -> list[dict]:
-    """Sessions that ended in the last `days` days up to the night, or the next morning before the update time."""
-    start = datetime.combine(night - timedelta(days=days - 1), datetime.min.time())
-    end = datetime.combine(night + timedelta(days=1), datetime.min.time()).replace(
-        hour=update_time[0], minute=update_time[1]
-    )
+    """
+    Sessions that ended since the update time `days` mornings before, up to this night's morning. Mornings
+    don't overlap, so a workout before the update time counts for one night only (the one it leads into).
+    """
+    end = _morning(night, update_time)
+    start = end - timedelta(days=days)
     return [s for s in sessions if start <= s["end_at"] < end]
+
+
+def _night_of(end_at: datetime, update_time: tuple[int, int]) -> date:
+    """The night whose morning a session ending at this local time counts for."""
+    d = end_at.date()
+    return d if (end_at.hour, end_at.minute) >= update_time else d - timedelta(days=1)
+
+
+def _type_text(s: dict) -> str:
+    """'Run' reads as 'run' in a sentence, but 'HIIT' keeps its capitals."""
+    t = s["w_type"] or s["workout_type"] or "workout"
+    return t if t.isupper() else t.lower()
 
 
 def _amount(ml: float, units: str | None) -> str:
@@ -454,9 +557,11 @@ def hydration_line(user_id: str, night_date: date) -> str | None:
     total = sum(s["fluid_loss_ml"] for s in sweaty)
     if not sweaty or total < HYDRATION_MIN_ML:
         return None
-    what = "workouts" if len(sweaty) > 1 else (sweaty[0]["w_type"] or sweaty[0]["workout_type"] or "workout").lower()
+    what = "workouts" if len(sweaty) > 1 else _type_text(sweaty[0])
+    # A workout that started the morning the line is shown, before the update time, isn't "yesterday".
+    when = "This morning's" if all(s["start_at"].date() > night_date for s in sweaty) else "Yesterday's"
     return (
-        f"Yesterday's {what} cost about {_amount(total, user['units'])} of sweat. "
+        f"{when} {what} cost about {_amount(total, user['units'])} of sweat. "
         "Drink a little more than usual this morning."
     )
 
@@ -465,7 +570,11 @@ def daily(user_id: str, nights: int) -> dict:
     """Sweat per day for the Trends chart, by the day the workout started, ending yesterday."""
     with db.connect() as conn:
         user = require_user(conn, user_id)
-        today = processing.local_now(conn, user_id, processing.utc_now()).date()
+        try:
+            today = processing.local_now(conn, user_id, processing.utc_now()).date()
+        except ValueError:
+            # A demo user's fixed clock that can't be read. Today's UTC date is close enough for a chart.
+            today = processing.utc_now().date()
         sessions = _sessions(conn, user_id)
     first = today - timedelta(days=nights)
     days: list[dict[str, Any]] = []
@@ -510,7 +619,7 @@ DAILY_COLUMNS = [
 def daily_sweat_table(conn, user_id: str) -> pd.DataFrame:
     """
     One row per night that has sweat sessions in reach, for the readiness model to join on person and night.
-    Windows: the last 1 or 2 days up to the night, plus the next morning before the update time.
+    Windows: sessions that ended since the update time 1 or 2 mornings before, up to this night's morning.
     Only sessions where sweat was detected count, and missing stays NaN, never 0.
     Uses today's weight from Settings, since weight has no history yet.
     """
@@ -520,10 +629,8 @@ def daily_sweat_table(conn, user_id: str) -> pd.DataFrame:
     sessions = _sessions(conn, user_id)
     nights: set[date] = set()
     for s in sessions:
-        d = s["end_at"].date()
-        nights.update({d, d + timedelta(days=1)})
-        if (s["end_at"].hour, s["end_at"].minute) < update:
-            nights.add(d - timedelta(days=1))
+        n = _night_of(s["end_at"], update)
+        nights.update({n, n + timedelta(days=1)})
 
     def totals(rows: list[dict]) -> tuple[float, float]:
         sweaty = [r for r in rows if r["sweat_detected"]]

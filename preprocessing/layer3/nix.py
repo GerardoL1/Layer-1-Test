@@ -78,6 +78,7 @@ class NixSession:
     workout_type: str | None
     sweat_detected: bool
     file_weight_kg: float | None  # only ever offered as a suggestion, never stored
+    file_duration_min: float | None = None  # the Duration row, when it could be read
     warnings: list[str] = field(default_factory=list)
     minutes: list[NixMinute] = field(default_factory=list)
 
@@ -498,7 +499,7 @@ def _sweaty(m: NixMinute) -> bool:
 def _session(rows: dict[str, _Row], minutes: list[NixMinute], ts_systems: set[str]) -> NixSession:
     start = _date(rows["start"].value or "", "start time")
     end = _date(rows["end"].value or "", "end time")
-    if end < start:
+    if start - end >= timedelta(minutes=C.DST_BACKWARD_MAX_MIN):
         raise NixFileError(C.ERR_END_BEFORE_START)
     span_min = (end - start).total_seconds() / 60
 
@@ -556,6 +557,7 @@ def _session(rows: dict[str, _Row], minutes: list[NixMinute], ts_systems: set[st
         workout_type=_text(rows, "workout_type") or _text(rows, "activity_type"),
         sweat_detected=sweat_detected,
         file_weight_kg=_weight_suggestion(rows),
+        file_duration_min=duration,
         warnings=warnings,
         minutes=minutes,
     )

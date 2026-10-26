@@ -338,8 +338,8 @@ export interface paths {
         /**
          * Save Nix
          * @description Saves a Nix export, sent again after the preview. It goes to workout_id when given, else to a new
-         *     workout when new_workout is true, else to the workout it overlaps. 409 when the workout already has
-         *     more precise sweat data.
+         *     workout when new_workout is true, else to the workout it overlaps. 409 when more precise sweat data
+         *     for the session is already saved.
          */
         post: operations["save_nix_api_v1_users__user_id__sweat_nix_post"];
         delete?: never;
@@ -708,27 +708,6 @@ export interface components {
              * @default 90
              */
             since_days: number;
-        };
-        /** Body_preview_nix_api_v1_users__user_id__sweat_nix_preview_post */
-        Body_preview_nix_api_v1_users__user_id__sweat_nix_preview_post: {
-            /** File */
-            file: string;
-            /** Tz Offset Min */
-            tz_offset_min?: number | null;
-        };
-        /** Body_save_nix_api_v1_users__user_id__sweat_nix_post */
-        Body_save_nix_api_v1_users__user_id__sweat_nix_post: {
-            /** File */
-            file: string;
-            /** Tz Offset Min */
-            tz_offset_min?: number | null;
-            /** Workout Id */
-            workout_id?: string | null;
-            /**
-             * New Workout
-             * @default false
-             */
-            new_workout: boolean;
         };
         /** Body_shortcut_api_shortcut_post */
         Body_shortcut_api_shortcut_post: {
@@ -2036,7 +2015,15 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "multipart/form-data": components["schemas"]["Body_preview_nix_api_v1_users__user_id__sweat_nix_preview_post"];
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description The .xlsx from Export Workout in Nix
+                     */
+                    file: string;
+                    /** @description The phone's UTC offset, used only as a last resort */
+                    tz_offset_min?: number;
+                };
             };
         };
         responses: {
@@ -2071,7 +2058,19 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "multipart/form-data": components["schemas"]["Body_save_nix_api_v1_users__user_id__sweat_nix_post"];
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description The .xlsx from Export Workout in Nix
+                     */
+                    file: string;
+                    /** @description The phone's UTC offset, used only as a last resort */
+                    tz_offset_min?: number;
+                    /** @description Save to this workout */
+                    workout_id?: string;
+                    /** @description Save as a new workout when nothing matches */
+                    new_workout?: boolean;
+                };
             };
         };
         responses: {

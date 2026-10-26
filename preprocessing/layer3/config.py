@@ -122,6 +122,9 @@ FLUID_CHECK_ABS_ML = 5.0
 MINUTES_CHECK_TOLERANCE = 2
 # Duration should match end minus start (the times only have whole minutes).
 DURATION_CHECK_TOLERANCE_MIN = 2
+# The file has no time zone, so an end up to this much before the start in local time can still be real:
+# when clocks go back, 1:50 AM summer time to 1:10 AM winter time is 20 minutes. The server checks the real times.
+DST_BACKWARD_MAX_MIN = 60
 
 # ---------------------------------------------------------------- 4. No sweat detected
 # Sweat counts as detected once the sweat rate rises above breathing loss by more than this (L/h).

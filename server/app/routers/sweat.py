@@ -3,8 +3,14 @@ Sweat data (Layer 3): import a Nix export (preview first, then save), type numbe
 and read it back for a workout, the Train tab and the Trends chart. The work is in app/services/sweat.py.
 """
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+import re
 
+from fastapi import APIRouter, HTTPException, Query, Request
+from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import UploadFile
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from app.core import limits
 from app.core.urls import USER
 from app.schemas.sweat import ManualSweatIn, NixPreview, SweatDaily, SweatSession
 from app.services import sweat
@@ -12,32 +18,88 @@ from app.services import sweat
 router = APIRouter(prefix=USER, tags=["sweat"])
 
 DAILY_RANGES = (14, 28, 90)
+_TRUE, _FALSE = ("true", "1", "yes", "on"), ("false", "0", "no", "off", "")
 
 
-@router.post("/sweat/nix/preview", response_model=NixPreview)
-def preview_nix(user_id: str, file: UploadFile = File(...), tz_offset_min: int | None = Form(None)):
+def _upload_body(**fields: dict) -> dict:
+    """Describes the upload form in openapi.json, since the routes read the form themselves."""
+    properties = {
+        "file": {"type": "string", "format": "binary", "description": "The .xlsx from Export Workout in Nix"},
+        "tz_offset_min": {"type": "integer", "description": "The phone's UTC offset, used only as a last resort"},
+        **fields,
+    }
+    schema = {"type": "object", "required": ["file"], "properties": properties}
+    return {"requestBody": {"required": True, "content": {"multipart/form-data": {"schema": schema}}}}
+
+
+async def _read_upload(request: Request) -> tuple[bytes, dict[str, str]]:
+    """
+    The file and the text fields. Read by hand so a part without a filename or an oversized field gets a
+    plain message, instead of a 422 that echoes the whole file back or Starlette's own wording.
+    """
+    # Text parts may be as big as the whole upload (already capped by limits.py), so a file sent without a
+    # filename arrives as text and gets the "choose the file" message rather than a size error.
+    try:
+        async with request.form(max_files=1, max_fields=10, max_part_size=limits.MAX_NIX_UPLOAD_BYTES) as form:
+            file = form.get("file")
+            data = await file.read() if isinstance(file, UploadFile) else None
+            fields = {k: v for k, v in form.items() if isinstance(v, str)}
+    except StarletteHTTPException:
+        raise HTTPException(400, sweat.ERR_BAD_FORM) from None
+    if data is None:
+        raise HTTPException(400, sweat.ERR_NO_FILE)
+    if any(len(v) > sweat.MAX_FORM_FIELD_BYTES for v in fields.values()):
+        raise HTTPException(400, sweat.ERR_BAD_FORM)
+    return data, fields
+
+
+def _offset_field(fields: dict[str, str]) -> int | None:
+    v = fields.get("tz_offset_min", "").strip()
+    if not v:
+        return None
+    if not re.fullmatch(r"-?\d{1,6}", v):
+        raise HTTPException(400, sweat.ERR_BAD_FORM)
+    return int(v)
+
+
+def _bool_field(fields: dict[str, str], name: str) -> bool:
+    v = fields.get(name, "").strip().lower()
+    if v in _TRUE:
+        return True
+    if v in _FALSE:
+        return False
+    raise HTTPException(400, sweat.ERR_BAD_FORM)
+
+
+@router.post("/sweat/nix/preview", response_model=NixPreview, openapi_extra=_upload_body())
+async def preview_nix(user_id: str, request: Request):
     """
     Reads a Nix export and says what saving it would do: the numbers, the workout it matches (or nearby
     ones to pick from) and whether it replaces sweat data already saved. Nothing is stored.
     tz_offset_min is the phone's UTC offset, used only when there's no time zone in Settings or readings.
     """
-    return sweat.preview_nix(user_id, file.file.read(), tz_offset_min)
+    data, fields = await _read_upload(request)
+    return await run_in_threadpool(sweat.preview_nix, user_id, data, _offset_field(fields))
 
 
-@router.post("/sweat/nix", response_model=SweatSession)
-def save_nix(
-    user_id: str,
-    file: UploadFile = File(...),
-    tz_offset_min: int | None = Form(None),
-    workout_id: str | None = Form(None),
-    new_workout: bool = Form(False),
-):
+@router.post(
+    "/sweat/nix",
+    response_model=SweatSession,
+    openapi_extra=_upload_body(
+        workout_id={"type": "string", "description": "Save to this workout"},
+        new_workout={"type": "boolean", "description": "Save as a new workout when nothing matches"},
+    ),
+)
+async def save_nix(user_id: str, request: Request):
     """
     Saves a Nix export, sent again after the preview. It goes to workout_id when given, else to a new
-    workout when new_workout is true, else to the workout it overlaps. 409 when the workout already has
-    more precise sweat data.
+    workout when new_workout is true, else to the workout it overlaps. 409 when more precise sweat data
+    for the session is already saved.
     """
-    return sweat.save_nix(user_id, file.file.read(), tz_offset_min, workout_id, new_workout)
+    data, fields = await _read_upload(request)
+    offset, new_workout = _offset_field(fields), _bool_field(fields, "new_workout")
+    workout_id = fields.get("workout_id") or None
+    return await run_in_threadpool(sweat.save_nix, user_id, data, offset, workout_id, new_workout)
 
 
 @router.put("/workouts/{workout_id}/sweat", response_model=SweatSession)

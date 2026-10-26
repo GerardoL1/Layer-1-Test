@@ -56,10 +56,29 @@ def error_of(data):
 # ---------------------------------------------------------------- the committed sample files
 
 
+def parts(data):
+    """A workbook's parts unzipped, so files compare by content whatever zlib compressed them."""
+    if not data.startswith(b"PK"):
+        return data
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        return {n: z.read(n) for n in z.namelist()}
+
+
 def test_samples_on_disk_match_the_generator():
     # If this fails after changing samples.py on purpose, run `python -m layer3.samples` and commit the files.
     for name, data in S.all_samples().items():
-        assert S.sample_path(name).read_bytes() == data, name
+        assert parts(S.sample_path(name).read_bytes()) == parts(data), name
+
+
+def test_sample_check_ignores_how_the_zip_was_compressed():
+    # CI's zlib packs the same content into different bytes, which broke a byte-for-byte check.
+    original = S.sample_path("nix_metric_sweat.xlsx").read_bytes()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(original)) as src, zipfile.ZipFile(buf, "w") as out:
+        for info in src.infolist():
+            out.writestr(info.filename, src.read(info), compress_type=zipfile.ZIP_DEFLATED, compresslevel=1)
+    assert buf.getvalue() != original
+    assert parts(buf.getvalue()) == parts(original)
 
 
 def test_sweat_session_reads_every_field():
@@ -395,6 +414,19 @@ def test_fractional_minute():
         ts[5][0] = 4.5
 
     assert error_of(make(S.sweat_workout(), ts_edit=half)) == C.ERR_BAD_NUMBER.format(label="Minutes", value="4.5")
+
+
+def test_end_a_little_before_start_is_left_to_the_time_zone():
+    # When clocks go back, 1:50 AM (summer time) to 1:10 AM (winter time) is a real 20-minute workout.
+    # The file has no time zone, so the reader keeps it and the server checks the real times.
+    def edit(summary):
+        set_value(summary, "Start Time", "Nov 2, 2025 at 1:50 AM")
+        set_value(summary, "End Time", "Nov 2, 2025 at 1:10 AM")
+        set_value(summary, "Duration", "00:20:00")
+
+    s = read_nix(make(S.sweat_workout(), summary_edit=edit))
+    assert s.end_local < s.start_local
+    assert s.file_duration_min == 20
 
 
 def test_end_before_start():

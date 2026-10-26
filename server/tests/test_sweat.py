@@ -5,6 +5,7 @@ the more precise data winning, the Hydration line, the Trends chart and the dail
     python -m pytest -q tests/test_sweat.py
 """
 
+import threading
 from datetime import date, datetime, timezone
 
 import main
@@ -428,3 +429,247 @@ def test_daily_ml_table():
     oct25 = rows["2026-10-25"]
     assert oct25["has_sweat_data"] is False  # breathing loss only
     assert oct25["sodium_mg_1d"] != oct25["sodium_mg_1d"]
+
+
+# ---------------------------------------------------------------- findings from the batch 2 testing pass
+
+CST = -360  # US Central winter time
+
+
+def nix_file(start, end, duration="01:00:00", units="metric"):
+    """The fake sweat workout with other times, to test clock changes."""
+    t = S.sweat_workout()
+    t.start, t.end, t.duration = start, end, duration
+    return S.nix_export(t, units)
+
+
+def workout_at(u, wid, start, end, start_tz=CDT, end_tz=CDT, type_="Run", source="manual"):
+    body = {
+        "id": wid,
+        "start_ms": start,
+        "end_ms": end,
+        "start_tz_min": start_tz,
+        "end_tz_min": end_tz,
+        "type": type_,
+        "source": source,
+    }
+    r = client.post(f"{u}/workouts", json=body)
+    assert r.status_code == 200, r.text
+
+
+def duration_warnings(session):
+    return [w for w in session["warnings"] if w.startswith("The duration")]
+
+
+def test_double_tap_on_save_never_fails():
+    # 1. Two saves at once both saw "nothing saved yet", and the second hit the UNIQUE constraint (a 500).
+    u = person("sw_race")
+    workout(u, "run1", SWEAT_START, SWEAT_END)
+    quiet = TestClient(main.app, raise_server_exceptions=False)
+    statuses = []
+
+    def go(i):
+        if i % 3 == 2:
+            r = quiet.put(f"{u}/workouts/run1/sweat", json={"fluid_loss_ml": 900})
+        else:
+            r = quiet.post(f"{u}/sweat/nix", files={"file": ("w.xlsx", METRIC_SWEAT)}, data={"workout_id": "run1"})
+        statuses.append(r.status_code)
+
+    for _ in range(3):
+        threads = [threading.Thread(target=go, args=(i,)) for i in range(12)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+    assert set(statuses) <= {200, 409}, statuses
+    assert count("sweat_sessions", "sw_race") == 1
+
+
+def test_time_in_the_spring_forward_gap_is_refused():
+    # 2. 2:45 AM doesn't exist on 8 Mar 2026 in Chicago, and the session was saved ending before it started.
+    u = person("sw_gap")
+    workout_at(u, "w", local_ms(2026, 3, 7, 20, 0, CST), local_ms(2026, 3, 7, 21, 0, CST), CST, CST)
+    r = save(u, nix_file("Mar 8, 2026 at 2:45 AM", "Mar 8, 2026 at 3:10 AM", "00:25:00"), workout_id="w")
+    assert r.status_code == 400
+    assert r.json()["detail"] == sweat.ERR_CLOCK_GAP
+    assert count("sweat_sessions", "sw_gap") == 0
+
+
+def test_workout_across_the_fall_back_hour():
+    # 7. 1:50 AM summer time to 1:10 AM winter time is a real 20 minutes, and was refused.
+    u = person("sw_fallback")
+    start = local_ms(2025, 11, 2, 1, 50, CDT)
+    workout_at(u, "w", start, start + 20 * 60000, CDT, CST)
+    r = save(u, nix_file("Nov 2, 2025 at 1:50 AM", "Nov 2, 2025 at 1:10 AM", "00:20:00"), workout_id="w")
+    assert r.status_code == 200, r.text
+    s = r.json()
+    assert (s["start_tz_min"], s["end_tz_min"]) == (CDT, CST)
+    assert s["end_ms"] - s["start_ms"] == 20 * 60000
+    assert s["duration_min"] == 20
+    assert duration_warnings(s) == []
+
+
+@pytest.mark.parametrize(
+    "start, end, duration",
+    [
+        ("Mar 9, 2025 at 1:50 AM", "Mar 9, 2025 at 3:10 AM", "00:20:00"),  # clocks went forward
+        ("Nov 2, 2025 at 12:30 AM", "Nov 2, 2025 at 2:30 AM", "03:00:00"),  # clocks went back
+    ],
+)
+def test_duration_warning_uses_the_real_times(start, end, duration):
+    # 7. The reader compared local times, so a clock change looked like a wrong duration.
+    s = preview(person("sw_dst_warn"), nix_file(start, end, duration)).json()["session"]
+    assert duration_warnings(s) == []
+
+
+def test_repeated_hour_picks_the_copy_that_matches_a_workout():
+    # 7. A time in the repeated hour always meant the first (summer time) copy.
+    u = person("sw_repeat")
+    workout_at(u, "cst", local_ms(2025, 11, 2, 1, 10, CST), local_ms(2025, 11, 2, 1, 55, CST), CST, CST)
+    p = preview(u, nix_file("Nov 2, 2025 at 1:10 AM", "Nov 2, 2025 at 1:55 AM", "00:45:00")).json()
+    assert p["matched_workout"]["id"] == "cst"
+    assert p["session"]["start_tz_min"] == CST
+
+
+def test_early_morning_workout_counts_once():
+    # 3. A workout before the update time counted for two mornings.
+    u = person("sw_early", weight_kg=70)
+    workout(u, "dawn", local_ms(2026, 10, 21, 5, 30), local_ms(2026, 10, 21, 6, 30), "Run")
+    manual(u, "dawn", fluid_loss_ml=800)
+    assert sweat.hydration_line("sw_early", date(2026, 10, 20)) == (
+        "This morning's run cost about 0.8 L of sweat. Drink a little more than usual this morning."
+    )
+    assert sweat.hydration_line("sw_early", date(2026, 10, 21)) is None
+    with db.connect() as conn:
+        rows = {r["night_date"]: r for r in sweat.daily_sweat_table(conn, "sw_early").to_dict("records")}
+    assert rows["2026-10-20"]["fluid_loss_pct_bw_1d"] == pytest.approx(800 / 70000 * 100, abs=0.001)
+    assert rows["2026-10-21"]["fluid_loss_pct_bw_1d"] != rows["2026-10-21"]["fluid_loss_pct_bw_1d"]  # NaN
+
+
+def test_late_evening_workout_counts_for_its_own_night_only():
+    # 3. A workout ending after midnight also showed up the morning after next as "Yesterday's".
+    u = person("sw_late")
+    workout(u, "late", local_ms(2026, 10, 21, 23, 30), local_ms(2026, 10, 22, 0, 30), "Run")
+    manual(u, "late", fluid_loss_ml=800)
+    assert sweat.hydration_line("sw_late", date(2026, 10, 21)).startswith("Yesterday's run")
+    assert sweat.hydration_line("sw_late", date(2026, 10, 22)) is None
+
+
+def test_refused_save_as_new_leaves_no_workout_behind():
+    # 4. The new workout was made before the precision check refused the file.
+    u = person("sw_new409")
+    start = local_ms(2026, 10, 25, 14, 55)
+    workout(u, "lift", start, start + 133 * 60000)
+    assert save(u, METRIC_DRY).status_code == 200
+    r = save(u, CUSTOMARY_DRY, new_workout="true")
+    assert r.status_code == 409
+    assert client.get(f"{u}/workouts/nix-{start}").status_code == 404
+
+
+def test_save_as_new_never_changes_an_existing_workout():
+    # 5. Saving as new overwrote a workout that already had the generated id.
+    u = person("sw_new_keep")
+    wid = f"nix-{SWEAT_START}"
+    workout_at(u, wid, SWEAT_START, SWEAT_START + 3 * HOUR, type_="Leg day", source="apple_health")
+    client.put(f"{u}/workouts/{wid}/rating", json={"effort": 7, "answered_at_ms": SWEAT_START + 4 * HOUR})
+    r = save(u, new_workout="true")
+    assert r.status_code == 200 and r.json()["workout_id"] == wid
+    w = client.get(f"{u}/workouts/{wid}").json()
+    assert (w["type"], w["source"], w["end_ms"], w["effort"]) == ("Leg day", "apple_health", SWEAT_START + 3 * HOUR, 7)
+
+
+def test_upload_without_a_filename_isnt_echoed_back():
+    # 6. Without a filename the file became a text field, and the 422 echoed all of it back.
+    u = person("sw_noname")
+    for path in ("/sweat/nix/preview", "/sweat/nix"):
+        r = client.post(f"{u}{path}", files={"file": ("", METRIC_SWEAT)})
+        assert r.status_code == 400 and r.json()["detail"] == sweat.ERR_NO_FILE
+        assert len(r.content) < 300
+
+
+def test_missing_file_gets_a_plain_message():
+    r = client.post(f"{person('sw_nofile')}/sweat/nix/preview", data={"tz_offset_min": "60"})
+    assert r.status_code == 400 and r.json()["detail"] == sweat.ERR_NO_FILE
+
+
+def test_huge_form_field_gets_a_plain_message():
+    # 6. Over 1 MB, Starlette's own "Part exceeded maximum size of 1024KB." came back.
+    u = person("sw_hugefield")
+    r = save(u, workout_id="x" * (2 * 1024 * 1024))
+    assert r.status_code == 400 and r.json()["detail"] == sweat.ERR_BAD_FORM
+
+
+@pytest.mark.parametrize("field, value", [("tz_offset_min", "abc"), ("tz_offset_min", "1.5"), ("new_workout", "maybe")])
+def test_odd_form_values_get_a_plain_message(field, value):
+    r = save(person("sw_oddform"), **{field: value})
+    assert r.status_code == 400 and r.json()["detail"] == sweat.ERR_BAD_FORM
+
+
+def test_typed_in_sweat_follows_its_workout():
+    # 8. Moving the workout left the typed-in session at the old times.
+    u = person("sw_moved")
+    workout(u, "run1", SWEAT_START, SWEAT_END)
+    manual(u, "run1", fluid_loss_ml=900)
+    workout(u, "run1", SWEAT_START - 48 * HOUR, SWEAT_END - 48 * HOUR)
+    s = client.get(f"{u}/workouts/run1/sweat").json()
+    assert (s["start_ms"], s["end_ms"]) == (SWEAT_START - 48 * HOUR, SWEAT_END - 48 * HOUR)
+    assert sweat.hydration_line("sw_moved", date(2026, 10, 18)) is not None
+    assert sweat.hydration_line("sw_moved", date(2026, 10, 20)) is None
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"fluid_loss_ml": -0.0},
+        {"fluid_loss_ml": 0},
+        {"fluid_loss_ml": 0.04},
+        {"fluid_loss_ml": 900, "sodium_mg": 0},
+        {"fluid_loss_ml": 900, "sodium_mg": 0.04},
+        {"fluid_loss_ml": 900, "sweat_rate_l_h": 0.00001},
+    ],
+)
+def test_typed_in_amounts_too_small_to_be_real(body):
+    # 9. These were stored as 0.0 (or -0.0) and counted as sweat data.
+    u = person("sw_tiny")
+    workout(u, "run1", SWEAT_START, SWEAT_END)
+    assert manual(u, "run1", **body).status_code == 422
+
+
+def test_smallest_typed_in_amounts():
+    u = person("sw_small_ok")
+    workout(u, "run1", SWEAT_START, SWEAT_END)
+    s = manual(u, "run1", fluid_loss_ml=1, sodium_mg=1, sweat_rate_l_h=0.01).json()
+    assert (s["fluid_loss_ml"], s["sodium_mg"], s["sweat_rate_l_h"]) == (1, 1, 0.01)
+
+
+def test_more_precise_copy_on_another_workout_message():
+    # 10. The message said "this workout" when the more precise copy was on a different one.
+    u = person("sw_msg")
+    start = local_ms(2026, 10, 25, 14, 55)
+    workout(u, "a", start, start + 133 * 60000)
+    workout(u, "b", start - 48 * HOUR, start - 47 * HOUR)
+    save(u, METRIC_DRY, workout_id="a")
+    r = save(u, CUSTOMARY_DRY, workout_id="b")
+    assert r.status_code == 409
+    assert r.json()["detail"] == "More precise sweat data for this session is already saved, so it was kept."
+
+
+def test_unknown_person_comes_before_a_bad_file():
+    # 10. Save read the file first, so an unknown person with a bad file got 400 instead of 404.
+    pdf = S.sample_path("broken_pdf_renamed.xlsx").read_bytes()
+    assert save("/api/v1/users/sw_nobody_at_all", pdf).status_code == 404
+
+
+def test_hydration_line_keeps_capitals():
+    # 10. "HIIT" became "hiit".
+    u = person("sw_caps")
+    workout(u, "h", SWEAT_START, SWEAT_END, "HIIT")
+    manual(u, "h", fluid_loss_ml=800)
+    assert sweat.hydration_line("sw_caps", date(2026, 10, 20)).startswith("Yesterday's HIIT cost")
+
+
+def test_daily_with_a_broken_demo_clock():
+    # 10. A garbled clock_local gave a 500.
+    u = person("sw_badclock")
+    fix_clock("sw_badclock", "not a time")
+    assert client.get(f"{u}/sweat/daily").status_code == 200
