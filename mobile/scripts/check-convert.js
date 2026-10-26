@@ -168,6 +168,77 @@ const checks = {
       ['Sodium lost', null, 'sweat'],
     ]);
   },
+  'typed-in sweat amounts become ml, mg and L/h': () => {
+    assert.deepStrictEqual(s.parseAmount('900', 'fluid', 'metric'), { value: 900 });
+    assert.deepStrictEqual(s.parseAmount(' 1,150 ', 'fluid', 'metric'), { value: 1150 });
+    assert.deepStrictEqual(s.parseAmount('30.5', 'fluid', 'imperial'), { value: 902 });
+    assert.deepStrictEqual(s.parseAmount('1,5', 'rate', 'metric'), { value: 1.5 });
+    assert.deepStrictEqual(s.parseAmount('49', 'rate', 'imperial'), { value: 1.4491 });
+    assert.deepStrictEqual(s.parseAmount('640', 'sodium', 'imperial'), { value: 640 });
+    assert.deepStrictEqual(s.parseAmount('', 'sodium', 'metric'), { value: null });
+    assert.deepStrictEqual(s.parseAmount('  ', 'rate', 'metric'), { value: null });
+  },
+  'typed-in amounts outside what the server takes get a message in your units': () => {
+    assert.deepStrictEqual(s.parseAmount('', 'fluid', 'metric'), { error: 'Type how much sweat you lost.' });
+    assert.deepStrictEqual(s.parseAmount('0', 'fluid', 'metric'), { error: 'Type a sweat loss between 1 and 30,000 ml.' });
+    assert.deepStrictEqual(s.parseAmount('2000', 'fluid', 'imperial'),
+      { error: 'Type a sweat loss between 0.1 and 1,014 oz.' });
+    assert.deepStrictEqual(s.parseAmount('-5', 'sodium', 'metric'),
+      { error: 'Type a sodium loss between 1 and 100,000 mg, or leave it empty.' });
+    assert.deepStrictEqual(s.parseAmount('0.001', 'rate', 'metric'),
+      { error: 'Type a sweat rate between 0.01 and 10 L/h, or leave it empty.' });
+    assert.deepStrictEqual(s.parseAmount('abc', 'rate', 'imperial'),
+      { error: 'Type a sweat rate between 1 and 338 oz/h, or leave it empty.' });
+    assert.deepStrictEqual(s.parseAmount('1e3', 'fluid', 'metric'), { error: 'Type a sweat loss between 1 and 30,000 ml.' });
+  },
+  'the smallest and largest typed-in amounts stay inside the server limits': () => {
+    assert.ok(s.parseAmount('0.1', 'fluid', 'imperial').value >= 1);
+    assert.ok(s.parseAmount('1014', 'fluid', 'imperial').value <= 30000);
+    assert.ok(s.parseAmount('1', 'rate', 'imperial').value >= 0.01);
+    assert.ok(s.parseAmount('338', 'rate', 'imperial').value <= 10);
+  },
+  'notes on the Check your import screen': () => {
+    assert.strictEqual(s.existingNote('none'), null);
+    assert.strictEqual(s.existingNote('replaces_less_precise'), 'Replaces your earlier sweat data with more precise numbers.');
+    assert.strictEqual(s.existingNote('keeps_more_precise'),
+      'This workout already has more precise sweat data, so saving this file won’t change it.');
+    assert.strictEqual(s.notThisWorkout('2026-09-28T09:10'), 'This file is from Mon 28 Sep at 9:10 AM, not this workout.');
+    const all = { sweat_detected: true, electrolytes_mg: 860, electrolyte_rate_mg_h: null, sodium_rate_mg_h: 403.4,
+      nix_index: 74 };
+    // Shown on the preview, before anything is saved, so it says what's in the file.
+    assert.strictEqual(s.alsoSaved(all), 'Also in the file: electrolytes 860 mg, sodium rate 403 mg/h, Nix index 74.');
+    assert.strictEqual(s.alsoSaved({ ...all, electrolytes_mg: null, sodium_rate_mg_h: null, nix_index: null }), null);
+  },
+  'a comma after a leading zero is a decimal, not thousands': () => {
+    assert.deepStrictEqual(s.parseAmount('0,500', 'rate', 'metric'), { value: 0.5 });
+    assert.deepStrictEqual(s.parseAmount('0,5', 'fluid', 'imperial'), { value: 14.8 });
+    assert.deepStrictEqual(s.parseAmount('0,500', 'fluid', 'imperial'), { value: 14.8 });
+    assert.deepStrictEqual(s.parseAmount('1,500', 'fluid', 'metric'), { value: 1500 });
+  },
+  'notes for keeping sweat data and moving a file off another workout': () => {
+    assert.strictEqual(s.existingNote('keeps_sweat_data'),
+      'This workout already has sweat data, and Nix picked up no sweat in this file, so saving won’t change it.');
+    assert.strictEqual(s.movesNote('Thu 25 Sep · Leg day'),
+      'This file is saved on Thu 25 Sep · Leg day. Saving here moves it off that workout.');
+    assert.strictEqual(s.isRefused('keeps_sweat_data'), true);
+    assert.strictEqual(s.isRefused('keeps_more_precise'), true);
+    assert.strictEqual(s.isRefused('replaces'), false);
+  },
+  'typed-in numbers already saved fill the boxes in your units': () => {
+    assert.strictEqual(s.amountInput(900, 'fluid', 'metric'), '900');
+    assert.strictEqual(s.amountInput(900, 'fluid', 'imperial'), '30.4');
+    assert.strictEqual(s.amountInput(1.2, 'rate', 'metric'), '1.2');
+    assert.strictEqual(s.amountInput(1.2, 'rate', 'imperial'), '41');
+    assert.strictEqual(s.amountInput(410, 'sodium', 'imperial'), '410');
+    assert.strictEqual(s.amountInput(null, 'sodium', 'metric'), '');
+    // What a box shows reads back to (about) the same stored value.
+    assert.deepStrictEqual(s.parseAmount(s.amountInput(900, 'fluid', 'imperial'), 'fluid', 'imperial'), { value: 899 });
+  },
+  'example values fit the unit': () => {
+    assert.strictEqual(s.amountHint('rate', 'metric'), 'e.g. 1.2');
+    assert.strictEqual(s.amountHint('rate', 'imperial'), 'e.g. 40');
+    assert.strictEqual(s.amountHint('fluid', 'imperial'), 'e.g. 30');
+  },
   'the suggestion follows the readiness status, and needs one': () => {
     assert.strictEqual(s.suggestion('low').effort, 'Easy');
     assert.strictEqual(s.suggestion('ready').title, 'Good day to train hard.');

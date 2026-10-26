@@ -85,6 +85,10 @@ REHYDRATE_FACTOR = 1.5
 ERR_PICK_WORKOUT = "This file doesn't match any workout. Pick one, or save it as a new workout."
 ERR_NO_TIME_ZONE = "We don't know your time zone yet. Set it in Profile, then import the file again."
 ERR_MORE_PRECISE = "More precise sweat data for this session is already saved, so it was kept."
+ERR_KEEPS_SWEAT = (
+    "This workout already has sweat data, and Nix picked up no sweat in this file (breathing loss only), "
+    "so the sweat data was kept."
+)
 ERR_NO_SWEAT_DATA = "This workout has no sweat data yet."
 ERR_BAD_OFFSET = "The phone sent an impossible UTC offset."
 ERR_CLOCK_GAP = (
@@ -287,9 +291,21 @@ def _precision(unit_system: str) -> int:
     return C3.UNIT_PRECISION[unit_system]
 
 
+REFUSED = ("keeps_more_precise", "keeps_sweat_data")
+
+
 def _existing(new: dict, conflicts: list[dict]) -> str:
+    """
+    What saving does to what's saved. Real sweat data always beats a breathing-only Nix file, whatever the
+    precision. Otherwise the more precise numbers win (Metric Nix, then Customary Nix, then typed in).
+    """
     if not conflicts:
         return "none"
+    new_sweat = bool(new["sweat_detected"])
+    if not new_sweat and any(c["sweat_detected"] for c in conflicts):
+        return "keeps_sweat_data"
+    if new_sweat and not any(c["sweat_detected"] for c in conflicts):
+        return "replaces"
     best = max(_precision(c["unit_system"]) for c in conflicts)
     if best > _precision(new["unit_system"]):
         return "keeps_more_precise"
@@ -302,14 +318,20 @@ def _existing(new: dict, conflicts: list[dict]) -> str:
     return "replaces"
 
 
+def _refuse(existing: str) -> None:
+    if existing == "keeps_more_precise":
+        raise HTTPException(409, ERR_MORE_PRECISE)
+    if existing == "keeps_sweat_data":
+        raise HTTPException(409, ERR_KEEPS_SWEAT)
+
+
 def _store(conn, user_id: str, new: dict, minutes: list[tuple]) -> None:
     # Take the write lock before looking at what's saved. Otherwise two saves at once (a double tap) both
     # see nothing saved, and the second one breaks the one-per-workout rule.
     if not conn.in_transaction:
         conn.execute("BEGIN IMMEDIATE")
     conflicts = _conflicts(conn, user_id, new["id"], new["workout_id"])
-    if _existing(new, conflicts) == "keeps_more_precise":
-        raise HTTPException(409, ERR_MORE_PRECISE)
+    _refuse(_existing(new, conflicts))
     for old in conflicts:
         conn.execute("DELETE FROM sweat_sessions WHERE user_id = ? AND id = ?", (user_id, old["id"]))
         conn.execute("DELETE FROM sweat_minutes WHERE user_id = ? AND session_id = ?", (user_id, old["id"]))
@@ -362,23 +384,41 @@ def _check_offset(phone_offset: int | None) -> None:
 # ---------------------------------------------------------------- what the routes call
 
 
-def preview_nix(user_id: str, data: bytes, phone_offset: int | None) -> dict:
-    """What saving this file would do. Nothing is stored, the app sends the file again to save it."""
+def preview_nix(
+    user_id: str, data: bytes, phone_offset: int | None, workout_id: str | None = None, new_workout: bool = False
+) -> dict:
+    """
+    What saving this file would do. Nothing is stored, the app sends the file again to save it.
+    Without a target it's worked out for the workout the file matches. With workout_id (or new_workout)
+    it's for that one, so the app can check again whenever the person picks a different workout.
+    """
     _check_offset(phone_offset)
     with db.connect() as conn:
         require_user(conn, user_id)
         nix = _parse(data)
         new, _minutes = _from_nix(conn, user_id, nix, phone_offset)
         matched, nearby = _match(conn, user_id, new["start_ms"], new["end_ms"])
-        new["workout_id"] = matched["id"] if matched else None
+        if workout_id is not None:
+            _workout(conn, user_id, workout_id)
+            target: str | None = workout_id
+        elif new_workout:
+            target = f"nix-{new['start_ms']}"
+        else:
+            target = matched["id"] if matched else None
+        new["workout_id"] = target
         weight = _weight(conn, user_id)
-        existing = _existing(new, _conflicts(conn, user_id, new["id"], new["workout_id"]))
+        conflicts = _conflicts(conn, user_id, new["id"], target)
+        # The same file saved on another workout: saving here takes it off that one.
+        elsewhere = next((c for c in conflicts if c["id"] == new["id"] and c["workout_id"] != target), None)
+        moves_from = _workout(conn, user_id, elsewhere["workout_id"]) if elsewhere else None
+        existing = _existing(new, conflicts)
     suggestion = nix.file_weight_kg if weight is None else None
     return {
         "session": _out(new, weight),
         "matched_workout": workout_out(matched) if matched else None,
         "nearby_workouts": [workout_out(r) for r in nearby],
         "existing": existing,
+        "moves_from_workout": workout_out(moves_from) if moves_from else None,
         "weight_suggestion_kg": suggestion,
     }
 
@@ -407,8 +447,7 @@ def save_nix(user_id: str, data: bytes, phone_offset: int | None, workout_id: st
             )
             # Refuse before making the workout, so a 409 doesn't leave an empty one behind.
             new["workout_id"] = workout_id
-            if _existing(new, _conflicts(conn, user_id, new["id"], workout_id)) == "keeps_more_precise":
-                raise HTTPException(409, ERR_MORE_PRECISE)
+            _refuse(_existing(new, _conflicts(conn, user_id, new["id"], workout_id)))
     if make_workout:
         save_workout(
             user_id,

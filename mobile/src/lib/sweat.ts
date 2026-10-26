@@ -199,6 +199,113 @@ export function sessionStats(s: SessionNumbers, units: Units): Stat[] {
   ];
 }
 
+// ---------------------------------------------------------------- typed-in numbers and the import notes
+
+export type AmountKind = 'fluid' | 'sodium' | 'rate';
+
+/**
+ * What the server accepts (server/app/schemas/sweat.py), in each unit people can type. The ounce limits are
+ * rounded inwards, so a typed amount never lands outside the server's range after converting.
+ */
+const AMOUNT_LIMITS = {
+  fluid: { metric: { lo: 1, hi: 30000, unit: 'ml', toStored: 1 }, imperial: { lo: 0.1, hi: 1014, unit: 'oz', toStored: ML_PER_OZ } },
+  sodium: { metric: { lo: 1, hi: 100000, unit: 'mg', toStored: 1 }, imperial: { lo: 1, hi: 100000, unit: 'mg', toStored: 1 } },
+  rate: {
+    metric: { lo: 0.01, hi: 10, unit: 'L/h', toStored: 1 },
+    imperial: { lo: 1, hi: 338, unit: 'oz/h', toStored: ML_PER_OZ / 1000 },
+  },
+} as const;
+const AMOUNT_NAMES = { fluid: 'sweat loss', sodium: 'sodium loss', rate: 'sweat rate' };
+const STORED_PLACES = { fluid: 1, sodium: 1, rate: 4 };
+
+/** The unit a field shows next to its box. */
+export function amountUnit(kind: AmountKind, units: Units): string {
+  return AMOUNT_LIMITS[kind][units].unit;
+}
+
+/**
+ * Typed text to the stored unit (ml, mg or L/h). Sweat loss is required, the others can be left empty.
+ * Accepts "1,150" thousands and "1,5" decimals, like the Weight box.
+ */
+export function parseAmount(text: string, kind: AmountKind, units: Units): { value: number | null } | { error: string } {
+  const t = text.trim();
+  const { lo, hi, unit, toStored } = AMOUNT_LIMITS[kind][units];
+  const range = `between ${thousands(lo)} and ${thousands(hi)} ${unit}`;
+  if (!t) return kind === 'fluid' ? { error: 'Type how much sweat you lost.' } : { value: null };
+  // "1,500" is thousands. "0,500" can only be a decimal comma (0.5), so a leading zero rules thousands out.
+  const plain = /^[1-9]\d{0,2}(,\d{3})+(\.\d+)?$/.test(t) ? t.replace(/,/g, '') : t.replace(',', '.');
+  const n = /^(\d+\.?\d*|\.\d+)$/.test(plain) ? Number(plain) : NaN;
+  if (!(n >= lo && n <= hi)) {
+    return { error: `Type a ${AMOUNT_NAMES[kind]} ${range}${kind === 'fluid' ? '' : ', or leave it empty'}.` };
+  }
+  const f = 10 ** STORED_PLACES[kind];
+  return { value: Math.round(n * toStored * f) / f };
+}
+
+/** What a box shows for a number already saved (ml, mg or L/h), in the person's units. Empty when there's none. */
+export function amountInput(value: number | null, kind: AmountKind, units: Units): string {
+  if (value === null || bad(value)) return '';
+  if (kind === 'fluid') return units === 'imperial' ? String(Math.round((value / ML_PER_OZ) * 10) / 10) : String(Math.round(value));
+  if (kind === 'rate') return units === 'imperial' ? String(Math.round((value * 1000) / ML_PER_OZ)) : String(Number(value.toFixed(2)));
+  return String(Math.round(value));
+}
+
+/** An example in the box, sized for the unit (1.2 makes sense in L/h, not in oz/h). */
+export function amountHint(kind: AmountKind, units: Units): string {
+  const examples = { fluid: { metric: '900', imperial: '30' }, sodium: { metric: '640', imperial: '640' },
+    rate: { metric: '1.2', imperial: '40' } };
+  return `e.g. ${examples[kind][units]}`;
+}
+
+/** Saving would be refused (409), so Save stays off and the note says why. */
+export function isRefused(existing: string): boolean {
+  return existing === 'keeps_more_precise' || existing === 'keeps_sweat_data';
+}
+
+/** The same file is already saved on another workout, and saving here takes it off that one. */
+export function movesNote(otherWorkout: string): string {
+  return `This file is saved on ${otherWorkout}. Saving here moves it off that workout.`;
+}
+
+/** What saving would do to sweat data the workout already has, as the preview's "existing" says. */
+export function existingNote(existing: string): string | null {
+  if (existing === 'keeps_sweat_data') {
+    return 'This workout already has sweat data, and Nix picked up no sweat in this file, so saving won’t change it.';
+  }
+  if (existing === 'same') return 'You’ve already saved this file. Saving it again changes nothing.';
+  if (existing === 'replaces') return 'Replaces the sweat data this workout already has.';
+  if (existing === 'replaces_less_precise') return 'Replaces your earlier sweat data with more precise numbers.';
+  if (existing === 'keeps_more_precise') {
+    return 'This workout already has more precise sweat data, so saving this file won’t change it.';
+  }
+  return null;
+}
+
+/** When the import was opened from one workout but the file's times are from another moment. */
+export function notThisWorkout(startLocal: string): string {
+  const p = parts(startLocal);
+  const when = p ? `${dayText(p.date)} at ${clock(p.h, p.min)}` : 'another time';
+  return `This file is from ${when}, not this workout.`;
+}
+
+type Extras = {
+  electrolytes_mg: number | null;
+  electrolyte_rate_mg_h: number | null;
+  sodium_rate_mg_h: number | null;
+  nix_index: number | null;
+};
+
+/** The numbers besides the main three: "Also in the file: electrolytes 860 mg, Nix index 74." */
+export function alsoSaved(s: Extras): string | null {
+  const bits = [
+    s.electrolytes_mg === null ? null : `electrolytes ${thousands(Math.round(s.electrolytes_mg))} mg`,
+    s.electrolyte_rate_mg_h === null ? null : `electrolyte rate ${thousands(Math.round(s.electrolyte_rate_mg_h))} mg/h`,
+    s.sodium_rate_mg_h === null ? null : `sodium rate ${thousands(Math.round(s.sodium_rate_mg_h))} mg/h`,
+    s.nix_index === null ? null : `Nix index ${Math.round(s.nix_index)}`,
+  ].filter(Boolean);
+  return bits.length ? `Also in the file: ${bits.join(', ')}.` : null;
+}
+
 export type Suggestion = { title: string; text: string; effort: string };
 
 /**

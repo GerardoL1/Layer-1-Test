@@ -172,6 +172,12 @@ sweat data (or the same file was saved to another workout):
   (`keeps_more_precise`)
 - the same precision replaces it (`replaces`), and the very same file again changes nothing (`same`).
 
+**Real sweat data beats breathing-only data** (decided 2026-10-26), before precision is looked at:
+- a Nix file where no sweat was picked up never replaces a session that has sweat data, typed in or Nix. It's
+  refused with a 409 (`keeps_sweat_data`, "the sweat data was kept")
+- sweat data (typed in or Nix) always replaces a breathing-only session (`replaces`)
+- between two breathing-only files, precision decides as above.
+
 ## 6. Matching to a workout, and the API
 
 - The session is matched to the workout (Layer 1 tab's table) it overlaps most in time.
@@ -186,7 +192,7 @@ sweat data (or the same file was saved to another workout):
 
 | Endpoint (under `/api/v1/users/{user_id}`) | Does |
 |---|---|
-| `POST /sweat/nix/preview` (file, `tz_offset_min`) | Numbers, matched workout, nearby workouts, what saving would do. Saves nothing |
+| `POST /sweat/nix/preview` (file, `tz_offset_min`, optional `workout_id` or `new_workout`) | Numbers, matched workout, nearby workouts, and what saving to the matched (or given) workout would do: `existing`, plus `moves_from_workout` when the same file is saved on another workout and saving moves it. Saves nothing. The app asks again whenever the person picks a workout |
 | `POST /sweat/nix` (file, `tz_offset_min`, `workout_id` or `new_workout`) | Saves to the picked workout, a new one, or the matched one. 400 if none, 409 if less precise |
 | `PUT /workouts/{workout_id}/sweat` | Typed-in numbers (`fluid_loss_ml`, optional `sodium_mg`, `sweat_rate_l_h`) |
 | `GET /workouts/{workout_id}/sweat` | The workout's sweat session, 404 if it has none |

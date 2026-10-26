@@ -2,11 +2,12 @@
  * Train > a workout: its length and its sweat data (Layer 3), with the rehydrate advice.
  * The patch parts of Figma's "Workout summary" (fatigue by set, muscles worked) come with Layer 2.
  */
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useApi } from '../../api/useApi';
+import { Button } from '../../components/Button';
 import { LiveText } from '../../components/LiveText';
 import { Notice } from '../../components/Notice';
 import { Page, PageState } from '../../components/Page';
@@ -123,6 +124,12 @@ export default function WorkoutScreen() {
       ) : s ? numbers : (
         <Text variant="body" color="textSecondary">No sweat data for this workout yet.</Text>
       )}
+      {/* Not offered when loading the sweat data failed: there may be data, and adding could replace it unseen. */}
+      {sweatError ? null : (
+        <Button title={s ? 'Update sweat data' : 'Add sweat data'} kind={s ? 'secondary' : 'primary'}
+          style={styles.space16}
+          onPress={() => router.push({ pathname: '/train/import', params: { workoutId: w.id } })} />
+      )}
     </View>
   );
 
@@ -155,6 +162,7 @@ const styles = StyleSheet.create({
   statValue: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
   advice: { borderTopWidth: 1, paddingTop: 14, gap: 14 },
   adviceText: { marginTop: 6 },
+  space16: { marginTop: 16 },
   space24: { marginTop: 24 },
   columns: { flexDirection: 'row', gap: 56 },
   column: { flex: 1 },

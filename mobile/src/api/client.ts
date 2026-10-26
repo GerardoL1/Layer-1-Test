@@ -26,6 +26,17 @@ export type ProcessingRun = Schemas['ProcessingRun'];
 export type DemoUser = Schemas['DemoUser'];
 export type Workout = Schemas['Workout'];
 export type SweatSession = Schemas['SweatSession'];
+export type NixPreview = Schemas['NixPreview'];
+export type ManualSweat = Schemas['ManualSweatIn'];
+/**
+ * A picked file ready to upload. part is a File on the web, and { uri, name, type } on iPhone,
+ * which is what React Native's FormData sends as a file.
+ */
+export type UploadFile = { name: string; part: Blob; size?: number };
+/** The server takes Nix files up to this size (server/app/core/limits.py). A real export is about 160 KB. */
+export const MAX_NIX_BYTES = 5 * 1024 * 1024;
+/** Where a Nix file is saved: a picked workout, or a new one made from the file's times. */
+export type NixTarget = { workoutId: string } | { newWorkout: true };
 
 /**
  * The server's error message. Most errors carry it as text. A 422 from a check on what was sent
@@ -84,6 +95,19 @@ export function makeApi(serverUrl: string, userId: string) {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 
+  /**
+   * A Nix upload. The phone's UTC offset goes along, and the server uses it only when it knows neither
+   * the person's time zone nor the offset of their latest reading.
+   */
+  const upload = (file: UploadFile, target?: NixTarget): RequestInit => {
+    const form = new FormData();
+    form.append('file', file.part, file.name);
+    form.append('tz_offset_min', String(-new Date().getTimezoneOffset()));
+    if (target && 'workoutId' in target) form.append('workout_id', target.workoutId);
+    if (target && 'newWorkout' in target) form.append('new_workout', 'true');
+    return { method: 'POST', body: form };
+  };
+
   return {
     health: () => call<Schemas['HealthCheck']>('/health'),
     today: () => call<Today>(`${user}/today`),
@@ -136,6 +160,14 @@ export function makeApi(serverUrl: string, userId: string) {
       }
     },
     sweatSessions: (days = 366) => call<SweatSession[]>(`${user}/sweat/sessions?days=${days}`),
+    /** What saving this Nix file would do, to the matched workout or the one given. Nothing is stored. */
+    previewNix: (file: UploadFile, target?: NixTarget) =>
+      call<NixPreview>(`${user}/sweat/nix/preview`, upload(file, target)),
+    /** Saves the Nix file, sent again after the preview, so the server never holds unsaved data. */
+    saveNix: (file: UploadFile, target: NixTarget) => call<SweatSession>(`${user}/sweat/nix`, upload(file, target)),
+    /** Numbers typed in, already in ml, mg and L/h. */
+    saveSweatManually: (workoutId: string, body: ManualSweat) =>
+      call<SweatSession>(`${user}/workouts/${encodeURIComponent(workoutId)}/sweat`, json('PUT', body)),
     /** Testing only: workouts and sweat data for a demo person who's already loaded. */
     loadDemoSweat: (person: 'sam' | 'alex' | 'jordan') =>
       call<Schemas['DemoSweat']>(`/api/v1/demo-users/${person}/sweat`, json('POST')),

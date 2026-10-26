@@ -9,7 +9,7 @@ from app.schemas.workouts import Workout
 Source = Literal["nix", "manual"]
 UnitSystem = Literal["metric", "customary", "manual"]
 # What saving this preview would do to sweat data the workout already has.
-Existing = Literal["none", "same", "replaces", "replaces_less_precise", "keeps_more_precise"]
+Existing = Literal["none", "same", "replaces", "replaces_less_precise", "keeps_more_precise", "keeps_sweat_data"]
 
 
 class SweatSession(BaseModel):
@@ -44,7 +44,8 @@ class NixPreview(BaseModel):
     session: SweatSession
     matched_workout: Workout | None
     nearby_workouts: list[Workout]  # closest first, to pick from when nothing matched
-    existing: Existing
+    existing: Existing  # for session.workout_id, the workout it would be saved to
+    moves_from_workout: Workout | None  # the same file is saved on this other workout, saving moves it
     weight_suggestion_kg: float | None  # from the file, only when Settings has no weight
 
 

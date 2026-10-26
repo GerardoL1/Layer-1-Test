@@ -673,3 +673,71 @@ def test_daily_with_a_broken_demo_clock():
     u = person("sw_badclock")
     fix_clock("sw_badclock", "not a time")
     assert client.get(f"{u}/sweat/daily").status_code == 200
+
+
+# ---------------------------------------------------------------- findings from the batch 3b testing pass
+
+
+def test_preview_for_a_chosen_workout_reports_that_workout():
+    # The preview only knew about the workout the file matched, so picking another one showed the wrong note.
+    u = person("sw_target")
+    workout(u, "run1", SWEAT_START, SWEAT_END)
+    workout(u, "legs", SWEAT_START - 48 * HOUR, SWEAT_START - 47 * HOUR)
+    manual(u, "legs", fluid_loss_ml=500)
+    p = preview(u, workout_id="legs").json()
+    assert p["session"]["workout_id"] == "legs"
+    assert p["matched_workout"]["id"] == "run1"  # still says which workout the file's times match
+    assert p["existing"] == "replaces_less_precise"
+    assert p["moves_from_workout"] is None
+    assert preview(u, workout_id="nope").status_code == 404
+
+
+def test_preview_says_when_the_file_moves_off_another_workout():
+    # Saving the same file to a second workout deletes it from the first, and nothing said so.
+    u = person("sw_moves")
+    workout(u, "run1", SWEAT_START, SWEAT_END)
+    workout(u, "legs", SWEAT_START - 48 * HOUR, SWEAT_START - 47 * HOUR)
+    save(u, workout_id="legs")
+    p = preview(u, workout_id="run1").json()
+    assert p["moves_from_workout"]["id"] == "legs"
+    assert p["existing"] == "replaces"
+    assert preview(u, workout_id="legs").json()["moves_from_workout"] is None
+
+
+def test_preview_as_a_new_workout():
+    u = person("sw_target_new")
+    workout(u, "legs", SWEAT_START - 48 * HOUR, SWEAT_START - 47 * HOUR)
+    save(u, workout_id="legs")
+    p = preview(u, new_workout="true").json()
+    assert p["session"]["workout_id"] == f"nix-{SWEAT_START}"
+    assert p["moves_from_workout"]["id"] == "legs"
+
+
+def test_no_sweat_file_never_replaces_sweat_data():
+    # Breathing-only Nix data replaced real typed-in numbers, because Nix counted as more precise.
+    u = person("sw_dry_vs_typed")
+    start = local_ms(2026, 10, 25, 14, 55)
+    workout(u, "lift", start, start + 133 * 60000)
+    manual(u, "lift", fluid_loss_ml=900)
+    assert preview(u, METRIC_DRY).json()["existing"] == "keeps_sweat_data"
+    r = save(u, METRIC_DRY)
+    assert r.status_code == 409 and r.json()["detail"] == sweat.ERR_KEEPS_SWEAT
+    assert client.get(f"{u}/workouts/lift/sweat").json()["fluid_loss_ml"] == 900
+
+
+def test_typed_in_sweat_replaces_a_no_sweat_nix_session():
+    # The other way round: real numbers typed in beat a breathing-only file.
+    u = person("sw_typed_vs_dry")
+    start = local_ms(2026, 10, 25, 14, 55)
+    workout(u, "lift", start, start + 133 * 60000)
+    save(u, METRIC_DRY)
+    r = manual(u, "lift", fluid_loss_ml=900)
+    assert r.status_code == 200 and r.json()["source"] == "manual"
+
+
+def test_metric_no_sweat_still_replaces_customary_no_sweat():
+    u = person("sw_dry_dry")
+    start = local_ms(2026, 10, 25, 14, 55)
+    workout(u, "lift", start, start + 133 * 60000)
+    save(u, CUSTOMARY_DRY)
+    assert preview(u, METRIC_DRY).json()["existing"] == "replaces_less_precise"

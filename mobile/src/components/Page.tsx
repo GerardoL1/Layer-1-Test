@@ -5,11 +5,16 @@ import { useTheme } from '../theme/theme';
 import { LiveText } from './LiveText';
 import { Text } from './Text';
 
-/** Scrolling page with the side margins from Figma (20 on iPhone, 48 on a computer). */
-export function Page({ children }: { children: ReactNode }) {
+/**
+ * Scrolling page with the side margins from Figma (20 on iPhone, 48 on a computer).
+ * form: a page with text boxes. A tap on a button then works while the keyboard is up,
+ * instead of only closing the keyboard.
+ */
+export function Page({ children, form }: { children: ReactNode; form?: boolean }) {
   const { colors, isWide } = useTheme();
   return (
     <ScrollView role="main" style={[styles.page, { backgroundColor: colors.canvas }]}
+      keyboardShouldPersistTaps={form ? 'handled' : undefined}
       contentContainerStyle={isWide ? styles.contentWide : styles.content}>
       <View style={[styles.column, isWide && styles.columnWide]}>{children}</View>
     </ScrollView>

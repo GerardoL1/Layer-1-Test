@@ -16,10 +16,12 @@ type Props = {
   expanded?: boolean;
   /** Color the value, e.g. green for "Connected". */
   valueColor?: 'ready' | 'low' | 'moderate';
+  /** What tapping does, for screen readers, when the label alone doesn't say (like "Changes the workout"). */
+  hint?: string;
 };
 
 /** Settings and info lines. Value shows a fact, Link adds an arrow and opens another screen. */
-export function ListRow({ label, value, onPress, comingSoon, danger, valueColor, expanded }: Props) {
+export function ListRow({ label, value, onPress, comingSoon, danger, valueColor, expanded, hint }: Props) {
   const { colors } = useTheme();
   const link = !!onPress && !comingSoon;
   const content = (
@@ -39,7 +41,7 @@ export function ListRow({ label, value, onPress, comingSoon, danger, valueColor,
   return (
     <Pressable onPress={link ? onPress : undefined} disabled={!link}
       accessibilityRole="button" aria-disabled={comingSoon || undefined} aria-expanded={expanded}
-      accessibilityHint={comingSoon ? 'Coming soon' : undefined}
+      accessibilityHint={comingSoon ? 'Coming soon' : hint}
       style={({ pressed }) => [styles.row, { borderTopColor: colors.border,
         opacity: comingSoon ? 0.55 : pressed ? 0.7 : 1 }]}>
       {content}

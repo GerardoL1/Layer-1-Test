@@ -10,9 +10,10 @@ import { useTheme } from '../theme/theme';
 import { Button } from './Button';
 import { Text } from './Text';
 
-type Props = { onFile: (file: File) => void; disabled?: boolean; note?: string };
+/** title and accept default to the Health export, the first thing this was used for. */
+type Props = { onFile: (file: File) => void; disabled?: boolean; note?: string; title?: string; accept?: string };
 
-export function DropZone({ onFile, disabled, note }: Props) {
+export function DropZone({ onFile, disabled, note, title = 'Drop export.zip here', accept = '.zip,.xml' }: Props) {
   const { colors } = useTheme();
   const [over, setOver] = useState(false);
 
@@ -39,12 +40,12 @@ export function DropZone({ onFile, disabled, note }: Props) {
           stroke={colors.borderStrong} strokeWidth="1" strokeDasharray="6 4" />
       </svg>
       <View style={styles.content}>
-        <Text variant="h3">Drop export.zip here</Text>
+        <Text variant="h3">{title}</Text>
         {/* Muted text is too faint on the highlighted background while a file is dragged over. */}
         <Text variant="bodySmall" color={over ? 'textSecondary' : 'textMuted'}>or</Text>
         <Button title="Choose file" kind="secondary" disabled={disabled} style={styles.choose}
           onPress={async () => {
-            const file = await pickFile('.zip,.xml');
+            const file = await pickFile(accept);
             if (file) onFile(file);
           }} />
         {note ? <Text variant="bodySmall" color={over ? 'textSecondary' : 'textMuted'} style={styles.note}>{note}</Text> : null}

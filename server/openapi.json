@@ -944,7 +944,7 @@
           "sweat"
         ],
         "summary": "Preview Nix",
-        "description": "Reads a Nix export and says what saving it would do: the numbers, the workout it matches (or nearby\nones to pick from) and whether it replaces sweat data already saved. Nothing is stored.\ntz_offset_min is the phone's UTC offset, used only when there's no time zone in Settings or readings.",
+        "description": "Reads a Nix export and says what saving it would do: the numbers, the workout it matches (or nearby\nones to pick from) and whether it replaces sweat data already saved. Nothing is stored.\ntz_offset_min is the phone's UTC offset, used only when there's no time zone in Settings or readings.\nworkout_id or new_workout checks a workout the person picked instead of the matched one.",
         "operationId": "preview_nix_api_v1_users__user_id__sweat_nix_preview_post",
         "parameters": [
           {
@@ -997,6 +997,14 @@
                   "tz_offset_min": {
                     "type": "integer",
                     "description": "The phone's UTC offset, used only as a last resort"
+                  },
+                  "workout_id": {
+                    "type": "string",
+                    "description": "Check against this workout instead of the matched one"
+                  },
+                  "new_workout": {
+                    "type": "boolean",
+                    "description": "Check against a new workout made from the file"
                   }
                 }
               }
@@ -2717,9 +2725,20 @@
               "same",
               "replaces",
               "replaces_less_precise",
-              "keeps_more_precise"
+              "keeps_more_precise",
+              "keeps_sweat_data"
             ],
             "title": "Existing"
+          },
+          "moves_from_workout": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Workout"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "weight_suggestion_kg": {
             "anyOf": [
@@ -2739,6 +2758,7 @@
           "matched_workout",
           "nearby_workouts",
           "existing",
+          "moves_from_workout",
           "weight_suggestion_kg"
         ],
         "title": "NixPreview"

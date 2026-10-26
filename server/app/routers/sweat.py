@@ -73,15 +73,25 @@ def _bool_field(fields: dict[str, str], name: str) -> bool:
     raise HTTPException(400, sweat.ERR_BAD_FORM)
 
 
-@router.post("/sweat/nix/preview", response_model=NixPreview, openapi_extra=_upload_body())
+@router.post(
+    "/sweat/nix/preview",
+    response_model=NixPreview,
+    openapi_extra=_upload_body(
+        workout_id={"type": "string", "description": "Check against this workout instead of the matched one"},
+        new_workout={"type": "boolean", "description": "Check against a new workout made from the file"},
+    ),
+)
 async def preview_nix(user_id: str, request: Request):
     """
     Reads a Nix export and says what saving it would do: the numbers, the workout it matches (or nearby
     ones to pick from) and whether it replaces sweat data already saved. Nothing is stored.
     tz_offset_min is the phone's UTC offset, used only when there's no time zone in Settings or readings.
+    workout_id or new_workout checks a workout the person picked instead of the matched one.
     """
     data, fields = await _read_upload(request)
-    return await run_in_threadpool(sweat.preview_nix, user_id, data, _offset_field(fields))
+    offset, new_workout = _offset_field(fields), _bool_field(fields, "new_workout")
+    workout_id = fields.get("workout_id") or None
+    return await run_in_threadpool(sweat.preview_nix, user_id, data, offset, workout_id, new_workout)
 
 
 @router.post(

@@ -81,6 +81,8 @@ export default function TrainScreen() {
         ))
       )}
       <ListRow label="All workouts" onPress={() => router.push('/train/workouts')} />
+      {/* Not in Figma: a way in for a Nix workout the app doesn't have yet. The file finds its workout. */}
+      <ListRow label="Import a Nix file" value=".xlsx" onPress={() => router.push('/train/import')} />
       <Text variant="bodySmall" color="textMuted" style={[styles.note, { borderTopColor: colors.border }]}>
         Open a workout to see its sweat data.
       </Text>

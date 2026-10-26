@@ -318,6 +318,7 @@ export interface paths {
          * @description Reads a Nix export and says what saving it would do: the numbers, the workout it matches (or nearby
          *     ones to pick from) and whether it replaces sweat data already saved. Nothing is stored.
          *     tz_offset_min is the phone's UTC offset, used only when there's no time zone in Settings or readings.
+         *     workout_id or new_workout checks a workout the person picked instead of the matched one.
          */
         post: operations["preview_nix_api_v1_users__user_id__sweat_nix_preview_post"];
         delete?: never;
@@ -935,7 +936,8 @@ export interface components {
              * Existing
              * @enum {string}
              */
-            existing: "none" | "same" | "replaces" | "replaces_less_precise" | "keeps_more_precise";
+            existing: "none" | "same" | "replaces" | "replaces_less_precise" | "keeps_more_precise" | "keeps_sweat_data";
+            moves_from_workout: components["schemas"]["Workout"] | null;
             /** Weight Suggestion Kg */
             weight_suggestion_kg: number | null;
         };
@@ -2054,6 +2056,10 @@ export interface operations {
                     file: string;
                     /** @description The phone's UTC offset, used only as a last resort */
                     tz_offset_min?: number;
+                    /** @description Check against this workout instead of the matched one */
+                    workout_id?: string;
+                    /** @description Check against a new workout made from the file */
+                    new_workout?: boolean;
                 };
             };
         };
