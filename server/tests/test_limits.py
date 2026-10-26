@@ -34,6 +34,9 @@ def test_the_real_limits():
         USER + "/checkins/morning",
         USER + "/workouts",
         USER + "/workouts/{workout_id}/rating",
+        USER + "/workouts/{workout_id}/sweat",
+        USER + "/sweat/nix/preview",
+        USER + "/sweat/nix",
         # deprecated URLs, still limited
         "/api/import",
         "/upload",

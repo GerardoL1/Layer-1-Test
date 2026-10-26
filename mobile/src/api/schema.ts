@@ -304,6 +304,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{user_id}/sweat/nix/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Nix
+         * @description Reads a Nix export and says what saving it would do: the numbers, the workout it matches (or nearby
+         *     ones to pick from) and whether it replaces sweat data already saved. Nothing is stored.
+         *     tz_offset_min is the phone's UTC offset, used only when there's no time zone in Settings or readings.
+         */
+        post: operations["preview_nix_api_v1_users__user_id__sweat_nix_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/sweat/nix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save Nix
+         * @description Saves a Nix export, sent again after the preview. It goes to workout_id when given, else to a new
+         *     workout when new_workout is true, else to the workout it overlaps. 409 when the workout already has
+         *     more precise sweat data.
+         */
+        post: operations["save_nix_api_v1_users__user_id__sweat_nix_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/workouts/{workout_id}/sweat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workout Sweat */
+        get: operations["get_workout_sweat_api_v1_users__user_id__workouts__workout_id__sweat_get"];
+        /**
+         * Save Manual
+         * @description Numbers typed in from any sweat sensor, in ml, mg and L/h. 409 if the workout has Nix data.
+         */
+        put: operations["save_manual_api_v1_users__user_id__workouts__workout_id__sweat_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/sweat/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Sessions
+         * @description Sweat sessions of workouts that started in the last N days, oldest first.
+         */
+        get: operations["list_sessions_api_v1_users__user_id__sweat_sessions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/sweat/daily": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daily
+         * @description Sweat per day for the Trends chart over the last 14, 28 or 90 days, plus a one-line summary.
+         */
+        get: operations["daily_api_v1_users__user_id__sweat_daily_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{user_id}/processing-runs": {
         parameters: {
             query?: never;
@@ -604,6 +709,27 @@ export interface components {
              */
             since_days: number;
         };
+        /** Body_preview_nix_api_v1_users__user_id__sweat_nix_preview_post */
+        Body_preview_nix_api_v1_users__user_id__sweat_nix_preview_post: {
+            /** File */
+            file: string;
+            /** Tz Offset Min */
+            tz_offset_min?: number | null;
+        };
+        /** Body_save_nix_api_v1_users__user_id__sweat_nix_post */
+        Body_save_nix_api_v1_users__user_id__sweat_nix_post: {
+            /** File */
+            file: string;
+            /** Tz Offset Min */
+            tz_offset_min?: number | null;
+            /** Workout Id */
+            workout_id?: string | null;
+            /**
+             * New Workout
+             * @default false
+             */
+            new_workout: boolean;
+        };
         /** Body_shortcut_api_shortcut_post */
         Body_shortcut_api_shortcut_post: {
             /** User */
@@ -705,6 +831,15 @@ export interface components {
             /** Nights Ready */
             nights_ready: number | null;
         };
+        /** ManualSweatIn */
+        ManualSweatIn: {
+            /** Fluid Loss Ml */
+            fluid_loss_ml: number;
+            /** Sodium Mg */
+            sodium_mg?: number | null;
+            /** Sweat Rate L H */
+            sweat_rate_l_h?: number | null;
+        };
         /**
          * MetricRow
          * @description One row of "Last night vs your usual".
@@ -781,6 +916,20 @@ export interface components {
              */
             survey_version: string;
             answers: components["schemas"]["MorningAnswers"];
+        };
+        /** NixPreview */
+        NixPreview: {
+            session: components["schemas"]["SweatSession"];
+            matched_workout: components["schemas"]["Workout"] | null;
+            /** Nearby Workouts */
+            nearby_workouts: components["schemas"]["Workout"][];
+            /**
+             * Existing
+             * @enum {string}
+             */
+            existing: "none" | "same" | "replaces" | "replaces_less_precise" | "keeps_more_precise";
+            /** Weight Suggestion Kg */
+            weight_suggestion_kg: number | null;
         };
         /** ProcessingRun */
         ProcessingRun: {
@@ -978,6 +1127,87 @@ export interface components {
             status: string;
             /** Model Version */
             model_version: string;
+        };
+        /** SweatDaily */
+        SweatDaily: {
+            /** Nights */
+            nights: number;
+            /** Days */
+            days: components["schemas"]["SweatDay"][];
+            /** Summary */
+            summary: string;
+            /** Placeholder */
+            placeholder: boolean;
+        };
+        /** SweatDay */
+        SweatDay: {
+            /** Date */
+            date: string;
+            /** Fluid Loss Ml */
+            fluid_loss_ml: number | null;
+            /** Sodium Mg */
+            sodium_mg: number | null;
+            /** Sessions */
+            sessions: number;
+            /** Has Sweat Data */
+            has_sweat_data: boolean;
+        };
+        /** SweatSession */
+        SweatSession: {
+            /** Id */
+            id: string;
+            /** Workout Id */
+            workout_id: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "nix" | "manual";
+            /** Start Ms */
+            start_ms: number;
+            /** End Ms */
+            end_ms: number;
+            /** Start Tz Min */
+            start_tz_min: number;
+            /** End Tz Min */
+            end_tz_min: number;
+            /** Start Local */
+            start_local: string;
+            /** End Local */
+            end_local: string;
+            /** Duration Min */
+            duration_min: number;
+            /** Fluid Loss Ml */
+            fluid_loss_ml: number;
+            /** Sweat Rate L H */
+            sweat_rate_l_h: number | null;
+            /** Sodium Mg */
+            sodium_mg: number | null;
+            /** Sodium Rate Mg H */
+            sodium_rate_mg_h: number | null;
+            /** Electrolytes Mg */
+            electrolytes_mg: number | null;
+            /** Electrolyte Rate Mg H */
+            electrolyte_rate_mg_h: number | null;
+            /** Sweat Composition Mg L */
+            sweat_composition_mg_l: number | null;
+            /** Nix Index */
+            nix_index: number | null;
+            /** Workout Type */
+            workout_type: string | null;
+            /** Sweat Detected */
+            sweat_detected: boolean;
+            /**
+             * Unit System
+             * @enum {string}
+             */
+            unit_system: "metric" | "customary" | "manual";
+            /** Warnings */
+            warnings: string[];
+            /** Imported At Ms */
+            imported_at_ms: number | null;
+            /** Fluid Loss Pct Body Weight */
+            fluid_loss_pct_body_weight: number | null;
         };
         /** Today */
         Today: {
@@ -1782,6 +2012,210 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Workout"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_nix_api_v1_users__user_id__sweat_nix_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_preview_nix_api_v1_users__user_id__sweat_nix_preview_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NixPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_nix_api_v1_users__user_id__sweat_nix_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_save_nix_api_v1_users__user_id__sweat_nix_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SweatSession"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_workout_sweat_api_v1_users__user_id__workouts__workout_id__sweat_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                workout_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SweatSession"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_manual_api_v1_users__user_id__workouts__workout_id__sweat_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                workout_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualSweatIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SweatSession"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_sessions_api_v1_users__user_id__sweat_sessions_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SweatSession"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    daily_api_v1_users__user_id__sweat_daily_get: {
+        parameters: {
+            query?: {
+                nights?: number;
+            };
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SweatDaily"];
                 };
             };
             /** @description Validation Error */

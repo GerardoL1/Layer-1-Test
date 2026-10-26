@@ -938,6 +938,335 @@
         }
       }
     },
+    "/api/v1/users/{user_id}/sweat/nix/preview": {
+      "post": {
+        "tags": [
+          "sweat"
+        ],
+        "summary": "Preview Nix",
+        "description": "Reads a Nix export and says what saving it would do: the numbers, the workout it matches (or nearby\nones to pick from) and whether it replaces sweat data already saved. Nothing is stored.\ntz_offset_min is the phone's UTC offset, used only when there's no time zone in Settings or readings.",
+        "operationId": "preview_nix_api_v1_users__user_id__sweat_nix_preview_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_preview_nix_api_v1_users__user_id__sweat_nix_preview_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NixPreview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/sweat/nix": {
+      "post": {
+        "tags": [
+          "sweat"
+        ],
+        "summary": "Save Nix",
+        "description": "Saves a Nix export, sent again after the preview. It goes to workout_id when given, else to a new\nworkout when new_workout is true, else to the workout it overlaps. 409 when the workout already has\nmore precise sweat data.",
+        "operationId": "save_nix_api_v1_users__user_id__sweat_nix_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_save_nix_api_v1_users__user_id__sweat_nix_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SweatSession"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/workouts/{workout_id}/sweat": {
+      "put": {
+        "tags": [
+          "sweat"
+        ],
+        "summary": "Save Manual",
+        "description": "Numbers typed in from any sweat sensor, in ml, mg and L/h. 409 if the workout has Nix data.",
+        "operationId": "save_manual_api_v1_users__user_id__workouts__workout_id__sweat_put",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workout Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualSweatIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SweatSession"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "sweat"
+        ],
+        "summary": "Get Workout Sweat",
+        "operationId": "get_workout_sweat_api_v1_users__user_id__workouts__workout_id__sweat_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workout Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SweatSession"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/sweat/sessions": {
+      "get": {
+        "tags": [
+          "sweat"
+        ],
+        "summary": "List Sessions",
+        "description": "Sweat sessions of workouts that started in the last N days, oldest first.",
+        "operationId": "list_sessions_api_v1_users__user_id__sweat_sessions_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 3650,
+              "minimum": 1,
+              "default": 28,
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SweatSession"
+                  },
+                  "title": "Response List Sessions Api V1 Users  User Id  Sweat Sessions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/sweat/daily": {
+      "get": {
+        "tags": [
+          "sweat"
+        ],
+        "summary": "Daily",
+        "description": "Sweat per day for the Trends chart over the last 14, 28 or 90 days, plus a one-line summary.",
+        "operationId": "daily_api_v1_users__user_id__sweat_daily_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "nights",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 14,
+              "title": "Nights"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SweatDaily"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users/{user_id}/processing-runs": {
       "post": {
         "tags": [
@@ -1588,6 +1917,72 @@
         ],
         "title": "Body_import_upload_api_import_post"
       },
+      "Body_preview_nix_api_v1_users__user_id__sweat_nix_preview_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "tz_offset_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tz Offset Min"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_preview_nix_api_v1_users__user_id__sweat_nix_preview_post"
+      },
+      "Body_save_nix_api_v1_users__user_id__sweat_nix_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "tz_offset_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tz Offset Min"
+          },
+          "workout_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workout Id"
+          },
+          "new_workout": {
+            "type": "boolean",
+            "title": "New Workout",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_save_nix_api_v1_users__user_id__sweat_nix_post"
+      },
       "Body_shortcut_api_shortcut_post": {
         "properties": {
           "user": {
@@ -1853,6 +2248,48 @@
         ],
         "title": "ImportJob",
         "description": "Where an Apple Health export import is up to."
+      },
+      "ManualSweatIn": {
+        "properties": {
+          "fluid_loss_ml": {
+            "type": "number",
+            "maximum": 30000.0,
+            "minimum": 0.0,
+            "title": "Fluid Loss Ml"
+          },
+          "sodium_mg": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sodium Mg"
+          },
+          "sweat_rate_l_h": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 10.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sweat Rate L H"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "fluid_loss_ml"
+        ],
+        "title": "ManualSweatIn"
       },
       "MetricRow": {
         "properties": {
@@ -2206,6 +2643,61 @@
           "answers"
         ],
         "title": "MorningCheckinIn"
+      },
+      "NixPreview": {
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/SweatSession"
+          },
+          "matched_workout": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Workout"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nearby_workouts": {
+            "items": {
+              "$ref": "#/components/schemas/Workout"
+            },
+            "type": "array",
+            "title": "Nearby Workouts"
+          },
+          "existing": {
+            "type": "string",
+            "enum": [
+              "none",
+              "same",
+              "replaces",
+              "replaces_less_precise",
+              "keeps_more_precise"
+            ],
+            "title": "Existing"
+          },
+          "weight_suggestion_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Suggestion Kg"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session",
+          "matched_workout",
+          "nearby_workouts",
+          "existing",
+          "weight_suggestion_kg"
+        ],
+        "title": "NixPreview"
       },
       "ProcessingRun": {
         "properties": {
@@ -2955,6 +3447,301 @@
         ],
         "title": "SnapshotRef",
         "description": "The score that was first shown for the same night, the one this answer labels."
+      },
+      "SweatDaily": {
+        "properties": {
+          "nights": {
+            "type": "integer",
+            "title": "Nights"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/SweatDay"
+            },
+            "type": "array",
+            "title": "Days"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "placeholder": {
+            "type": "boolean",
+            "title": "Placeholder"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nights",
+          "days",
+          "summary",
+          "placeholder"
+        ],
+        "title": "SweatDaily"
+      },
+      "SweatDay": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "fluid_loss_ml": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fluid Loss Ml"
+          },
+          "sodium_mg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sodium Mg"
+          },
+          "sessions": {
+            "type": "integer",
+            "title": "Sessions"
+          },
+          "has_sweat_data": {
+            "type": "boolean",
+            "title": "Has Sweat Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "fluid_loss_ml",
+          "sodium_mg",
+          "sessions",
+          "has_sweat_data"
+        ],
+        "title": "SweatDay"
+      },
+      "SweatSession": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "workout_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workout Id"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "nix",
+              "manual"
+            ],
+            "title": "Source"
+          },
+          "start_ms": {
+            "type": "integer",
+            "title": "Start Ms"
+          },
+          "end_ms": {
+            "type": "integer",
+            "title": "End Ms"
+          },
+          "start_tz_min": {
+            "type": "integer",
+            "title": "Start Tz Min"
+          },
+          "end_tz_min": {
+            "type": "integer",
+            "title": "End Tz Min"
+          },
+          "start_local": {
+            "type": "string",
+            "title": "Start Local"
+          },
+          "end_local": {
+            "type": "string",
+            "title": "End Local"
+          },
+          "duration_min": {
+            "type": "number",
+            "title": "Duration Min"
+          },
+          "fluid_loss_ml": {
+            "type": "number",
+            "title": "Fluid Loss Ml"
+          },
+          "sweat_rate_l_h": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sweat Rate L H"
+          },
+          "sodium_mg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sodium Mg"
+          },
+          "sodium_rate_mg_h": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sodium Rate Mg H"
+          },
+          "electrolytes_mg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Electrolytes Mg"
+          },
+          "electrolyte_rate_mg_h": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Electrolyte Rate Mg H"
+          },
+          "sweat_composition_mg_l": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sweat Composition Mg L"
+          },
+          "nix_index": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nix Index"
+          },
+          "workout_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workout Type"
+          },
+          "sweat_detected": {
+            "type": "boolean",
+            "title": "Sweat Detected"
+          },
+          "unit_system": {
+            "type": "string",
+            "enum": [
+              "metric",
+              "customary",
+              "manual"
+            ],
+            "title": "Unit System"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "imported_at_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imported At Ms"
+          },
+          "fluid_loss_pct_body_weight": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fluid Loss Pct Body Weight"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "workout_id",
+          "source",
+          "start_ms",
+          "end_ms",
+          "start_tz_min",
+          "end_tz_min",
+          "start_local",
+          "end_local",
+          "duration_min",
+          "fluid_loss_ml",
+          "sweat_rate_l_h",
+          "sodium_mg",
+          "sodium_rate_mg_h",
+          "electrolytes_mg",
+          "electrolyte_rate_mg_h",
+          "sweat_composition_mg_l",
+          "nix_index",
+          "workout_type",
+          "sweat_detected",
+          "unit_system",
+          "warnings",
+          "imported_at_ms",
+          "fluid_loss_pct_body_weight"
+        ],
+        "title": "SweatSession"
       },
       "Today": {
         "properties": {

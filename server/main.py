@@ -37,11 +37,13 @@ from app.routers import (
     profile,
     readings,
     settings,
+    sweat,
     today,
     trends,
     workouts,
 )
 from app.services import processing
+from app.services import sweat as sweat_store
 
 # One log format for the whole server. Each line shows the time, level and which part wrote it.
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -58,6 +60,7 @@ for module in (
     settings,
     checkins,
     workouts,
+    sweat,
     processing_runs,
     demo,
     legacy,
@@ -72,3 +75,4 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 db.init_db()
 processing.init_db()
+sweat_store.init_db()

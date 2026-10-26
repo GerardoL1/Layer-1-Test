@@ -131,43 +131,66 @@ Nix only counts sweat once it starts (often after about 15 minutes), and in a co
   session. Only breathing loss was recorded, so this won't count as sweat data.* They never count as sweat data
   for the readiness model.
 
-## 5. One sweat session (what's stored, batch 2)
+## 5. One sweat session per workout (`server/app/services/sweat.py`)
 
-One row per import or manual entry. Manual entry uses the same fields, so the model doesn't care where the
-numbers came from.
+One row per import or manual entry, and **at most one per workout**. Manual entry uses the same fields, so the
+model doesn't care where the numbers came from. Typed-in numbers are in ml, mg and L/h (the app converts from the
+person's Units first), count as sweat data, and use the workout's start and end times.
 
 `user_id`, `id`, `workout_id`, `source` (nix, manual), start and end (UTC ms plus UTC offset in minutes),
 `duration_min`, `fluid_loss_ml`, `sweat_rate_l_h`, `sodium_mg`, `sodium_rate_mg_h`, `electrolytes_mg`,
 `electrolyte_rate_mg_h`, `sweat_composition_mg_l`, `nix_index`, `workout_type`, `sweat_detected`,
 `unit_system` (metric, customary, or manual), `warnings`, `imported_at_ms`.
 
-The per-minute series is kept in its own table (minute, sweat and respiration rate, running totals).
-The raw `.xlsx` is not kept.
+Tables `sweat_sessions` (keyed by user and id, one per workout) and `sweat_minutes` (Nix's per-minute series).
+Ids are `nix-<start ms>-<end ms>` and `manual-<workout id>`. The raw `.xlsx` is not kept.
 
 **Time zone:** the local times become real times with the person's **Time zone** setting for that date (so
 daylight saving is right). Without one, the offset of their newest reading is used, then the phone's offset sent
-with the upload.
+with the upload (`tz_offset_min`). With none of these the import is refused and asks for a time zone. The times
+then follow the same rules as workouts: not before 2000, not more than a day ahead, at most 24 hours long.
 
-**The same session twice** (same source, start and end): the more precise file wins. A Metric file replaces a
-Customary one, a Customary file never replaces a Metric one, and the same file again changes nothing.
+**More precise data wins.** Precision: Metric Nix, then Customary Nix, then typed in. When a workout already has
+sweat data (or the same file was saved to another workout):
+- more precise new data replaces it (`replaces_less_precise` in the preview)
+- less precise new data is refused with a 409, and the app says the more precise data was kept
+  (`keeps_more_precise`)
+- the same precision replaces it (`replaces`), and the very same file again changes nothing (`same`).
 
-## 6. Matching to a workout (batch 2)
+## 6. Matching to a workout, and the API
 
 - The session is matched to the workout (Layer 1 tab's table) it overlaps most in time.
-- No overlap: the preview lists nearby workouts, closest first, and the person picks one or saves the file as a
-  new workout. A new workout uses source `manual`, the type from the file, the times from the file, and an id
+- No overlap: the preview lists workouts within `NEARBY_DAYS` (7), closest first, at most 5, and the person picks
+  one or saves the file as a new workout. A new workout uses source `manual`, the type from the file, the times from the file, and an id
   built from the start time, so sending it again can't make a second workout.
 - The upload returns a **preview** and saves nothing. **Save** sends the same file again with the chosen
   workout. The server never holds unsaved health data between the two steps.
+- The preview also offers the file's weight as a suggestion, only when Settings has no weight.
 
-## 7. For the readiness model and Today (batch 2)
+| Endpoint (under `/api/v1/users/{user_id}`) | Does |
+|---|---|
+| `POST /sweat/nix/preview` (file, `tz_offset_min`) | Numbers, matched workout, nearby workouts, what saving would do. Saves nothing |
+| `POST /sweat/nix` (file, `tz_offset_min`, `workout_id` or `new_workout`) | Saves to the picked workout, a new one, or the matched one. 400 if none, 409 if less precise |
+| `PUT /workouts/{workout_id}/sweat` | Typed-in numbers (`fluid_loss_ml`, optional `sodium_mg`, `sweat_rate_l_h`) |
+| `GET /workouts/{workout_id}/sweat` | The workout's sweat session, 404 if it has none |
+| `GET /sweat/sessions?days=` | Sessions of workouts started in the last N days (for the SWEAT tags on Train) |
+| `GET /sweat/daily?nights=14\|28\|90` | Sweat per day for the Trends chart, by the day the workout started, plus a placeholder summary |
 
-- **Per-day table:** `person_id`, local date, fluid loss as a share of body weight (`fluid_loss_ml` ÷
-  (`weight_kg` × 1000) × 100, Nix's total, which includes breathing), `sodium_mg`, `has_sweat_data`. Uses the
-  workouts of the last 1 to 2 days that ended before the morning update time, and only sessions where sweat was
-  detected. Missing stays empty, never 0. It joins the readiness training table on the night it leads into.
+Unreadable files get a 400 with the message from section 3. Uploads are limited to 5 MB (`MAX_NIX_UPLOAD_BYTES`).
+
+## 7. For the readiness model and Today
+
+- **Per-day table** (`daily_sweat_table`): `person_id`, `night_date`, `fluid_loss_pct_bw_1d`, `sodium_mg_1d`,
+  `fluid_loss_pct_bw_2d`, `sodium_mg_2d`, `has_sweat_data`. Fluid loss as a share of body weight is
+  `fluid_loss_ml` ÷ (`weight_kg` × 1000) × 100, Nix's total, which includes breathing. The 1d window is sessions
+  that ended on the night's date, or the next morning before the update time. The 2d window adds the day before.
+  Only sessions where sweat was detected count, and `has_sweat_data` is about the 2d window. Missing stays empty
+  (NaN), never 0. It uses today's weight from Settings, since weight has no history yet. It joins the readiness
+  training table on the night it leads into. Adding it to `server/export_training_table.py` is for the Layer 1 tab.
 - Layer 3 may later be a low-weight readiness input (proposed cap ±5 points, still open). It enters only through
   `server/app/readiness/features.py`, which the Layer 1 tab owns.
-- **Hydration line on Today:** a service function returns the line, or nothing, for a person and night, for
-  example "Yesterday's run cost about 0.9 L of sweat. Drink a little more than usual this morning." The Layer 1
-  tab wires it into `/today`. The rehydration advice is a placeholder until the team decides it.
+- **Hydration line on Today:** `hydration_line(user_id, night_date)` returns the line, or None, for the morning
+  after that night, for example "Yesterday's run cost about 0.7 L of sweat. Drink a little more than usual this
+  morning." It uses the 1d window, only sweat-detected sessions, nothing under `HYDRATION_MIN_ML` (250 ml), the
+  workout's type ("workouts" for more than one), and litres or ounces from the person's Units. The Layer 1 tab
+  wires it into `/today`. The wording and the advice are placeholders until the team decides them.
