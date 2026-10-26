@@ -19,11 +19,11 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["layer1", "agent_testing", "app"]
+known-first-party = ["layer1", "layer3", "agent_testing", "app"]
 
 [tool.mypy]
 python_version = "3.10"
-files = ["preprocessing/layer1", "preprocessing/agent_testing", "server"]
+files = ["preprocessing/layer1", "preprocessing/layer3", "preprocessing/agent_testing", "server"]
 exclude = ["/tests/", "/mock/", "\\.venv"]
 ignore_missing_imports = true
 # The server folder isn't a package yet, so let mypy find its modules by folder.

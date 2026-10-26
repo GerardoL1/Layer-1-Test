@@ -15,7 +15,8 @@ app = ["streamlit>=1.40", "plotly>=5.20"]
 
 [tool.setuptools]
 # layer1 is the preprocessing itself, agent_testing is the Layer 1 tester that checks it.
-packages = ["layer1", "agent_testing"]
+# layer3 reads Nix sweat exports.
+packages = ["layer1", "layer3", "agent_testing"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
