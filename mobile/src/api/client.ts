@@ -24,6 +24,8 @@ export type SettingsUpdate = Schemas['SettingsUpdate'];
 export type ImportJob = Schemas['ImportJob'];
 export type ProcessingRun = Schemas['ProcessingRun'];
 export type DemoUser = Schemas['DemoUser'];
+export type Workout = Schemas['Workout'];
+export type SweatSession = Schemas['SweatSession'];
 
 /**
  * The server's error message. Most errors carry it as text. A 422 from a check on what was sent
@@ -121,6 +123,22 @@ export function makeApi(serverUrl: string, userId: string) {
     importStatus: (importId: string) => call<ImportJob>(`${user}/imports/${encodeURIComponent(importId)}`),
     /** This person's latest import, if the server still has it. Empty after a server restart. */
     imports: () => call<ImportJob[]>(`${user}/imports`),
+    /** Workouts that started in the last N days (up to 366), oldest first. */
+    workouts: (days = 366) => call<Workout[]>(`${user}/workouts?days=${days}`),
+    workout: (id: string) => call<Workout>(`${user}/workouts/${encodeURIComponent(id)}`),
+    /** The workout's sweat data, or null when it has none yet. */
+    workoutSweat: async (id: string) => {
+      try {
+        return await call<SweatSession>(`${user}/workouts/${encodeURIComponent(id)}/sweat`);
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 404) return null;
+        throw e;
+      }
+    },
+    sweatSessions: (days = 366) => call<SweatSession[]>(`${user}/sweat/sessions?days=${days}`),
+    /** Testing only: workouts and sweat data for a demo person who's already loaded. */
+    loadDemoSweat: (person: 'sam' | 'alex' | 'jordan') =>
+      call<Schemas['DemoSweat']>(`/api/v1/demo-users/${person}/sweat`, json('POST')),
   };
 }
 

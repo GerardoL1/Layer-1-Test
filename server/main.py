@@ -66,6 +66,7 @@ for module in (
     legacy,
 ):
     app.include_router(module.router)
+app.include_router(sweat.demo_router)
 app.add_exception_handler(RequestValidationError, validation_error)
 
 # Added before CORS so CORS wraps it: the app in a browser can then read the 413 message.

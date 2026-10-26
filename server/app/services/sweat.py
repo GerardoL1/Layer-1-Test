@@ -79,6 +79,8 @@ NEARBY_MAX = 5
 MAX_SESSION_HOURS = 24
 # Placeholder until the team decides the advice: below this much sweat, Today shows no Hydration line.
 HYDRATION_MIN_ML = 250
+# Placeholder too: the workout summary suggests drinking this many times the fluid lost, a common sports advice.
+REHYDRATE_FACTOR = 1.5
 
 ERR_PICK_WORKOUT = "This file doesn't match any workout. Pick one, or save it as a new workout."
 ERR_NO_TIME_ZONE = "We don't know your time zone yet. Set it in Profile, then import the file again."
@@ -348,6 +350,7 @@ def _out(s: dict, weight_kg: float | None) -> dict:
         "warnings": warnings,
         "imported_at_ms": s["imported_at_ms"],
         "fluid_loss_pct_body_weight": pct,
+        "rehydrate_ml": round(s["fluid_loss_ml"] * REHYDRATE_FACTOR) if detected else None,
     }
 
 

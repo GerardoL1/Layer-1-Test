@@ -1886,6 +1886,57 @@
           }
         }
       }
+    },
+    "/api/v1/demo-users/{person}/sweat": {
+      "post": {
+        "tags": [
+          "demo"
+        ],
+        "summary": "Load Demo Sweat",
+        "description": "Testing only: gives a demo person (loaded first) a few weeks of workouts and sweat data.",
+        "operationId": "load_demo_sweat_api_v1_demo_users__person__sweat_post",
+        "parameters": [
+          {
+            "name": "person",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "sam",
+                "alex",
+                "jordan"
+              ],
+              "type": "string",
+              "title": "Person"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemoSweat"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The demo person isn't loaded yet. Load them first."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2040,6 +2091,29 @@
           "ready_from"
         ],
         "title": "Cutoffs"
+      },
+      "DemoSweat": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "workouts": {
+            "type": "integer",
+            "title": "Workouts"
+          },
+          "sweat_sessions": {
+            "type": "integer",
+            "title": "Sweat Sessions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "workouts",
+          "sweat_sessions"
+        ],
+        "title": "DemoSweat"
       },
       "DemoUser": {
         "properties": {
@@ -3682,6 +3756,17 @@
               }
             ],
             "title": "Fluid Loss Pct Body Weight"
+          },
+          "rehydrate_ml": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rehydrate Ml"
           }
         },
         "type": "object",
@@ -3709,7 +3794,8 @@
           "unit_system",
           "warnings",
           "imported_at_ms",
-          "fluid_loss_pct_body_weight"
+          "fluid_loss_pct_body_weight",
+          "rehydrate_ml"
         ],
         "title": "SweatSession"
       },

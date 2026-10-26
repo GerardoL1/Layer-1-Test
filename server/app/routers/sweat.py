@@ -4,6 +4,7 @@ and read it back for a workout, the Train tab and the Trends chart. The work is 
 """
 
 import re
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from starlette.concurrency import run_in_threadpool
@@ -11,11 +12,12 @@ from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core import limits
-from app.core.urls import USER
-from app.schemas.sweat import ManualSweatIn, NixPreview, SweatDaily, SweatSession
-from app.services import sweat
+from app.core.urls import API_V1, USER
+from app.schemas.sweat import DemoSweat, ManualSweatIn, NixPreview, SweatDaily, SweatSession
+from app.services import sweat, sweat_demo
 
 router = APIRouter(prefix=USER, tags=["sweat"])
+demo_router = APIRouter(prefix=API_V1, tags=["demo"])  # testing only, like the Layer 1 demo
 
 DAILY_RANGES = (14, 28, 90)
 _TRUE, _FALSE = ("true", "1", "yes", "on"), ("false", "0", "no", "off", "")
@@ -100,6 +102,16 @@ async def save_nix(user_id: str, request: Request):
     offset, new_workout = _offset_field(fields), _bool_field(fields, "new_workout")
     workout_id = fields.get("workout_id") or None
     return await run_in_threadpool(sweat.save_nix, user_id, data, offset, workout_id, new_workout)
+
+
+@demo_router.post(
+    "/demo-users/{person}/sweat",
+    response_model=DemoSweat,
+    responses={404: {"description": "The demo person isn't loaded yet. Load them first."}},
+)
+def load_demo_sweat(person: Literal["sam", "alex", "jordan"]):
+    """Testing only: gives a demo person (loaded first) a few weeks of workouts and sweat data."""
+    return sweat_demo.load(person)
 
 
 @router.put("/workouts/{workout_id}/sweat", response_model=SweatSession)

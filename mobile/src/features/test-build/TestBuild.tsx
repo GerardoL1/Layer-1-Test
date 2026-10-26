@@ -70,6 +70,11 @@ export function TestBuild({ next = '/today' }: { next?: Href }) {
     setBusy(person);
     try {
       const r = await makeApi(serverUrl, '').loadDemo(person);
+      // Workouts and sweat data too, so the Train screens have something to show. A server from before
+      // Layer 3 doesn't have this route (404), and the demo person still works without it.
+      await makeApi(serverUrl, '').loadDemoSweat(person).catch((e) => {
+        if (!(e instanceof ApiError && e.status === 404)) throw e;
+      });
       await session.update({ serverUrl: serverUrl.trim(), userId: r.user_id });
       router.replace(next);
     } catch (e) {

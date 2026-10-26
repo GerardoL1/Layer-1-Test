@@ -670,6 +670,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/demo-users/{person}/sweat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Load Demo Sweat
+         * @description Testing only: gives a demo person (loaded first) a few weeks of workouts and sweat data.
+         */
+        post: operations["load_demo_sweat_api_v1_demo_users__person__sweat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -743,6 +763,15 @@ export interface components {
             ready_from: number;
             /** Placeholder */
             placeholder?: boolean | null;
+        };
+        /** DemoSweat */
+        DemoSweat: {
+            /** User Id */
+            user_id: string;
+            /** Workouts */
+            workouts: number;
+            /** Sweat Sessions */
+            sweat_sessions: number;
         };
         /** DemoUser */
         DemoUser: {
@@ -1187,6 +1216,8 @@ export interface components {
             imported_at_ms: number | null;
             /** Fluid Loss Pct Body Weight */
             fluid_loss_pct_body_weight: number | null;
+            /** Rehydrate Ml */
+            rehydrate_ml: number | null;
         };
         /** Today */
         Today: {
@@ -2650,6 +2681,44 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    load_demo_sweat_api_v1_demo_users__person__sweat_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                person: "sam" | "alex" | "jordan";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemoSweat"];
+                };
+            };
+            /** @description The demo person isn't loaded yet. Load them first. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

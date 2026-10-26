@@ -28,6 +28,7 @@ export type Colors = {
   sleepCore: string;
   sleepRem: string;
   baseline: string;
+  sweat: string;
 };
 
 export const light: Colors = {
@@ -57,6 +58,7 @@ export const light: Colors = {
   sleepCore: '#6C7CC4',
   sleepRem: '#A9B5E6',
   baseline: '#D3DCE6',
+  sweat: '#3A6EA5',
 };
 
 export const dark: Colors = {
@@ -86,6 +88,7 @@ export const dark: Colors = {
   sleepDeep: '#5F6BC0',
   sleepCore: '#8E9BE6',
   sleepRem: '#C2CBF5',
+  sweat: '#7FB2E0',
 };
 
 export const fonts = {

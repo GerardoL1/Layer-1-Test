@@ -37,6 +37,7 @@ class SweatSession(BaseModel):
     warnings: list[str]
     imported_at_ms: int | None  # None in a preview, nothing is saved yet
     fluid_loss_pct_body_weight: float | None  # only with sweat detected and a weight in Settings
+    rehydrate_ml: int | None  # placeholder advice, about 1.5 times the loss, only with sweat detected
 
 
 class NixPreview(BaseModel):
@@ -60,6 +61,12 @@ class ManualSweatIn(BaseModel):
     fluid_loss_ml: Millilitres
     sodium_mg: Milligrams | None = None
     sweat_rate_l_h: LitresPerHour | None = None
+
+
+class DemoSweat(BaseModel):
+    user_id: str
+    workouts: int
+    sweat_sessions: int
 
 
 class SweatDay(BaseModel):
