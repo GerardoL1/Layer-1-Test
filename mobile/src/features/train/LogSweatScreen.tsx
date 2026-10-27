@@ -14,14 +14,14 @@ import { Page, PageState } from '../../components/Page';
 import { SubPageHeader } from '../../components/SubPageHeader';
 import { Text } from '../../components/Text';
 import { fieldError } from '../../lib/a11y';
-import { AmountKind, amountHint, amountInput, amountUnit, parseAmount, startLabel, Units } from '../../lib/sweat';
+import { AmountKind, amountHint, amountInput, amountUnit, startLabel, typedValue, Units } from '../../lib/sweat';
 import { errorText, useLoad } from '../../lib/useLoad';
 import { useTheme } from '../../theme/theme';
 import { type } from '../../theme/tokens';
 
 const FIELDS: { kind: AmountKind; label: string; spoken: string }[] = [
   { kind: 'fluid', label: 'Sweat loss', spoken: 'Sweat loss' },
-  { kind: 'sodium', label: 'Sodium loss (optional)', spoken: 'Sodium loss, optional' },
+  { kind: 'sodium', label: 'Sodium loss', spoken: 'Sodium loss, optional' },
   { kind: 'rate', label: 'Sweat rate (optional)', spoken: 'Sweat rate, optional' },
 ];
 const UNIT_WORDS: Record<string, string> = { ml: 'millilitres', oz: 'ounces', mg: 'milligrams',
@@ -71,11 +71,11 @@ export default function LogSweatScreen() {
   const busy = useRef(false);
 
   const current = base.data && base.data.workoutId === workoutId ? base.data : null;
+  const before = current?.sweat?.source === 'manual' ? current.sweat : null;
   // Numbers typed in earlier fill the boxes, so saving again doesn't drop the optional ones by accident.
   // Filled once per load, while rendering (React's way to reset state when an input changes).
   const [filledFrom, setFilledFrom] = useState<typeof current>(null);
   if (current && filledFrom !== current) {
-    const before = current.sweat?.source === 'manual' ? current.sweat : null;
     setFilledFrom(current);
     setErrors({});
     setTyped(before ? {
@@ -90,6 +90,15 @@ export default function LogSweatScreen() {
     <SubPageHeader back={back} home={home} label="Sweat sensor" title="Log a sweat session"
       intro="Add the numbers from your sweat sensor after a workout." />
   );
+  // Opened without a workout (an old link, say), so there's nothing to log against.
+  if (!workoutId) {
+    return (
+      <Page>
+        <SubPageHeader back="Train" home="/train" label="Sweat sensor" title="Log a sweat session" />
+        <Text variant="body" color="textSecondary">Open a workout first, then log its sweat session from there.</Text>
+      </Page>
+    );
+  }
   if (!current) {
     return <Page>{header('Workout')}<PageState loading={base.loading || !!base.data} error={base.error} /></Page>;
   }
@@ -97,7 +106,8 @@ export default function LogSweatScreen() {
 
   async function save() {
     if (busy.current) return;
-    const parsed = FIELDS.map((f) => [f.kind, parseAmount(typed[f.kind], f.kind, units)] as const);
+    const saved = { fluid: before?.fluid_loss_ml ?? null, sodium: before?.sodium_mg ?? null, rate: before?.sweat_rate_l_h ?? null };
+    const parsed = FIELDS.map((f) => [f.kind, typedValue(typed[f.kind], f.kind, units, saved[f.kind])] as const);
     const bad = Object.fromEntries(parsed.flatMap(([k, r]) => ('error' in r ? [[k, r.error]] : [])));
     setErrors(bad);
     if (Object.keys(bad).length) return;
@@ -129,6 +139,8 @@ export default function LogSweatScreen() {
     <Page form>
       {header(workout.type)}
       <ListRow label="Workout" value={`${startLabel(workout.start_local).split(' · ')[0]} · ${workout.type}`} />
+      <ListRow label="Import a Nix file" value=".xlsx"
+        onPress={() => router.replace({ pathname: '/train/import', params: { workoutId } })} />
       <View style={styles.form}>
         {FIELDS.map((f) => (
           <Field key={f.kind} id={`sweat-${f.kind}`} label={f.label} spoken={f.spoken} hint={amountHint(f.kind, units)}
@@ -140,6 +152,8 @@ export default function LogSweatScreen() {
         </Text>
         {saveError ? <LiveText error color="low">{saveError}</LiveText> : null}
         <Button title="Save session" busy={saving} onPress={save} />
+        <Button title="Cancel" kind="secondary" disabled={saving}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace(home))} />
       </View>
     </Page>
   );
@@ -149,6 +163,6 @@ const styles = StyleSheet.create({
   form: { marginTop: 24, gap: 20, maxWidth: 520 },
   field: { gap: 4 },
   inputRow: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 2, minHeight: 44, gap: 8 },
-  input: { ...type.bodyLarge, flex: 1, paddingVertical: 8 },
+  input: { ...type.bodyLarge, flex: 1, minHeight: 44, paddingVertical: 8 },
   error: { marginTop: 4 },
 });

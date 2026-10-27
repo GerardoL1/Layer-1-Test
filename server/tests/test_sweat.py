@@ -741,3 +741,65 @@ def test_metric_no_sweat_still_replaces_customary_no_sweat():
     workout(u, "lift", start, start + 133 * 60000)
     save(u, CUSTOMARY_DRY)
     assert preview(u, METRIC_DRY).json()["existing"] == "replaces_less_precise"
+
+
+# ---------------------------------------------------------------- findings from the Layer 1 tab's review
+
+DRY_START = local_ms(2026, 10, 25, 14, 55)
+
+
+def test_sweat_file_compares_precision_only_with_sweat_data():
+    # S4. A breathing-only Metric copy elsewhere made a Customary sweat file lose to typed-in numbers (409).
+    u = person("sw_s4")
+    workout(u, "w1", DRY_START, DRY_START + 133 * 60000)
+    workout(u, "w2", DRY_START - 48 * HOUR, DRY_START - 47 * HOUR)
+    assert save(u, METRIC_DRY, workout_id="w1").status_code == 200
+    manual(u, "w2", fluid_loss_ml=500)
+    wet = nix_file("Oct 25, 2026 at 2:55 PM", "Oct 25, 2026 at 5:08 PM", "02:13:00", units="customary")
+    assert preview(u, wet, workout_id="w2").json()["existing"] == "replaces_less_precise"
+    r = save(u, wet, workout_id="w2")
+    assert r.status_code == 200 and r.json()["unit_system"] == "customary"
+
+
+def test_duration_far_from_the_real_times_is_not_trusted():
+    # S5. Duration 30:00:00 on an hour-long workout saved duration_min 1800.
+    u = person("sw_s5")
+    workout(u, "run1", SWEAT_START, SWEAT_END)
+    s = save(u, nix_file("Oct 20, 2026 at 6:00 PM", "Oct 20, 2026 at 7:00 PM", "30:00:00"), workout_id="run1").json()
+    assert s["duration_min"] == 60
+    assert any(w.startswith("The duration") for w in s["warnings"])
+
+
+def test_a_session_with_no_length_is_refused():
+    # S6. Start equal to end previewed fine, then every way of saving failed with a confusing message.
+    r = preview(person("sw_s6"), nix_file("Oct 20, 2026 at 6:00 PM", "Oct 20, 2026 at 6:00 PM", "00:00:00"))
+    assert r.status_code == 400 and r.json()["detail"] == sweat.ERR_NO_LENGTH
+
+
+def test_the_same_file_again_leaves_the_saved_session_alone():
+    # S7. "same" in the preview, but saving deleted and re-inserted it with a new imported_at_ms.
+    u = person("sw_s7")
+    workout(u, "run1", SWEAT_START, SWEAT_END)
+    first = save(u).json()
+    assert save(u).json()["imported_at_ms"] == first["imported_at_ms"]
+
+
+def test_hydration_line_never_shows_less_than_its_threshold():
+    # S9. Exactly 250 ml showed "about 0.2 L".
+    u = person("sw_s9")
+    workout(u, "run1", SWEAT_START, SWEAT_END, "Run")
+    manual(u, "run1", fluid_loss_ml=sweat.HYDRATION_MIN_ML)
+    assert "about 0.3 L" in sweat.hydration_line("sw_s9", date(2026, 10, 20))
+
+
+def test_huge_minute_numbers_get_a_400_on_save():
+    # S2 on the server: 10**19 minutes previewed fine, then saving crashed in SQLite with a 500.
+    t = S.sweat_workout()
+    rows = S.timeseries_rows(t, "metric")[1]
+    rows[5][0] = 10**19
+    header = S.timeseries_rows(t, "metric")[0]
+    summary = [["Data", "Value"]] + [list(r) for r in S.summary_rows(t, "metric")]
+    data = S.build_xlsx([("Workout Summary", summary, False), ("Timeseries Data", [list(header), *rows], True)])
+    u = person("sw_s2")
+    workout(u, "run1", SWEAT_START, SWEAT_END)
+    assert save(u, data, workout_id="run1").status_code == 400

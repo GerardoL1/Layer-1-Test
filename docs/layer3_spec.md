@@ -101,6 +101,10 @@ same. Units are matched in any case, with spaces ignored. Stored values always u
 - A file that unpacks to more than `MAX_UNZIPPED_BYTES`. This is checked against the zip's listing first, then
   counted while unpacking (a chunk at a time), since a crafted zip can lie about its sizes.
 - XML Excel never writes: anything other than UTF-8, or a DOCTYPE or ENTITY.
+- A cell longer than `MAX_CELL_CHARS`. One shared string can fill thousands of cells, so reading it over and
+  over would tie up the server.
+- A minute number that isn't a whole number from 0 to `MAX_MINUTES` (one day), and any number so long it reads
+  as infinity. An infinite Nix index is left out like an unreadable one.
 - A missing sheet, a missing `Data` or `Minutes` header, a missing required row or column.
 - A unit we don't know (names the label), a number we can't read, a negative number (including `-0`), or a value
   far beyond a workout.
@@ -112,7 +116,8 @@ same. Units are matched in any case, with spaces ignored. Stored values always u
 - Total fluid loss doesn't match sweat rate × duration within ±15% (`FLUID_CHECK_TOLERANCE`), allowing
   `FLUID_CHECK_ABS_ML` for rounding on small totals.
 - The number of minutes in the timeseries differs from the duration by more than `MINUTES_CHECK_TOLERANCE`.
-- Duration differs from end minus start by more than `DURATION_CHECK_TOLERANCE_MIN`.
+- Duration differs from end minus start by more than `DURATION_CHECK_TOLERANCE_MIN`. The real times are then
+  used for the session length, since a far-off Duration is a broken file.
 - Duration isn't `HH:MM:SS`, so end minus start was used instead.
 
 ## 4. No sweat detected
@@ -151,7 +156,7 @@ Ids are `nix-<start ms>-<end ms>` and `manual-<workout id>`. The raw `.xlsx` is 
 daylight saving is right). Without one, the offset of their newest reading is used, then the phone's offset sent
 with the upload (`tz_offset_min`). With none of these the import is refused and asks for a time zone. The times
 then follow the same rules as workouts: not before 2000, not more than a day ahead, at most 24 hours long, and the
-real end can't be before the real start.
+real end can't be before the real start. A session whose real start and end are the same is refused with a 400.
 
 **Clock changes** (with a Time zone setting):
 - A time in the hour skipped when clocks go forward doesn't exist, so the file is refused with a plain 400.
@@ -170,13 +175,15 @@ sweat data (or the same file was saved to another workout):
 - more precise new data replaces it (`replaces_less_precise` in the preview)
 - less precise new data is refused with a 409, and the app says the more precise data was kept
   (`keeps_more_precise`)
-- the same precision replaces it (`replaces`), and the very same file again changes nothing (`same`).
+- the same precision replaces it (`replaces`), and the very same file again changes nothing (`same`). Saving it again leaves the saved row as it is, import time included.
 
 **Real sweat data beats breathing-only data** (decided 2026-10-26), before precision is looked at:
 - a Nix file where no sweat was picked up never replaces a session that has sweat data, typed in or Nix. It's
   refused with a 409 (`keeps_sweat_data`, "the sweat data was kept")
 - sweat data (typed in or Nix) always replaces a breathing-only session (`replaces`)
 - between two breathing-only files, precision decides as above.
+- a sweat file only races for precision against sweat data. A breathing-only copy of the same workout loses
+  anyway, so it can't make a sweat file look less precise and get it refused.
 
 ## 6. Matching to a workout, and the API
 

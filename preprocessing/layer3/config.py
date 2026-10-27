@@ -23,6 +23,11 @@ OLE_SIGNATURE = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 EARLIEST_YEAR = 2000
 # Bad values are quoted back in error messages, cut to this length.
 ERROR_VALUE_MAX_CHARS = 40
+# Nix labels, dates and numbers are short. A cell far longer than this is a crafted file, and reading it
+# over and over (one string can fill thousands of cells) would tie up the server.
+MAX_CELL_CHARS = 1000
+# One row per minute, and a workout is at most a day.
+MAX_MINUTES = 24 * 60
 
 # Summary labels we read, by the text before the brackets (lower case) -> our field name.
 # Athlete Name, Height, Workout Name and Training Pace are left out on purpose.
@@ -142,6 +147,7 @@ ERR_PDF = "This is a PDF, not the Excel export. Export the workout again and pic
 ERR_PROTECTED = "This file is password-protected or in the old Excel format, so we can't read it. " + EXPORT_HINT
 ERR_IMPLAUSIBLE = "'{label}' is far higher than a workout could produce ('{value}'). Export the workout again."
 ERR_DAMAGED = "This file is damaged or can't be opened. Export the workout again from the Nix app."
+ERR_LONG_CELL = "This file has a cell far longer than a Nix export writes. " + EXPORT_HINT
 ERR_TOO_BIG = "This file is far bigger than a Nix export. " + EXPORT_HINT
 ERR_MISSING_SHEET = "This file has no '{sheet}' sheet, so it isn't a Nix workout export. " + EXPORT_HINT
 ERR_MISSING_HEADER = "The '{sheet}' sheet doesn't have its '{header}' heading. Export the workout again."

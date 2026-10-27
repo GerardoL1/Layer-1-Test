@@ -3,7 +3,7 @@
  * which workouts have sweat data, and their Units setting.
  */
 import { useApi } from '../../api/useApi';
-import { Units } from '../../lib/sweat';
+import { sweatWorkoutIds, Units } from '../../lib/sweat';
 import { useLoad } from '../../lib/useLoad';
 
 export function useTrainData() {
@@ -20,13 +20,13 @@ export function useTrainData() {
       nowLocal: today.now_local,
       status: today.readiness?.status ?? null,
       workouts,
-      withSweat: new Set(sessions.map((s) => s.workout_id)),
+      withSweat: sweatWorkoutIds(sessions),
       units: settings.units as Units,
     };
   }, api);
 }
 
 /** The data tags a workout row shows. PATCH joins this with Layer 2. */
-export function tagsFor(workoutId: string, withSweat: Set<string | null>): string[] {
+export function tagsFor(workoutId: string, withSweat: Set<string>): string[] {
   return withSweat.has(workoutId) ? ['Sweat'] : [];
 }

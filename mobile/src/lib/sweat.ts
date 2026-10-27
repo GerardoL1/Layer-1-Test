@@ -199,6 +199,16 @@ export function sessionStats(s: SessionNumbers, units: Units): Stat[] {
   ];
 }
 
+/** Workouts whose sweat session picked up real sweat. Breathing-only sessions don't earn the SWEAT tag. */
+export function sweatWorkoutIds(sessions: { workout_id: string | null; sweat_detected: boolean }[]): Set<string> {
+  return new Set(sessions.flatMap((s) => (s.sweat_detected && s.workout_id ? [s.workout_id] : [])));
+}
+
+const CHECK_LABELS: Record<string, string> = { 'Fluid lost': 'Sweat loss', 'Sodium lost': 'Sodium loss' };
+
+/** Check your import names the numbers the way Figma does, which differs from the workout screen. */
+export const checkLabel = (label: string) => CHECK_LABELS[label] ?? label;
+
 // ---------------------------------------------------------------- typed-in numbers and the import notes
 
 export type AmountKind = 'fluid' | 'sodium' | 'rate';
@@ -248,6 +258,15 @@ export function amountInput(value: number | null, kind: AmountKind, units: Units
   if (kind === 'fluid') return units === 'imperial' ? String(Math.round((value / ML_PER_OZ) * 10) / 10) : String(Math.round(value));
   if (kind === 'rate') return units === 'imperial' ? String(Math.round((value * 1000) / ML_PER_OZ)) : String(Number(value.toFixed(2)));
   return String(Math.round(value));
+}
+
+/**
+ * Like parseAmount, but a box still showing the saved number gives back that exact number.
+ * Otherwise 640 ml shown as 21.6 oz would quietly save as 638.8 ml.
+ */
+export function typedValue(text: string, kind: AmountKind, units: Units, saved: number | null) {
+  if (saved !== null && text.trim() && text.trim() === amountInput(saved, kind, units)) return { value: saved };
+  return parseAmount(text, kind, units);
 }
 
 /** An example in the box, sized for the unit (1.2 makes sense in L/h, not in oz/h). */

@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme/theme';
 import { Text } from './Text';
@@ -42,6 +42,8 @@ export function ListRow({ label, value, onPress, comingSoon, danger, valueColor,
     <Pressable onPress={link ? onPress : undefined} disabled={!link}
       accessibilityRole="button" aria-disabled={comingSoon || undefined} aria-expanded={expanded}
       accessibilityHint={comingSoon ? 'Coming soon' : hint}
+      // The web drops accessibilityHint, so there the hint joins the label. Rows without one are left alone.
+      accessibilityLabel={Platform.OS === 'web' && hint && !comingSoon ? [label, value, hint].filter(Boolean).join(', ') : undefined}
       style={({ pressed }) => [styles.row, { borderTopColor: colors.border,
         opacity: comingSoon ? 0.55 : pressed ? 0.7 : 1 }]}>
       {content}

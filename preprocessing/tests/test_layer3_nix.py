@@ -598,7 +598,7 @@ def test_missing_breathing_values_dont_hide_real_sweat():
 
 def test_long_bad_values_are_cut_short_in_messages():
     # 8. The whole value went into the message, even 4 MB of it.
-    junk = "x" * 5000
+    junk = "x" * 900  # under MAX_CELL_CHARS, which refuses longer cells before they're read
     msg = error_of(make(S.sweat_workout(), summary_edit=lambda s: set_value(s, "Total Fluid Loss (ml)", junk)))
     assert len(msg) < 200
     assert msg.startswith("We couldn't read the number for 'Total Fluid Loss (ml)'")
@@ -720,3 +720,38 @@ def test_invisible_characters_in_dates():
         set_value(summary, "Start Time", "﻿Oct 20, 2026 at​ 6:00 PM")
 
     assert read_nix(make(S.sweat_workout(), summary_edit=edit)).start_local == datetime(2026, 10, 20, 18, 0)
+
+
+# ---------------------------------------------------------------- findings from the Layer 1 tab's review
+
+
+def test_one_huge_text_cell_shared_by_many_cells_is_refused_quickly():
+    # S1. A small file whose one huge shared string is used by many cells cost minutes of CPU.
+    def huge(raw):
+        return raw.replace(b">Value</t>", b">" + b"a" * 1_000_000 + b"</t>", 1)
+
+    def many(raw):
+        cells = b"".join(b'<row r="%d"><c r="B%d" t="s"><v>1</v></c></row>' % (r, r) for r in range(300, 400))
+        return raw.replace(b"</sheetData>", cells + b"</sheetData>")
+
+    data = patch(patch(sweat_file(), "xl/sharedStrings.xml", huge), SHEET1, many)
+    started = time.perf_counter()
+    assert error_of(data) == C.ERR_LONG_CELL
+    assert time.perf_counter() - started < 1
+
+
+@pytest.mark.parametrize("value", ["1" * 400, "9" * 20, "100000"])
+def test_minutes_that_cant_be_real_are_refused(value):
+    # S2. "1"*400 crashed with OverflowError, and huge whole numbers broke the save into SQLite.
+    def edit(ts):
+        ts[5][0] = value
+
+    assert error_of(make(S.sweat_workout(), ts_edit=edit)) == C.ERR_BAD_NUMBER.format(
+        label="Minutes", value=value[: C.ERROR_VALUE_MAX_CHARS] + ("…" if len(value) > C.ERROR_VALUE_MAX_CHARS else "")
+    )
+
+
+def test_infinite_nix_index_is_left_out():
+    # S3. "9"*400 was stored as infinity.
+    s = read_nix(make(S.sweat_workout(), summary_edit=lambda x: set_value(x, "Nix Index", "9" * 400)))
+    assert s.nix_index is None

@@ -211,6 +211,8 @@ def _grid(root: ET.Element, shared: list[str]) -> Grid:
                 text = shared[i] if 0 <= i < len(shared) else ""
             else:
                 text = v.text
+            if len(text) > C.MAX_CELL_CHARS:
+                raise NixFileError(C.ERR_LONG_CELL)
             grid[(row_no, col_no)] = text
     return grid
 
@@ -265,7 +267,10 @@ def _number(raw: str | None, label: str) -> float | None:
         raise NixFileError(C.ERR_NEGATIVE.format(label=label, value=_short(s)))
     if not _NUMBER.fullmatch(s):
         raise NixFileError(C.ERR_BAD_NUMBER.format(label=label, value=_short(s)))
-    return float(s.replace(",", ""))
+    x = float(s.replace(",", ""))
+    if not math.isfinite(x):  # a few hundred digits overflow to infinity
+        raise NixFileError(C.ERR_BAD_NUMBER.format(label=label, value=_short(s)))
+    return x
 
 
 def _factor(field_name: str, unit: str | None, label: str) -> float:
@@ -430,7 +435,7 @@ def _timeseries(sheets: dict[str, Grid]) -> tuple[list[NixMinute], set[str]]:
         if raw_minute is None or _clean(raw_minute) in C.MISSING_TEXT:
             break
         minute = _number(raw_minute, "Minutes")
-        if minute is None or minute != int(minute):
+        if minute is None or minute > C.MAX_MINUTES or minute != int(minute):
             raise NixFileError(C.ERR_BAD_NUMBER.format(label="Minutes", value=_short(_clean(raw_minute))))
         values = {
             key: _converted(grid.get((r, c)), key, unit, label)

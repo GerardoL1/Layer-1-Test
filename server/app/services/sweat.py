@@ -96,6 +96,7 @@ ERR_CLOCK_GAP = (
     "Export the workout again from the Nix app."
 )
 ERR_NO_FILE = "Choose the Nix file to upload."
+ERR_NO_LENGTH = "This file's workout starts and ends at the same time. Export the workout again from the Nix app."
 ERR_BAD_FORM = "Part of the upload couldn't be read. Choose the Nix file and try again."
 # Text fields in an upload (time zone, workout id) are tiny. Anything bigger is refused with ERR_BAD_FORM.
 MAX_FORM_FIELD_BYTES = 1024
@@ -219,8 +220,14 @@ def _from_nix(conn, user_id: str, s: NixSession, phone_offset: int | None) -> tu
     require_time(end_ms, end_tz, "The Nix workout end")
     if end_ms - start_ms > MAX_SESSION_HOURS * HOUR_MS:
         raise HTTPException(400, f"A workout can't be longer than {MAX_SESSION_HOURS} hours.")
+    if end_ms == start_ms:
+        raise HTTPException(400, ERR_NO_LENGTH)
     span_min = (end_ms - start_ms) / 60000
-    used_min = s.file_duration_min if s.file_duration_min is not None else span_min
+    # The file's Duration is used only when it agrees with the real times. A far-off one is a broken file.
+    file_min = s.file_duration_min
+    used_min = span_min
+    if file_min is not None and abs(file_min - span_min) <= C3.DURATION_CHECK_TOLERANCE_MIN:
+        used_min = file_min
     warnings = [w for w in s.warnings if not w.startswith(_LOCAL_TIME_WARNINGS)]
     if abs(len(s.minutes) - used_min) > C3.MINUTES_CHECK_TOLERANCE:
         warnings.insert(0, C3.WARN_MINUTES_MISMATCH.format(rows=len(s.minutes), minutes=used_min))
@@ -306,6 +313,9 @@ def _existing(new: dict, conflicts: list[dict]) -> str:
         return "keeps_sweat_data"
     if new_sweat and not any(c["sweat_detected"] for c in conflicts):
         return "replaces"
+    if new_sweat:
+        # Breathing-only copies lose to sweat data anyway, so only sweat data takes part in the precision race.
+        conflicts = [c for c in conflicts if c["sweat_detected"]]
     best = max(_precision(c["unit_system"]) for c in conflicts)
     if best > _precision(new["unit_system"]):
         return "keeps_more_precise"
@@ -325,13 +335,17 @@ def _refuse(existing: str) -> None:
         raise HTTPException(409, ERR_KEEPS_SWEAT)
 
 
-def _store(conn, user_id: str, new: dict, minutes: list[tuple]) -> None:
+def _store(conn, user_id: str, new: dict, minutes: list[tuple]) -> dict:
+    """Saves the session and returns what's saved now (the earlier row untouched when it's the same file)."""
     # Take the write lock before looking at what's saved. Otherwise two saves at once (a double tap) both
     # see nothing saved, and the second one breaks the one-per-workout rule.
     if not conn.in_transaction:
         conn.execute("BEGIN IMMEDIATE")
     conflicts = _conflicts(conn, user_id, new["id"], new["workout_id"])
-    _refuse(_existing(new, conflicts))
+    existing = _existing(new, conflicts)
+    _refuse(existing)
+    if existing == "same":
+        return conflicts[0]
     for old in conflicts:
         conn.execute("DELETE FROM sweat_sessions WHERE user_id = ? AND id = ?", (user_id, old["id"]))
         conn.execute("DELETE FROM sweat_minutes WHERE user_id = ? AND session_id = ?", (user_id, old["id"]))
@@ -346,6 +360,7 @@ def _store(conn, user_id: str, new: dict, minutes: list[tuple]) -> None:
         "INSERT OR REPLACE INTO sweat_minutes VALUES (?,?,?,?,?,?,?,?,?,?)",
         [(user_id, new["id"], *m) for m in minutes],
     )
+    return new
 
 
 # ---------------------------------------------------------------- replies
@@ -464,8 +479,7 @@ def save_nix(user_id: str, data: bytes, phone_offset: int | None, workout_id: st
     new["workout_id"] = workout_id
     new["imported_at_ms"] = int(time.time() * 1000)
     with db.connect() as conn:
-        _store(conn, user_id, new, minutes)
-        return _out(new, _weight(conn, user_id))
+        return _out(_store(conn, user_id, new, minutes), _weight(conn, user_id))
 
 
 def save_manual(user_id: str, workout_id: str, fluid_loss_ml: float, sodium_mg, sweat_rate_l_h) -> dict:
@@ -492,8 +506,7 @@ def save_manual(user_id: str, workout_id: str, fluid_loss_ml: float, sodium_mg, 
             "warnings": [],
             "imported_at_ms": int(time.time() * 1000),
         }
-        _store(conn, user_id, new, [])
-        return _out(new, _weight(conn, user_id))
+        return _out(_store(conn, user_id, new, []), _weight(conn, user_id))
 
 
 _SESSIONS_SQL = (
@@ -581,7 +594,8 @@ def _type_text(s: dict) -> str:
 def _amount(ml: float, units: str | None) -> str:
     if units == "imperial":
         return f"{ml / C3.OZ_TO_ML:.0f} oz"
-    return f"{ml / 1000:.1f} L"
+    # Rounded half up, so 250 ml (the threshold) reads 0.3 L rather than 0.2 L.
+    return f"{math.floor(ml / 100 + 0.5) / 10:.1f} L"
 
 
 def hydration_line(user_id: str, night_date: date) -> str | None:

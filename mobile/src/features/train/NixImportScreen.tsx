@@ -26,6 +26,7 @@ import { Text } from '../../components/Text';
 import { pickNix } from '../../lib/pickNix';
 import {
   alsoSaved,
+  checkLabel,
   duration,
   existingNote,
   isRefused,
@@ -164,7 +165,10 @@ export default function NixImportScreen() {
     reset();
     try {
       const fresh = await api.previewNix(file, target.save);
-      setStep({ kind: 'check', file, preview: fresh, target });
+      // A new workout for this file may already exist from an earlier save, so name that one.
+      const made = 'newWorkout' in target.save && fresh.session.workout_id
+        ? await api.workout(fresh.session.workout_id).catch(() => null) : null;
+      setStep({ kind: 'check', file, preview: fresh, target: made ? { ...target, label: workoutName(made) } : target });
     } catch (e) {
       setStep({ kind: 'pick', file, preview, reason, problem: errorText(e) });
     } finally {
@@ -296,7 +300,7 @@ export default function NixImportScreen() {
     const pick = (w: Workout) =>
       checkFor(file, preview, reason, { save: { workoutId: w.id }, label: workoutName(w) });
     const intro = reason === 'not-this' ? notThisWorkout(s.start_local)
-      : reason === 'no-match' ? `This file is from ${spanLabel(s.start_local, s.end_local)}. No workout matches that time.`
+      : reason === 'no-match' ? `This file is from ${spanLabel(s.start_local, s.end_local)}. No workout from your Apple Watch matches that time.`
         : `This file is from ${spanLabel(s.start_local, s.end_local)}. Pick the workout it belongs to.`;
     return (
       <Page>
@@ -341,7 +345,7 @@ export default function NixImportScreen() {
     <View style={styles.space24}>
       <SectionHeader title="Sweat" note="From Nix" />
       {sessionStats(s, units).map((x) => (
-        <ListRow key={x.label} label={x.label} value={x.shown ? joined(x.shown) : 'Not measured'} />
+        <ListRow key={x.label} label={checkLabel(x.label)} value={x.shown ? joined(x.shown) : 'Not measured'} />
       ))}
       {extras ? <Text variant="bodySmall" color="textMuted" style={styles.space12}>{extras}</Text> : null}
       <Text variant="bodySmall" color="textMuted" style={styles.space8}>
@@ -377,7 +381,8 @@ export default function NixImportScreen() {
     <>
       <ListRow label="Workout" value={target.label} hint="Changes which workout this is saved to"
         onPress={() => setStep({ kind: 'pick', file, preview, reason: 'change' })} />
-      <ListRow label="Nix file" value={fileTimes} />
+      {/* A no-break space, so the label stays on one line on a 320 px screen. */}
+      <ListRow label={'Nix file'} value={fileTimes} />
     </>
   );
   return (

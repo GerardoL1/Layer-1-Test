@@ -239,6 +239,27 @@ const checks = {
     assert.strictEqual(s.amountHint('rate', 'imperial'), 'e.g. 40');
     assert.strictEqual(s.amountHint('fluid', 'imperial'), 'e.g. 30');
   },
+  'only workouts with real sweat data get the SWEAT tag': () => {
+    const ids = s.sweatWorkoutIds([
+      { workout_id: 'wet', sweat_detected: true },
+      { workout_id: 'dry', sweat_detected: false },
+      { workout_id: null, sweat_detected: true },
+    ]);
+    assert.deepStrictEqual([...ids], ['wet']);
+  },
+  'a box left as it was keeps the exact saved number': () => {
+    // 640 ml shows as 21.6 oz, and reading 21.6 oz back gives 638.8 ml, so untouched boxes keep 640.
+    assert.deepStrictEqual(s.typedValue('21.6', 'fluid', 'imperial', 640), { value: 640 });
+    assert.deepStrictEqual(s.typedValue('22', 'fluid', 'imperial', 640), { value: 650.6 });
+    assert.deepStrictEqual(s.typedValue('', 'sodium', 'metric', 410), { value: null });
+    assert.deepStrictEqual(s.typedValue('900', 'fluid', 'metric', null), { value: 900 });
+  },
+  'Check your import uses Figma labels for the numbers': () => {
+    assert.strictEqual(s.checkLabel('Fluid lost'), 'Sweat loss');
+    assert.strictEqual(s.checkLabel('Sodium lost'), 'Sodium loss');
+    assert.strictEqual(s.checkLabel('Sweat rate'), 'Sweat rate');
+    assert.strictEqual(s.checkLabel('Breathing loss'), 'Breathing loss');
+  },
   'the suggestion follows the readiness status, and needs one': () => {
     assert.strictEqual(s.suggestion('low').effort, 'Easy');
     assert.strictEqual(s.suggestion('ready').title, 'Good day to train hard.');
