@@ -3,13 +3,14 @@ Workouts and the after-workout check-in. Effort (1 to 10) times minutes is the t
 model will use. Patch and sweat sessions (Layers 2 and 3) point at a workout by its id.
 """
 
-import time
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Query
 
 from app.core import db
 from app.core.urls import USER
 from app.schemas.workouts import RatingIn, Workout, WorkoutIn
+from app.services import processing
 from app.services.time_checks import local_time, require_time
 from app.services.users import require_user
 
@@ -18,7 +19,8 @@ router = APIRouter(prefix=USER + "/workouts", tags=["workouts"])
 MAX_WORKOUT_HOURS = 24
 
 
-def _out(row) -> dict:
+def workout_reply(row) -> dict:
+    """A workouts row as the API sends it. Layer 3 uses this too, so keep it stable."""
     minutes = round((row["end_ms"] - row["start_ms"]) / 60000, 1)
     effort = row["effort"]
     return {
@@ -64,26 +66,32 @@ def save_workout(user_id: str, w: WorkoutIn):
             "source = excluded.source, type = excluded.type",
             (user_id, w.id, w.start_ms, w.end_ms, w.start_tz_min, w.end_tz_min, w.source, w.type),
         )
-        return _out(_get(conn, user_id, w.id))
+        return workout_reply(_get(conn, user_id, w.id))
 
 
 @router.get("", response_model=list[Workout])
 def list_workouts(user_id: str, days: int = Query(28, ge=1, le=366)):
-    """Workouts that started in the last N days, oldest first."""
-    since = int(time.time() * 1000) - days * 86400 * 1000
+    """Workouts that started in the last N days of the person's own clock, oldest first."""
     with db.connect() as conn:
         require_user(conn, user_id)
+        try:
+            now = processing.local_now(conn, user_id, processing.utc_now())
+        except ValueError:  # a demo clock that can't be read: the real date is close enough
+            now = processing.utc_now().replace(tzinfo=None)
+        # Compared in local wall-clock time, since that's what "the last 7 days" means to the person.
+        since = int((now - timedelta(days=days) - datetime(1970, 1, 1)).total_seconds() * 1000)
         rows = conn.execute(
-            "SELECT * FROM workouts WHERE user_id = ? AND start_ms >= ? ORDER BY start_ms", (user_id, since)
+            "SELECT * FROM workouts WHERE user_id = ? AND start_ms + start_tz_min * 60000 >= ? ORDER BY start_ms",
+            (user_id, since),
         ).fetchall()
-    return [_out(r) for r in rows]
+    return [workout_reply(r) for r in rows]
 
 
 @router.get("/{workout_id}", response_model=Workout)
 def get_workout(user_id: str, workout_id: str):
     with db.connect() as conn:
         require_user(conn, user_id)
-        return _out(_get(conn, user_id, workout_id))
+        return workout_reply(_get(conn, user_id, workout_id))
 
 
 @router.put("/{workout_id}/rating", response_model=Workout)
@@ -99,4 +107,4 @@ def rate_workout(user_id: str, workout_id: str, rating: RatingIn):
             "UPDATE workouts SET effort = ?, satisfaction = ?, rated_at_ms = ? WHERE user_id = ? AND id = ?",
             (rating.effort, rating.satisfaction, rating.answered_at_ms, user_id, workout_id),
         )
-        return _out(_get(conn, user_id, workout_id))
+        return workout_reply(_get(conn, user_id, workout_id))

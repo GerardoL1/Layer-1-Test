@@ -17,8 +17,8 @@ import pandas as pd
 from fastapi import HTTPException
 
 from app.core import db
-from app.routers.workouts import _out as workout_out
 from app.routers.workouts import save_workout
+from app.routers.workouts import workout_reply as workout_out
 from app.schemas.workouts import WorkoutIn
 from app.services import processing
 from app.services.time_checks import local_time, require_time

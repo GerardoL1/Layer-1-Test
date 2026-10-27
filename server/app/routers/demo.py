@@ -23,7 +23,18 @@ def load_demo(person: Literal["sam", "alex", "jordan"]):
     """Load a mock person as demo-<name> with a fixed clock. Reloading starts them fresh."""
     user_id = f"demo-{person}"
     with db.connect() as conn:
-        for table in ("samples", "sleep_stages", "nights", "runs", "users"):
+        for table in (
+            "samples",
+            "sleep_stages",
+            "nights",
+            "runs",
+            "readiness_snapshots",
+            "checkins",
+            "workouts",
+            "sweat_sessions",
+            "sweat_minutes",
+            "users",
+        ):
             conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (user_id,))
         conn.execute("INSERT INTO users (user_id, clock_local) VALUES (?, ?)", (user_id, DEMO_CLOCK))
         import_export(sample_path(person), conn, user_id)

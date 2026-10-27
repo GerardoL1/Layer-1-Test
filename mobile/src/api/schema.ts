@@ -252,7 +252,7 @@ export interface paths {
         };
         /**
          * List Workouts
-         * @description Workouts that started in the last N days, oldest first.
+         * @description Workouts that started in the last N days of the person's own clock, oldest first.
          */
         get: operations["list_workouts_api_v1_users__user_id__workouts_get"];
         put?: never;

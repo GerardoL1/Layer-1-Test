@@ -15,6 +15,7 @@ from datetime import date, timedelta
 import pandas as pd
 
 from app.readiness.features import FEATURE_COLUMNS
+from app.services import sweat
 from app.services.time_checks import local_time
 
 CHECKIN_SCALES = [
@@ -28,6 +29,9 @@ CHECKIN_SCALES = [
     "soreness",
 ]
 LOAD_WINDOWS = {"load_1d": 1, "load_3d": 3, "load_7d": 7, "load_28d": 28}
+
+# From Layer 3 (sweat.daily_sweat_table). Missing stays NaN, never 0, and has_sweat_data says whether there was any.
+SWEAT_COLUMNS = ["fluid_loss_pct_bw_1d", "sodium_mg_1d", "fluid_loss_pct_bw_2d", "sodium_mg_2d", "has_sweat_data"]
 
 COLUMNS = [
     "person_id",
@@ -47,6 +51,7 @@ COLUMNS = [
     "checkin_unusual",
     "checkin_rehydrated",
     "checkin_answered_local",
+    *SWEAT_COLUMNS,
 ]
 
 
@@ -86,6 +91,7 @@ def build(conn, user_ids: list[str] | None = None, include_catch_up: bool = Fals
         load = _daily_load(conn, user_id)
         rated = _rated_days(conn, user_id)
         checkins = {r["night_date"]: r for r in conn.execute("SELECT * FROM checkins WHERE user_id = ?", (user_id,))}
+        sweat_by_night = sweat.daily_sweat_table(conn, user_id).set_index("night_date").to_dict("index")
         snaps = conn.execute(
             "SELECT * FROM readiness_snapshots WHERE user_id = ? ORDER BY night_date", (user_id,)
         ).fetchall()
@@ -120,5 +126,6 @@ def build(conn, user_ids: list[str] | None = None, include_catch_up: bool = Fals
                 row["checkin_answered_local"] = local_time(c["answered_at_ms"], c["tz_offset_min"]).isoformat(
                     timespec="minutes"
                 )
+            row.update(sweat_by_night.get(s["night_date"], {"has_sweat_data": False}))
             rows.append(row)
     return pd.DataFrame(rows, columns=COLUMNS)
