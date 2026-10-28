@@ -207,7 +207,7 @@ def ml_table(conn, user_id: str) -> pd.DataFrame:
 # ---------------------------------------------------------------- deciding when to run
 
 
-def _last_run(conn, user_id: str):
+def last_run(conn, user_id: str):
     return conn.execute("SELECT * FROM runs WHERE user_id = ? ORDER BY run DESC LIMIT 1", (user_id,)).fetchone()
 
 
@@ -216,7 +216,7 @@ def needs_processing(conn, user_id: str, now_utc: datetime | None = None) -> boo
     user = conn.execute("SELECT data_changed_ms, update_time FROM users WHERE user_id = ?", (user_id,)).fetchone()
     if user is None or user["data_changed_ms"] is None:
         return False
-    last = _last_run(conn, user_id)
+    last = last_run(conn, user_id)
     if last is None or (last["data_changed_ms"] or 0) < user["data_changed_ms"]:
         return True
     if last["ready_through"] is None:
@@ -270,7 +270,7 @@ def process_user(
             return None
 
         proc = I.DailyProcessor(user_id, update_time=parse_update_time(user["update_time"]))
-        last = _last_run(conn, user_id)
+        last = last_run(conn, user_id)
         # Start over when asked to, or when new readings reach back past the nights a run redoes.
         # Otherwise carry on from the saved nights, which only redoes the last few.
         rebuild = force or _reaches_back(user["changed_from_ms"], last)

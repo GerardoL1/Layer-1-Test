@@ -1,4 +1,4 @@
-"""Looking up a user: their settings, latest run and saved nights."""
+"""Looking up a user: their settings and saved nights."""
 
 import json
 
@@ -14,10 +14,6 @@ def require_user(conn, user_id: str):
     if user is None:
         raise HTTPException(404, f"No data for '{user_id}' yet. Sync from the iPhone or import a Health export.")
     return user
-
-
-def last_run(conn, user_id: str):
-    return conn.execute("SELECT * FROM runs WHERE user_id = ? ORDER BY run DESC LIMIT 1", (user_id,)).fetchone()
 
 
 def night_rows(user_id: str) -> pd.DataFrame:

@@ -18,7 +18,7 @@ from app.readiness.usual import metric_rows
 from app.schemas.today import Today
 from app.services import processing
 from app.services.update_schedule import can_update_now, next_update
-from app.services.users import last_run, night_rows, require_user
+from app.services.users import night_rows, require_user
 from layer1 import config as C
 
 router = APIRouter(prefix=USER, tags=["today"])
@@ -46,7 +46,7 @@ def today(user_id: str):
         user = require_user(conn, user_id)
         now = processing.local_now(conn, user_id, processing.utc_now())
         update_time = processing.parse_update_time(user["update_time"])
-        run = last_run(conn, user_id)
+        run = processing.last_run(conn, user_id)
         ready_through = date.fromisoformat(run["ready_through"]) if run and run["ready_through"] else None
         update_now_ok = can_update_now(conn, user_id, now, update_time, ready_through)
     nights = night_rows(user_id)
