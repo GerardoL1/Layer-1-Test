@@ -95,6 +95,9 @@ def load_export(source, days: int | None = C.DEFAULT_DAYS) -> tuple[pd.DataFrame
     """
     rows: list[tuple] = []
     counts: dict[str, int] = {}
+    # Units, source names and sleep values repeat millions of times. Keep one copy of each.
+    shared: dict = {}
+    one = lambda v: shared.setdefault(v, v)  # noqa: E731
     with _open_xml(source) as f:
         events = ET.iterparse(f, events=("start", "end"))
         _, root = next(events)
@@ -110,8 +113,8 @@ def load_export(source, days: int | None = C.DEFAULT_DAYS) -> tuple[pd.DataFrame
                             "quantity",
                             C.QUANTITY_TYPES[rtype],
                             elem.get("value"),
-                            elem.get("unit"),
-                            elem.get("sourceName", ""),
+                            one(elem.get("unit")),
+                            one(elem.get("sourceName", "")),
                             elem.get("startDate"),
                             elem.get("endDate"),
                         )
@@ -121,9 +124,9 @@ def load_export(source, days: int | None = C.DEFAULT_DAYS) -> tuple[pd.DataFrame
                         (
                             "sleep",
                             "sleep_analysis",
-                            elem.get("value"),
+                            one(elem.get("value")),
                             None,
-                            elem.get("sourceName", ""),
+                            one(elem.get("sourceName", "")),
                             elem.get("startDate"),
                             elem.get("endDate"),
                         )
