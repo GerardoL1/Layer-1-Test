@@ -179,7 +179,9 @@ def load_export(source, days: int | None = C.DEFAULT_DAYS) -> tuple[pd.DataFrame
         cutoff = noon if noon <= start else noon - pd.Timedelta(days=1)
         # Someone who sleeps through the day can be asleep at noon. Move the cut back to where that
         # sleep started, so the oldest night is kept whole instead of leaving a piece that looks like a nap.
-        sleep = records[records["kind"] == "sleep"]
+        # Pieces cleaning will drop as too long can't pull the cut back, or one bogus record adds weeks.
+        too_long = records["end_utc"] - records["start_utc"] > pd.Timedelta(hours=C.MAX_SLEEP_SEGMENT_HOURS)
+        sleep = records[(records["kind"] == "sleep") & ~too_long]
         gap = pd.Timedelta(minutes=C.SESSION_GAP_MIN)
         while True:
             crossing = sleep[(sleep["start_local"] < cutoff) & (sleep["end_local"] > cutoff - gap)]

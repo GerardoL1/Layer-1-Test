@@ -339,6 +339,14 @@ def test_the_days_window_keeps_a_day_sleepers_sleep_whole():
     assert (r.nights.dropna(subset=["tst_min"])["tst_min"] == 450).all()
 
 
+def test_one_bogus_long_sleep_record_does_not_stretch_the_days_window():
+    # A 30-day "asleep" record across the cut is dropped by cleaning, so it mustn't move the cut back either.
+    recs = [r for d in range(1, 20) for r in night(f"2026-09-{d:02d}", f"2026-09-{d + 1:02d}")]
+    recs.append(sleep("2026-08-15 00:00:00", "2026-09-17 00:00:00", "AsleepUnspecified", "Other app"))
+    r = P.run_pipeline(export(*recs), days=5)
+    assert r.records["start_local"].min() >= pd.Timestamp("2026-09-13")
+
+
 def test_in_bed_from_another_app_says_so_in_the_removal_log():
     stages = [*night("2026-09-01", "2026-09-02"), sleep("2026-09-01 21:00:00", "2026-09-02 09:00:00", "InBed", "Oura")]
     log = P.run_pipeline(export(*stages), days=None).removal_log
