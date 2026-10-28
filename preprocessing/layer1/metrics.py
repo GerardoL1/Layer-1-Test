@@ -90,9 +90,16 @@ NIGHT_COLUMNS = [
 ]
 
 
+def _between(df: pd.DataFrame, lo, hi) -> pd.DataFrame:
+    """Rows with lo <= start_utc <= hi. df must be sorted by start_utc, so a binary search does it."""
+    t = df["start_utc"]
+    return df.iloc[t.searchsorted(lo, "left") : t.searchsorted(hi, "right")]
+
+
 def nightly_metrics(sessions: pd.DataFrame, stages: pd.DataFrame, cleaned: dict[str, pd.DataFrame]) -> pd.DataFrame:
     """Step 4. One row per night that has a main sleep."""
-    hr, hrv = cleaned["heart_rate"], cleaned["hrv_sdnn"]
+    # Sorted once here so each night can slice its readings instead of scanning them all.
+    hr, hrv = (cleaned[k].sort_values("start_utc", kind="stable") for k in ("heart_rate", "hrv_sdnn"))
     in_bed, apple_rhr = cleaned["in_bed"], cleaned["resting_heart_rate"]
     apple_rhr_by_day = apple_rhr.groupby(apple_rhr["start_local"].dt.date)["value"].mean()
     match = pd.Timedelta(hours=C.IN_BED_MATCH_HOURS)
@@ -121,9 +128,9 @@ def nightly_metrics(sessions: pd.DataFrame, stages: pd.DataFrame, cleaned: dict[
         tib = (tib_end - tib_start).total_seconds() / 60
 
         # Overnight vitals, restricted to the main sleep window.
-        night_hrv = hrv[(hrv["start_utc"] >= lo) & (hrv["start_utc"] <= hi)]["value"]
+        night_hrv = _between(hrv, lo, hi)["value"]
         hrv_mean = float(night_hrv.mean()) if len(night_hrv) else np.nan
-        rhr = overnight_rhr(hr, lo, hi)
+        rhr = overnight_rhr(_between(hr, lo, hi), lo, hi)
 
         rows.append(
             {
