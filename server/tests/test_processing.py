@@ -68,7 +68,8 @@ def last_ready(user):
 
 def saved_table(user):
     with db.connect() as conn:
-        return processing.ml_table(conn, user)
+        nights = processing.load_nights(conn, user)
+    return P.build_ml_table(nights, user) if not nights.empty else pd.DataFrame(columns=list(P.ML_COLUMNS))
 
 
 def replay(person, user, late_hrv=False, hours=(8, 16, 23), first_load_days=24):

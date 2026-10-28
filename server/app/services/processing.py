@@ -23,7 +23,6 @@ from app.readiness.features import build_features
 from app.readiness.model import get_model
 from layer1 import config as C
 from layer1 import incremental as I
-from layer1 import pipeline as P
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS nights (
@@ -194,14 +193,6 @@ def load_nights(conn, user_id: str) -> pd.DataFrame:
         else:
             df[col] = pd.to_numeric(df[col], errors="coerce").astype(float)
     return df
-
-
-def ml_table(conn, user_id: str) -> pd.DataFrame:
-    """The ML-ready table (one row per night) from the saved rows."""
-    nights = load_nights(conn, user_id)
-    if nights.empty:
-        return pd.DataFrame(columns=list(P.ML_COLUMNS))
-    return P.build_ml_table(nights, user_id)
 
 
 # ---------------------------------------------------------------- deciding when to run
