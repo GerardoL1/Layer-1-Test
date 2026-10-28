@@ -72,6 +72,16 @@ def saved_table(user):
     return P.build_ml_table(nights, user) if not nights.empty else pd.DataFrame(columns=list(P.ML_COLUMNS))
 
 
+def woke_after(recs: pd.DataFrame, night) -> pd.Timestamp:
+    """When the sleep that started on the evening of `night` ended (local time)."""
+    sleep = recs[
+        recs["stage"].notna()
+        & (recs["start_local"] >= pd.Timestamp(datetime.combine(night, time(18))))
+        & (recs["start_local"] <= pd.Timestamp(datetime.combine(night + timedelta(days=1), time(14))))
+    ]
+    return sleep["end_local"].max()
+
+
 def replay(person, user, late_hrv=False, hours=(8, 16, 23), first_load_days=24):
     recs = load(person)
     arrive = I.arrival_times(recs, late_hrv)
@@ -129,12 +139,7 @@ def test_a_rebuild_after_update_now_keeps_last_night():
     recs = load("sam")
     day = recs["start_local"].min().date() + timedelta(days=10)
     night = day - timedelta(days=1)
-    sleep = recs[
-        recs["stage"].notna()
-        & (recs["start_local"] >= pd.Timestamp(datetime.combine(night, time(18))))
-        & (recs["start_local"] <= pd.Timestamp(datetime.combine(day, time(14))))
-    ]
-    woke = sleep["end_local"].max().to_pydatetime()
+    woke = woke_after(recs, night).to_pydatetime()
     tapped = woke + timedelta(minutes=C.UPDATE_NOW_QUIET_MIN + 1)
     assert tapped < datetime.combine(day, time(*C.DEFAULT_UPDATE_TIME))  # still before the update time
     arrived = recs[recs["end_local"] <= pd.Timestamp(woke)]
@@ -153,12 +158,7 @@ def test_update_time_and_update_now():
     recs = load("sam")
     day = recs["start_local"].min().date() + timedelta(days=10)
     night = day - timedelta(days=1)
-    sleep = recs[
-        recs["stage"].notna()
-        & (recs["start_local"] >= pd.Timestamp(datetime.combine(night, time(18))))
-        & (recs["start_local"] <= pd.Timestamp(datetime.combine(day, time(14))))
-    ]
-    woke = sleep["end_local"].max().to_pydatetime()
+    woke = woke_after(recs, night).to_pydatetime()
     store(user, recs[recs["end_local"] <= pd.Timestamp(woke)])
     with db.connect() as conn:
         conn.execute("UPDATE users SET update_time = '17:00' WHERE user_id = ?", (user,))
