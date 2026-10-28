@@ -23,7 +23,8 @@ export function useLoad<T>(load: () => Promise<T>, key: unknown) {
     let current = true;   // ignore answers that arrive after the screen moved on
     latest.current().then(
       (data) => current && setResult({ key, run, data, error: null }),
-      (e) => current && setResult((prev) => ({ key, run, data: prev.data, error: errorText(e) })),
+      // Keep the old data only if it was for the same thing, never another person's.
+      (e) => current && setResult((prev) => ({ key, run, data: prev.key === key ? prev.data : null, error: errorText(e) })),
     );
     return () => {
       current = false;
