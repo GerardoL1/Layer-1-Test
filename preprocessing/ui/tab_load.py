@@ -3,10 +3,7 @@
 import numpy as np
 import streamlit as st
 
-from ui.common import (
-    AppData,
-    settings,
-)
+from ui.common import AppData
 
 
 def render(data: AppData) -> None:
@@ -44,4 +41,3 @@ def render(data: AppData) -> None:
             hide_index=True,
             use_container_width=True,
         )
-    settings("DEFAULT_DAYS")
