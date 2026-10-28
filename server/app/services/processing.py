@@ -10,16 +10,15 @@ when something changed: new readings, or the clock passing the user's update tim
 """
 
 import json
-import math
 import threading
 from dataclasses import asdict
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-import numpy as np
 import pandas as pd
 
 from app.core import db
+from app.core.json_values import clean
 from app.readiness.features import build_features
 from app.readiness.model import get_model
 from layer1 import config as C
@@ -128,28 +127,10 @@ def utc_now() -> datetime:
 # ---------------------------------------------------------------- saving and loading nightly rows
 
 
-def _to_json_value(v):
-    if v is None or (isinstance(v, float) and math.isnan(v)) or v is pd.NaT:
-        return None
-    if isinstance(v, (pd.Timestamp, datetime)):
-        return v.isoformat()
-    if isinstance(v, date):
-        return v.isoformat()
-    if isinstance(v, (np.bool_, bool)):
-        return bool(v)
-    if isinstance(v, np.integer):
-        return int(v)
-    if isinstance(v, np.floating):
-        return None if np.isnan(v) else float(v)
-    if pd.isna(v):
-        return None
-    return v
-
-
 def save_nights(conn, user_id: str, nights: pd.DataFrame):
     rows = []
     for rec in nights.to_dict(orient="records"):
-        data = {k: _to_json_value(v) for k, v in rec.items()}
+        data = {k: clean(v) for k, v in rec.items()}
         rows.append((user_id, data["night_date"], json.dumps(data)))
     conn.execute("DELETE FROM nights WHERE user_id = ?", (user_id,))
     conn.executemany("INSERT INTO nights VALUES (?,?,?)", rows)
