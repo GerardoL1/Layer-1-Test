@@ -126,7 +126,7 @@ export function EditRow({ label, value, children, open, onToggle, error }: {
 }
 
 const styles = StyleSheet.create({
-  chip: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.sm,
+  chip: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.full,
     borderWidth: 1 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   editor: { gap: 8 },
