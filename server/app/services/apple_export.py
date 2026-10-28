@@ -17,6 +17,8 @@ from datetime import datetime
 from pathlib import Path
 
 from app.core import db, limits
+from layer1.config import QUANTITY_TYPES, SLEEP_TYPE
+from layer1.config import SLEEP_VALUES as SLEEP_STAGES
 from layer1.load import find_export_xml
 from layer1.units import factor
 
@@ -43,25 +45,6 @@ def check_unzipped_size(path: str | Path) -> None:
             "or unzip it and upload export.xml."
         )
 
-
-# HealthKit type -> our metric name
-QUANTITY_TYPES = {
-    "HKQuantityTypeIdentifierHeartRate": "heart_rate",
-    "HKQuantityTypeIdentifierRestingHeartRate": "resting_heart_rate",
-    "HKQuantityTypeIdentifierHeartRateVariabilitySDNN": "hrv_sdnn",
-}
-SLEEP_TYPE = "HKCategoryTypeIdentifierSleepAnalysis"
-
-# HealthKit sleep values -> short stage names
-SLEEP_STAGES = {
-    "HKCategoryValueSleepAnalysisInBed": "in_bed",
-    "HKCategoryValueSleepAnalysisAsleepUnspecified": "asleep_unspecified",
-    "HKCategoryValueSleepAnalysisAsleep": "asleep_unspecified",  # older iOS versions
-    "HKCategoryValueSleepAnalysisAwake": "awake",
-    "HKCategoryValueSleepAnalysisAsleepCore": "core",
-    "HKCategoryValueSleepAnalysisAsleepDeep": "deep",
-    "HKCategoryValueSleepAnalysisAsleepREM": "rem",
-}
 
 BATCH = 5000
 # How often (in records of any type) the import reports how far through the file it is.
