@@ -78,6 +78,14 @@ def daily_check(zip_path: Path, name: str, late_hours) -> Result:
     return Result(label, "fail" if problems else "pass", "; ".join(problems[:5]) or f"{runs} daily runs")
 
 
+NOISE_REASON = {
+    "duplicates": "Exact duplicate",
+    "glitches": "Value outside plausible range",
+    "other_app_hr": "Not recorded by the Apple Watch",
+    "other_app_sleep": "Not recorded by the Apple Watch",
+}
+
+
 def run_scenario(spec_path: Path, build_dir: Path, skip_daily: bool) -> dict:
     spec = load_spec(spec_path)
     t0 = clock.time()
@@ -93,11 +101,14 @@ def run_scenario(spec_path: Path, build_dir: Path, skip_daily: bool) -> dict:
         noise = sc.truth["noise"]
         if noise:
             removed = r.removal_log.groupby("reason")["removed"].sum().to_dict() if len(r.removal_log) else {}
+            # Each kind of noise must be removed by its own rule, not just "something was removed".
+            missing = {NOISE_REASON[k] for k in noise} - set(removed)
             results.append(
                 Result(
                     "Cleaning removed the injected noise",
-                    "pass" if removed else "fail",
-                    ", ".join(f"{k}: {v}" for k, v in removed.items()) or "nothing removed",
+                    "fail" if missing else "pass",
+                    (f"nothing removed by: {', '.join(sorted(missing))}. " if missing else "")
+                    + (", ".join(f"{k}: {v}" for k, v in removed.items()) or "nothing removed"),
                 )
             )
         results += expectation_checks(spec.get("expect", []), sc.truth, nights)
