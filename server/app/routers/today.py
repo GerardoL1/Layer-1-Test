@@ -41,7 +41,7 @@ def sleep_block(row) -> dict:
 
 @router.get("/today", response_model=Today, response_model_exclude_unset=True)
 def today(user_id: str):
-    processing.ensure_processed(user_id)
+    processing.process_user(user_id)
     with db.connect() as conn:
         user = require_user(conn, user_id)
         now = processing.local_now(conn, user_id, processing.utc_now())

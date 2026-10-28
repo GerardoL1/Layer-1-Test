@@ -25,7 +25,7 @@ TREND_RANGES = (14, 28, 90)
 def trends(user_id: str, nights: int = 14):
     if nights not in TREND_RANGES:
         raise HTTPException(422, f"nights must be one of {', '.join(map(str, TREND_RANGES))}")
-    processing.ensure_processed(user_id)
+    processing.process_user(user_id)
     with db.connect() as conn:
         require_user(conn, user_id)
     table = night_rows(user_id)

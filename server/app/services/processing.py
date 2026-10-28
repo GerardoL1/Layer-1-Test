@@ -336,8 +336,3 @@ def process_user(
         )
         report.run = run
         return report
-
-
-def ensure_processed(user_id: str, now_utc: datetime | None = None) -> I.RunReport | None:
-    """Call before reading results. Does nothing when the saved results are current."""
-    return process_user(user_id, now_utc)

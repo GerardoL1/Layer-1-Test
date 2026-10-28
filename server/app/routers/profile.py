@@ -16,7 +16,7 @@ router = APIRouter(prefix=USER, tags=["profile"])
 
 @router.get("/profile", response_model=Profile)
 def profile(user_id: str):
-    processing.ensure_processed(user_id)
+    processing.process_user(user_id)
     with db.connect() as conn:
         require_user(conn, user_id)
         run = processing.last_run(conn, user_id)
