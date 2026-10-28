@@ -43,9 +43,3 @@ class HealthAutoExportResult(BaseModel):
     unreadable: int  # rows that couldn't be read
     ignored_metrics: list[str]  # things we don't use, like steps
     notes: list[str] = []  # what to change in Health Auto Export, when something can't be used
-
-
-class Upload(ReadingsBatch):
-    """The old POST /upload body, where the user id had to be in the body."""
-
-    user_id: str

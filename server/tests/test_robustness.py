@@ -131,12 +131,8 @@ def test_shortcuts_takes_a_first_sync_bigger_than_1_mb():
     times = [f"2026-09-{1 + i // 1440:02d}T{i // 60 % 24:02d}:{i % 60:02d}:00-05:00" for i in range(20000)]
     rows = "\n".join(f"{t} | {t} | 52 | Test Apple Watch" for t in times)
     assert len(rows) > 1024 * 1024
-    for url, data in (
-        ("/api/v1/users/big_sc/readings/shortcuts", {"metric": "heart_rate", "rows": rows}),
-        ("/api/shortcut", {"user": "big_sc_old", "metric": "heart_rate", "rows": rows}),
-    ):
-        r = client.post(url, data=data)
-        assert r.status_code == 200 and "new 20000" in r.text, url
+    r = client.post("/api/v1/users/big_sc/readings/shortcuts", data={"metric": "heart_rate", "rows": rows})
+    assert r.status_code == 200 and "new 20000" in r.text
 
 
 def test_a_shortcuts_sleep_batch_with_unreadable_lines_is_refused_whole():

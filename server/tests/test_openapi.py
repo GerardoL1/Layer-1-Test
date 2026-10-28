@@ -21,7 +21,7 @@ def test_openapi_json_is_up_to_date():
 def test_every_v1_endpoint_describes_its_response():
     for path, ops in main.app.openapi()["paths"].items():
         for method, op in ops.items():
-            if op.get("deprecated") or path.endswith("/readings/shortcuts"):  # shortcuts replies in plain text
+            if path.endswith("/readings/shortcuts"):  # shortcuts replies in plain text
                 continue
             ok = next(code for code in op["responses"] if code.startswith("2"))
             schema = op["responses"][ok].get("content", {}).get("application/json", {}).get("schema", {})
