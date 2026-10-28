@@ -103,6 +103,7 @@ def nightly_metrics(sessions: pd.DataFrame, stages: pd.DataFrame, cleaned: dict[
     in_bed, apple_rhr = cleaned["in_bed"], cleaned["resting_heart_rate"]
     apple_rhr_by_day = apple_rhr.groupby(apple_rhr["start_local"].dt.date)["value"].mean()
     match = pd.Timedelta(hours=C.IN_BED_MATCH_HOURS)
+    gap = pd.Timedelta(minutes=C.SESSION_GAP_MIN)
 
     rows = []
     for _, s in sessions[sessions["is_main"]].iterrows():
@@ -115,16 +116,18 @@ def nightly_metrics(sessions: pd.DataFrame, stages: pd.DataFrame, cleaned: dict[
         awakenings, waso = count_awakenings(g[g["stage"] == "awake"], lo, hi)
         window_min = (hi - lo).total_seconds() / 60
 
-        # Time in bed: iPhone "In Bed" if it overlaps this night, else the sleep window itself.
+        # Time in bed: the sleep window, widened by iPhone "In Bed" records that touch it or each other.
+        # A separate In Bed record hours later doesn't count, the time out of bed in between isn't in bed.
         ib = in_bed[(in_bed["end_utc"] > lo - match) & (in_bed["start_utc"] < hi + match)]
-        if not ib.empty:
-            tib_start, tib_end, tib_source = (
-                min(ib["start_utc"].min(), lo),
-                max(ib["end_utc"].max(), hi),
-                "iphone_in_bed",
-            )
-        else:
-            tib_start, tib_end, tib_source = lo, hi, "sleep_window"
+        tib_start, tib_end, tib_source = lo, hi, "sleep_window"
+        joined = True
+        while joined:
+            joined = False
+            for a, b in zip(ib["start_utc"], ib["end_utc"]):
+                if a <= tib_end + gap and b >= tib_start - gap:
+                    tib_source = "iphone_in_bed"
+                    if a < tib_start or b > tib_end:
+                        tib_start, tib_end, joined = min(a, tib_start), max(b, tib_end), True
         tib = (tib_end - tib_start).total_seconds() / 60
 
         # Overnight vitals, restricted to the main sleep window.

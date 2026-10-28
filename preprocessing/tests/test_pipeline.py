@@ -208,6 +208,17 @@ def test_time_in_bed_uses_iphone_when_present():
     assert row["sleep_efficiency_pct"] == pytest.approx(410 / 480 * 100)
 
 
+def test_a_separate_in_bed_later_does_not_count_the_time_out_of_bed():
+    # Up at 06:30, back in bed 08:30-09:00 to read. The two hours in between weren't in bed.
+    stages = [
+        *night("2026-09-01", "2026-09-02"),
+        sleep("2026-09-01 22:30:00", "2026-09-02 06:30:00", "InBed", source="Test’s iPhone"),
+        sleep("2026-09-02 08:30:00", "2026-09-02 09:00:00", "InBed", source="Test’s iPhone"),
+    ]
+    row = P.run_pipeline(export(*stages), days=None).nights.iloc[0]
+    assert row["tib_min"] == pytest.approx(480)
+
+
 def test_in_bed_from_other_apps_is_ignored():
     # Only the iPhone's (or the watch's) In Bed counts. Another app's would stretch time in bed.
     stages = [
