@@ -89,21 +89,6 @@ def find_sleep_windows(stages: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame
       stages    the input stages (overlaps resolved) with a session_id column
     """
     st = resolve_overlaps(stages).sort_values("start_utc").reset_index(drop=True).copy()
-    if st.empty:
-        st["session_id"] = pd.Series(dtype=int)
-        return pd.DataFrame(
-            columns=[
-                "session_id",
-                "night_date",
-                "onset_utc",
-                "wake_utc",
-                "onset_local",
-                "wake_local",
-                "asleep_min",
-                "is_main",
-            ]
-        ), st
-
     gap = pd.Timedelta(minutes=C.SESSION_GAP_MIN)
     session_ids, current, latest_end = [], 0, None
     for start, end in zip(st["start_utc"], st["end_utc"]):
@@ -111,7 +96,7 @@ def find_sleep_windows(stages: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame
             current += 1
         session_ids.append(current)
         latest_end = end if latest_end is None else max(latest_end, end)
-    st["session_id"] = session_ids
+    st["session_id"] = pd.Series(session_ids, dtype=int)
 
     rows = []
     for sid, g in st.groupby("session_id"):
@@ -132,7 +117,10 @@ def find_sleep_windows(stages: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame
                 "asleep_min": asleep_min,
             }
         )
-    sessions = pd.DataFrame(rows)
+    # Listing the columns keeps the shape when nothing is sleep (empty input, or only awake pieces).
+    sessions = pd.DataFrame(
+        rows, columns=["session_id", "night_date", "onset_utc", "wake_utc", "onset_local", "wake_local", "asleep_min"]
+    )
     sessions["is_main"] = False
     main_idx = sessions.groupby("night_date")["asleep_min"].idxmax()
     sessions.loc[main_idx, "is_main"] = True
