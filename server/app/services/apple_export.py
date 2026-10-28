@@ -17,6 +17,7 @@ from datetime import datetime
 from pathlib import Path
 
 from app.core import db, limits
+from app.services.time_checks import utc_ms
 from layer1.config import QUANTITY_TYPES, SLEEP_TYPE
 from layer1.config import SLEEP_VALUES as SLEEP_STAGES
 from layer1.load import find_export_xml
@@ -67,16 +68,7 @@ def parse_date(date_str: str) -> tuple[int, int]:
     offset = dt.utcoffset()
     if offset is None:
         raise ValueError(f"date has no UTC offset: {date_str}")
-    minutes = int(offset.total_seconds() // 60)
-    if not db.valid_offset(minutes):
-        raise ValueError(f"impossible UTC offset: {date_str}")
-    try:
-        ms = int(dt.timestamp() * 1000)
-    except OverflowError:  # year 1 with a positive offset falls before year 1 in UTC
-        raise ValueError(f"date out of range: {date_str}") from None
-    if not db.valid_time(ms):
-        raise ValueError(f"date out of range: {date_str}")
-    return ms, minutes
+    return utc_ms(dt, offset, date_str)
 
 
 def xml_size(path: str | Path) -> int:
