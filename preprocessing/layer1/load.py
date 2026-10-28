@@ -96,7 +96,11 @@ def load_export(source, days: int | None = C.DEFAULT_DAYS) -> tuple[pd.DataFrame
     rows: list[tuple] = []
     counts: dict[str, int] = {}
     with _open_xml(source) as f:
-        for _, elem in ET.iterparse(f, events=("end",)):
+        events = ET.iterparse(f, events=("start", "end"))
+        _, root = next(events)
+        for event, elem in events:
+            if event == "start":
+                continue
             if elem.tag == "Record":
                 rtype = elem.get("type", "")
                 counts[rtype] = counts.get(rtype, 0) + 1
@@ -126,6 +130,7 @@ def load_export(source, days: int | None = C.DEFAULT_DAYS) -> tuple[pd.DataFrame
                     )
             if elem.tag in ("Record", "Workout", "Correlation", "ActivitySummary", "ClinicalRecord"):
                 elem.clear()
+                root.clear()  # the root still holds every emptied element otherwise
 
     type_counts = (
         pd.DataFrame(sorted(counts.items(), key=lambda kv: -kv[1]), columns=["type", "records"])

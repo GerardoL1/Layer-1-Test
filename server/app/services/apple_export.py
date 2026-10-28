@@ -105,7 +105,11 @@ def iter_records(fileobj, on_tick: Callable[[int, str], None] | None = None) -> 
     records, including ones we skip, so progress keeps moving through long stretches of steps etc.
     """
     seen = 0
-    for _, elem in ET.iterparse(fileobj, events=("end",)):
+    events = ET.iterparse(fileobj, events=("start", "end"))
+    _, root = next(events)
+    for event, elem in events:
+        if event == "start":
+            continue
         if elem.tag == "Record":
             rtype = elem.get("type")
             seen += 1
@@ -113,9 +117,10 @@ def iter_records(fileobj, on_tick: Callable[[int, str], None] | None = None) -> 
                 on_tick(fileobj.tell(), READING.get(rtype, "other"))
             if rtype in QUANTITY_TYPES or rtype == SLEEP_TYPE:
                 yield dict(elem.attrib)
-        # Free memory as we go. Record elements can contain nested metadata.
+        # Free memory as we go. Clearing the root too drops the emptied elements it still holds.
         if elem.tag in ("Record", "Workout", "ActivitySummary", "Correlation"):
             elem.clear()
+            root.clear()
 
 
 def import_export(
