@@ -212,7 +212,11 @@ def add_readings(conn: sqlite3.Connection, user_id: str, samples=(), stages=()) 
     added = conn.total_changes - before
     if added:
         # Step 2 uses this to reprocess only when something actually changed.
-        conn.execute("UPDATE users SET data_changed_ms = ? WHERE user_id = ?", (int(time.time() * 1000), user_id))
+        # Always moves forward, even twice in one millisecond, so a run that started in between sees the change.
+        conn.execute(
+            "UPDATE users SET data_changed_ms = MAX(?, COALESCE(data_changed_ms, 0) + 1) WHERE user_id = ?",
+            (int(time.time() * 1000), user_id),
+        )
         if earliest:
             conn.execute(
                 "UPDATE users SET changed_from_ms = MIN(COALESCE(changed_from_ms, ?), ?) WHERE user_id = ?",

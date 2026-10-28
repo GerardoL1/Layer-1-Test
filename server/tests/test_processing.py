@@ -5,7 +5,6 @@ database, several times a day, gives the same table as processing everything at 
     python -m pytest -q tests
 """
 
-import time as clock
 from datetime import datetime, time, timedelta, timezone
 
 import main
@@ -246,6 +245,7 @@ def test_a_rebuild_does_not_call_old_nights_new():
 
 def test_readings_saved_during_a_run_keep_their_reach_back_mark(monkeypatch):
     user = "mid-run"
+    monkeypatch.setattr(db.time, "time", lambda: 1_800_000_000.0)  # every save lands in the same millisecond
     recs = load("sam")
     store(user, recs)
     processing.process_user(user, force=True)
@@ -254,7 +254,6 @@ def test_readings_saved_during_a_run_keep_their_reach_back_mark(monkeypatch):
 
     def a_late_reading_lands_mid_run(conn, user_id, *args, **kwargs):
         loaded = real_load(conn, user_id, *args, **kwargs)
-        clock.sleep(0.002)  # data_changed_ms is in milliseconds, so make sure it moves
         with db.connect() as other:
             sample = (db.sample_id(user, "hrv_sdnn", old_ms, old_ms, 50.0, "late"), "hrv_sdnn", 50.0)
             db.add_readings(other, user, [(*sample, old_ms, old_ms, -420, "late")])
