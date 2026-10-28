@@ -80,11 +80,6 @@ def _hhmm(s: str) -> tuple[int, int]:
     return int(h), int(m)
 
 
-def _offset_td(off: str) -> timedelta:
-    sign = -1 if off[0] == "-" else 1
-    return sign * timedelta(hours=int(off[1:3]), minutes=int(off[3:5]))
-
-
 @dataclass
 class Record:
     rtype: str
@@ -104,10 +99,6 @@ class Record:
             f'<Record type="{self.rtype}" sourceName="{self.source}"{u} creationDate="{f(self.end)}" '
             f'startDate="{f(self.start)}" endDate="{f(self.end)}" value="{self.value}"/>'
         )
-
-    @property
-    def utc_end(self) -> datetime:
-        return self.end - _offset_td(self.offset)
 
 
 @dataclass
@@ -303,7 +294,6 @@ def build(spec: dict) -> Scenario:
                 "unspecified_min": stage_min["asleep_unspecified"],
                 "waso_min": waso,
                 "awakenings": awakenings,
-                "window_min": (wake - onset).total_seconds() / 60,
             }
         )
 

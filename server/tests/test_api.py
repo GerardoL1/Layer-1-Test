@@ -11,6 +11,7 @@ import pandas as pd
 import pytest
 from conftest import SAMPLE_DATA, SAMPLES
 from fastapi.testclient import TestClient
+from test_processing import woke_after
 
 from app.core import db
 from app.readiness import scoring
@@ -130,12 +131,7 @@ def test_update_now_from_the_app():
     recs, _ = P.load_export(SAMPLE_DATA / SAMPLES["sam"], days=None)
     day = recs["start_local"].min().date() + timedelta(days=10)
     night = day - timedelta(days=1)
-    sleep = recs[recs["stage"].notna() & (recs["start_local"].dt.date == night) & (recs["start_local"].dt.hour >= 18)]
-    woke = recs[
-        recs["stage"].notna()
-        & (recs["start_local"] >= sleep["start_local"].min())
-        & (recs["start_local"] <= pd.Timestamp(day) + pd.Timedelta(hours=14))
-    ]["end_local"].max()
+    woke = woke_after(recs, night)
     # Update now needs the sleep to have been over for a while (UPDATE_NOW_QUIET_MIN).
     clock = (woke + pd.Timedelta(minutes=C.UPDATE_NOW_QUIET_MIN + 10)).to_pydatetime()
     assert clock.hour < 8

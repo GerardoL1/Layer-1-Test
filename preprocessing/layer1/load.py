@@ -95,8 +95,15 @@ def load_export(source, days: int | None = C.DEFAULT_DAYS) -> tuple[pd.DataFrame
     """
     rows: list[tuple] = []
     counts: dict[str, int] = {}
+    # Units, source names and sleep values repeat millions of times. Keep one copy of each.
+    shared: dict = {}
+    one = lambda v: shared.setdefault(v, v)  # noqa: E731
     with _open_xml(source) as f:
-        for _, elem in ET.iterparse(f, events=("end",)):
+        events = ET.iterparse(f, events=("start", "end"))
+        _, root = next(events)
+        for event, elem in events:
+            if event == "start":
+                continue
             if elem.tag == "Record":
                 rtype = elem.get("type", "")
                 counts[rtype] = counts.get(rtype, 0) + 1
@@ -106,8 +113,8 @@ def load_export(source, days: int | None = C.DEFAULT_DAYS) -> tuple[pd.DataFrame
                             "quantity",
                             C.QUANTITY_TYPES[rtype],
                             elem.get("value"),
-                            elem.get("unit"),
-                            elem.get("sourceName", ""),
+                            one(elem.get("unit")),
+                            one(elem.get("sourceName", "")),
                             elem.get("startDate"),
                             elem.get("endDate"),
                         )
@@ -117,15 +124,16 @@ def load_export(source, days: int | None = C.DEFAULT_DAYS) -> tuple[pd.DataFrame
                         (
                             "sleep",
                             "sleep_analysis",
-                            elem.get("value"),
+                            one(elem.get("value")),
                             None,
-                            elem.get("sourceName", ""),
+                            one(elem.get("sourceName", "")),
                             elem.get("startDate"),
                             elem.get("endDate"),
                         )
                     )
             if elem.tag in ("Record", "Workout", "Correlation", "ActivitySummary", "ClinicalRecord"):
                 elem.clear()
+                root.clear()  # the root still holds every emptied element otherwise
 
     type_counts = (
         pd.DataFrame(sorted(counts.items(), key=lambda kv: -kv[1]), columns=["type", "records"])
@@ -171,7 +179,9 @@ def load_export(source, days: int | None = C.DEFAULT_DAYS) -> tuple[pd.DataFrame
         cutoff = noon if noon <= start else noon - pd.Timedelta(days=1)
         # Someone who sleeps through the day can be asleep at noon. Move the cut back to where that
         # sleep started, so the oldest night is kept whole instead of leaving a piece that looks like a nap.
-        sleep = records[records["kind"] == "sleep"]
+        # Pieces cleaning will drop as too long can't pull the cut back, or one bogus record adds weeks.
+        too_long = records["end_utc"] - records["start_utc"] > pd.Timedelta(hours=C.MAX_SLEEP_SEGMENT_HOURS)
+        sleep = records[(records["kind"] == "sleep") & ~too_long]
         gap = pd.Timedelta(minutes=C.SESSION_GAP_MIN)
         while True:
             crossing = sleep[(sleep["start_local"] < cutoff) & (sleep["end_local"] > cutoff - gap)]

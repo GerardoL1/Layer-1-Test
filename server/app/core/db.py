@@ -212,7 +212,11 @@ def add_readings(conn: sqlite3.Connection, user_id: str, samples=(), stages=()) 
     added = conn.total_changes - before
     if added:
         # Step 2 uses this to reprocess only when something actually changed.
-        conn.execute("UPDATE users SET data_changed_ms = ? WHERE user_id = ?", (int(time.time() * 1000), user_id))
+        # Always moves forward, even twice in one millisecond, so a run that started in between sees the change.
+        conn.execute(
+            "UPDATE users SET data_changed_ms = MAX(?, COALESCE(data_changed_ms, 0) + 1) WHERE user_id = ?",
+            (int(time.time() * 1000), user_id),
+        )
         if earliest:
             conn.execute(
                 "UPDATE users SET changed_from_ms = MIN(COALESCE(changed_from_ms, ?), ?) WHERE user_id = ?",
@@ -231,7 +235,7 @@ def load_records(
     """
     A user's readings in the same shape as preprocessing's load_export(), so the
     tested pipeline runs on database rows without any changes.
-    since_ms and sleep_only are for quick looks at recent sleep, not for processing.
+    since_ms keeps only readings that end after it. sleep_only is for quick looks at recent sleep.
     """
     since = since_ms if since_ms is not None else -(2**62)
     q = pd.read_sql_query(

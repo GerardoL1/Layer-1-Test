@@ -17,6 +17,8 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 - `http://localhost:8000/docs` lists every endpoint and lets you try them.
 - The database is `platform.db` next to this file (git-ignored). Stop the server and delete it for a fresh start.
   Set `RECOVERY_DB` to use another file.
+- Run one server process only (no `--workers`). Import progress and the per-person processing lock live in memory,
+  so a second process would lose track of imports and could save two runs with the same number.
 
 For the iPhone (or Health Auto Export / Shortcuts) to reach the server, both must be on the same Wi-Fi. Find the
 computer's IP (Windows: `ipconfig`, look for IPv4 Address. Mac: `ipconfig getifaddr en0`), then open
@@ -102,27 +104,6 @@ See `docs/ml_llm_plan.md`.
 | Health export file | `POST .../imports` (form: `file`, and optionally `since_days` to keep only the last N days counted back from today; everything by default). Replies 202 with the import's `import_id` and a `Location` header. Progress at `GET .../imports/{import_id}`, latest import at `GET .../imports` | The dates in the file |
 | Health Auto Export | `POST .../readings/health-auto-export` | The dates in the payload |
 | Apple Shortcuts | `POST .../readings/shortcuts` (form: `metric`, `rows`) | The ISO 8601 dates sent |
-
-### Old URLs (deprecated)
-
-The URLs from before `/api/v1` still work, so older app builds and Health Auto Export or Shortcuts automations set
-up earlier keep going. They answer exactly as before, but each call logs a warning naming the new URL, replies
-that worked carry a `Deprecation` header, and `/docs` marks them deprecated. They're all in
-`app/routers/legacy.py`, to be removed once the log shows nothing uses them.
-
-| Old | New |
-|---|---|
-| `POST /upload` | `POST .../readings` |
-| `POST /api/hae?user_id=` | `POST .../readings/health-auto-export` |
-| `POST /api/shortcut` (form field `user`) | `POST .../readings/shortcuts` |
-| `POST /api/import` (form field `user_id`) | `POST .../imports` |
-| `GET /api/import/status` | `GET .../imports/{import_id}` |
-| `GET /api/today?user_id=` | `GET .../today` |
-| `GET /api/trends?user_id=` | `GET .../trends` |
-| `GET /api/profile?user_id=` | `GET .../profile` |
-| `GET` / `PUT /api/settings?user_id=` | `GET` / `PATCH .../settings` |
-| `POST /api/update-now?user_id=` | `POST .../processing-runs` |
-| `POST /api/demo/{person}` | `POST /api/v1/demo-users/{person}` |
 
 ### Health export from the command line
 
@@ -216,7 +197,6 @@ About 2–3 minutes. They use a throwaway database, never `platform.db`.
 | `test_edges.py` | A night across a clock change, runs at the same time, changing the update time, one phone with two tester names, upgrading an old database |
 | `test_limits.py` | Size limits: oversized requests and zips get a clear 413 |
 | `test_short_night.py` | Short nights get their own status and wording |
-| `test_legacy_urls.py` | Every old URL still works, gives the same answer as its new URL, and says it's deprecated |
 | `test_openapi.py` | `openapi.json` is up to date and every v1 endpoint describes its reply |
 
 ## Troubleshooting

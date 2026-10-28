@@ -68,7 +68,18 @@ def last_ready(user):
 
 def saved_table(user):
     with db.connect() as conn:
-        return processing.ml_table(conn, user)
+        nights = processing.load_nights(conn, user)
+    return P.build_ml_table(nights, user) if not nights.empty else pd.DataFrame(columns=list(P.ML_COLUMNS))
+
+
+def woke_after(recs: pd.DataFrame, night) -> pd.Timestamp:
+    """When the sleep that started on the evening of `night` ended (local time)."""
+    sleep = recs[
+        recs["stage"].notna()
+        & (recs["start_local"] >= pd.Timestamp(datetime.combine(night, time(18))))
+        & (recs["start_local"] <= pd.Timestamp(datetime.combine(night + timedelta(days=1), time(14))))
+    ]
+    return sleep["end_local"].max()
 
 
 def replay(person, user, late_hrv=False, hours=(8, 16, 23), first_load_days=24):
@@ -128,12 +139,7 @@ def test_a_rebuild_after_update_now_keeps_last_night():
     recs = load("sam")
     day = recs["start_local"].min().date() + timedelta(days=10)
     night = day - timedelta(days=1)
-    sleep = recs[
-        recs["stage"].notna()
-        & (recs["start_local"] >= pd.Timestamp(datetime.combine(night, time(18))))
-        & (recs["start_local"] <= pd.Timestamp(datetime.combine(day, time(14))))
-    ]
-    woke = sleep["end_local"].max().to_pydatetime()
+    woke = woke_after(recs, night).to_pydatetime()
     tapped = woke + timedelta(minutes=C.UPDATE_NOW_QUIET_MIN + 1)
     assert tapped < datetime.combine(day, time(*C.DEFAULT_UPDATE_TIME))  # still before the update time
     arrived = recs[recs["end_local"] <= pd.Timestamp(woke)]
@@ -152,12 +158,7 @@ def test_update_time_and_update_now():
     recs = load("sam")
     day = recs["start_local"].min().date() + timedelta(days=10)
     night = day - timedelta(days=1)
-    sleep = recs[
-        recs["stage"].notna()
-        & (recs["start_local"] >= pd.Timestamp(datetime.combine(night, time(18))))
-        & (recs["start_local"] <= pd.Timestamp(datetime.combine(day, time(14))))
-    ]
-    woke = sleep["end_local"].max().to_pydatetime()
+    woke = woke_after(recs, night).to_pydatetime()
     store(user, recs[recs["end_local"] <= pd.Timestamp(woke)])
     with db.connect() as conn:
         conn.execute("UPDATE users SET update_time = '17:00' WHERE user_id = ?", (user,))
@@ -240,3 +241,29 @@ def test_a_rebuild_does_not_call_old_nights_new():
     assert first.new_nights  # the first run really does add them
     again = processing.process_user(user, force=True)  # a rebuild with nothing new
     assert again.new_nights == []
+
+
+def test_readings_saved_during_a_run_keep_their_reach_back_mark(monkeypatch):
+    user = "mid-run"
+    monkeypatch.setattr(db.time, "time", lambda: 1_800_000_000.0)  # every save lands in the same millisecond
+    recs = load("sam")
+    store(user, recs)
+    processing.process_user(user, force=True)
+    old_ms = int(recs["start_utc"].min().timestamp() * 1000) + 86_400_000
+    real_load = db.load_records
+
+    def a_late_reading_lands_mid_run(conn, user_id, *args, **kwargs):
+        loaded = real_load(conn, user_id, *args, **kwargs)
+        with db.connect() as other:
+            sample = (db.sample_id(user, "hrv_sdnn", old_ms, old_ms, 50.0, "late"), "hrv_sdnn", 50.0)
+            db.add_readings(other, user, [(*sample, old_ms, old_ms, -420, "late")])
+        return loaded
+
+    monkeypatch.setattr(db, "load_records", a_late_reading_lands_mid_run)
+    processing.process_user(user, update_now=True)
+    monkeypatch.undo()
+    with db.connect() as conn:
+        mark = conn.execute("SELECT changed_from_ms FROM users WHERE user_id = ?", (user,)).fetchone()[0]
+    # The run never saw that reading, so the next run must still know it reaches back that far.
+    assert mark is not None
+    assert processing.process_user(user) is not None

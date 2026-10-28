@@ -149,6 +149,14 @@ def test_update_now_in_the_middle_of_the_night_waits():
     assert later == datetime(2026, 9, 1).date()
 
 
+def test_only_awake_pieces_are_not_a_night():
+    # A night ends with a short awake piece, the watch stays off the next night, then Update now.
+    stages = _stages([("awake", "2026-09-01 23:58", "2026-09-02 00:10")])
+    sessions, _ = P.find_sleep_windows(stages)
+    assert sessions.empty
+    I.latest_ready_night(datetime(2026, 9, 3, 7, 0), stages, update_now=True)  # this used to crash
+
+
 def test_users_own_update_time():
     recs, night, _ = _morning()
     morning = night + timedelta(days=1)

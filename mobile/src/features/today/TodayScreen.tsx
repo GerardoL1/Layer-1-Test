@@ -12,6 +12,7 @@ import { errorText, useLoad } from '../../lib/useLoad';
 import { useTheme } from '../../theme/theme';
 import { LastNight } from './LastNight';
 import { NightlyChart } from './NightlyChart';
+import { TimeZoneNote } from './TimeZoneNote';
 import { TodaySummary } from './TodaySummary';
 
 export default function TodayScreen() {
@@ -51,6 +52,7 @@ export default function TodayScreen() {
       {!isWide && t.updated_at ? <Text variant="labelMedium" color="textSecondary">Synced {clock(t.updated_at)}</Text> : null}
     </View>
   );
+  const timeZone = <TimeZoneNote onChanged={() => { today.reload(); trends.reload(); }} />;
 
   if (!t.readiness) {
     return (
@@ -100,6 +102,7 @@ export default function TodayScreen() {
     return (
       <Page>
         {top}
+        {timeZone}
         <View style={styles.columns}>
           <View style={styles.column}>{summary}</View>
           <View style={styles.column}>{lastNight}</View>
@@ -116,6 +119,7 @@ export default function TodayScreen() {
   return (
     <Page>
       {top}
+      {timeZone}
       {summary}
       <View style={styles.space32}>{lastNight}</View>
       <View style={styles.space8}>{hrvChart}</View>

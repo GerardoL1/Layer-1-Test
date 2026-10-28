@@ -36,15 +36,17 @@ SAMPLES = {
 
 # ---------------------------------------------------------------- running the pipeline
 
+# cache_resource hands every rerun the same result without copying it, so tabs must copy before changing it.
 
-@st.cache_data(show_spinner=False, max_entries=6)
+
+@st.cache_resource(show_spinner=False, max_entries=6)
 def run_from_bytes(data: bytes, name: str, person: str, days):
     buf = io.BytesIO(data)
     buf.name = name
     return P.run_pipeline(buf, person, days)
 
 
-@st.cache_data(show_spinner=False, max_entries=6)
+@st.cache_resource(show_spinner=False, max_entries=6)
 def run_from_path(path: str, mtime: float, person: str, days):
     return P.run_pipeline(path, person, days)
 

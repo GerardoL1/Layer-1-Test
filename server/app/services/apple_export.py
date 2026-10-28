@@ -17,6 +17,9 @@ from datetime import datetime
 from pathlib import Path
 
 from app.core import db, limits
+from app.services.time_checks import utc_ms
+from layer1.config import QUANTITY_TYPES, SLEEP_TYPE
+from layer1.config import SLEEP_VALUES as SLEEP_STAGES
 from layer1.load import find_export_xml
 from layer1.units import factor
 
@@ -44,25 +47,6 @@ def check_unzipped_size(path: str | Path) -> None:
         )
 
 
-# HealthKit type -> our metric name
-QUANTITY_TYPES = {
-    "HKQuantityTypeIdentifierHeartRate": "heart_rate",
-    "HKQuantityTypeIdentifierRestingHeartRate": "resting_heart_rate",
-    "HKQuantityTypeIdentifierHeartRateVariabilitySDNN": "hrv_sdnn",
-}
-SLEEP_TYPE = "HKCategoryTypeIdentifierSleepAnalysis"
-
-# HealthKit sleep values -> short stage names
-SLEEP_STAGES = {
-    "HKCategoryValueSleepAnalysisInBed": "in_bed",
-    "HKCategoryValueSleepAnalysisAsleepUnspecified": "asleep_unspecified",
-    "HKCategoryValueSleepAnalysisAsleep": "asleep_unspecified",  # older iOS versions
-    "HKCategoryValueSleepAnalysisAwake": "awake",
-    "HKCategoryValueSleepAnalysisAsleepCore": "core",
-    "HKCategoryValueSleepAnalysisAsleepDeep": "deep",
-    "HKCategoryValueSleepAnalysisAsleepREM": "rem",
-}
-
 BATCH = 5000
 # How often (in records of any type) the import reports how far through the file it is.
 TICK_EVERY = 20000
@@ -84,16 +68,7 @@ def parse_date(date_str: str) -> tuple[int, int]:
     offset = dt.utcoffset()
     if offset is None:
         raise ValueError(f"date has no UTC offset: {date_str}")
-    minutes = int(offset.total_seconds() // 60)
-    if not db.valid_offset(minutes):
-        raise ValueError(f"impossible UTC offset: {date_str}")
-    try:
-        ms = int(dt.timestamp() * 1000)
-    except OverflowError:  # year 1 with a positive offset falls before year 1 in UTC
-        raise ValueError(f"date out of range: {date_str}") from None
-    if not db.valid_time(ms):
-        raise ValueError(f"date out of range: {date_str}")
-    return ms, minutes
+    return utc_ms(dt, offset, date_str)
 
 
 def xml_size(path: str | Path) -> int:
@@ -130,7 +105,11 @@ def iter_records(fileobj, on_tick: Callable[[int, str], None] | None = None) -> 
     records, including ones we skip, so progress keeps moving through long stretches of steps etc.
     """
     seen = 0
-    for _, elem in ET.iterparse(fileobj, events=("end",)):
+    events = ET.iterparse(fileobj, events=("start", "end"))
+    _, root = next(events)
+    for event, elem in events:
+        if event == "start":
+            continue
         if elem.tag == "Record":
             rtype = elem.get("type")
             seen += 1
@@ -138,9 +117,10 @@ def iter_records(fileobj, on_tick: Callable[[int, str], None] | None = None) -> 
                 on_tick(fileobj.tell(), READING.get(rtype, "other"))
             if rtype in QUANTITY_TYPES or rtype == SLEEP_TYPE:
                 yield dict(elem.attrib)
-        # Free memory as we go. Record elements can contain nested metadata.
+        # Free memory as we go. Clearing the root too drops the emptied elements it still holds.
         if elem.tag in ("Record", "Workout", "ActivitySummary", "Correlation"):
             elem.clear()
+            root.clear()
 
 
 def import_export(

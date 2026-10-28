@@ -23,7 +23,7 @@ Reports are written to `agent_testing/reports/` (Markdown + JSON). Exit code 1 m
 | Z-scores | Every baseline and z-score | Re-computed independently (28 previous nights, ≥ 7 values, SD floor) |
 | Story expectations | "HRV should drop in the last 5 nights", "night 12 is flagged" | Written in each scenario before running |
 | Daily updates | Day-by-day results equal one full run | `layer1/incremental.py` vs the full pipeline |
-| Unit tests | The 28 existing tests | `tests/` |
+| Unit tests | Every pytest test in `tests/` | `tests/` |
 
 The tester was checked by planting six bugs in the pipeline (baseline too short, awakenings off by one,
 third-party sleep app not filtered, 20-min resting HR window, wrong night date, 2 h short-sleep threshold).
@@ -36,7 +36,7 @@ All six were caught; with no bug planted, everything passed.
 | `scenario_builder.py` | Scenario JSON → fake Apple Health export + exact truth. Event types are listed at the top of the file |
 | `checks.py` | All checks and the expectation types a scenario can use |
 | `run_layer1_tests.py` | Runs everything and writes the report |
-| `scenarios/` | Edge-case people. `01`–`11` are the starter set; the tester skill adds `agent_*.json` |
+| `scenarios/` | Edge-case people. `01`–`12` are the starter set; the tester skill adds `agent_*.json` |
 
 ## Starter scenarios
 
@@ -53,3 +53,4 @@ All six were caught; with no bug planted, everything passed.
 | 09 loose strap | Sparse HR → overnight resting HR flagged and kept out of the baseline |
 | 10 late HRV sync | HRV arriving 26 h late is picked up by the daily redo |
 | 11 new user | 6 nights → no z-scores yet |
+| 12 overlapping sleep records | An "asleep" record on top of stages, or a second watch: each minute counts once, efficiency never over 100% |

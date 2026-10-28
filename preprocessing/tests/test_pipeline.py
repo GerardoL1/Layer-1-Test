@@ -208,6 +208,17 @@ def test_time_in_bed_uses_iphone_when_present():
     assert row["sleep_efficiency_pct"] == pytest.approx(410 / 480 * 100)
 
 
+def test_a_separate_in_bed_later_does_not_count_the_time_out_of_bed():
+    # Up at 06:30, back in bed 08:30-09:00 to read. The two hours in between weren't in bed.
+    stages = [
+        *night("2026-09-01", "2026-09-02"),
+        sleep("2026-09-01 22:30:00", "2026-09-02 06:30:00", "InBed", source="Test’s iPhone"),
+        sleep("2026-09-02 08:30:00", "2026-09-02 09:00:00", "InBed", source="Test’s iPhone"),
+    ]
+    row = P.run_pipeline(export(*stages), days=None).nights.iloc[0]
+    assert row["tib_min"] == pytest.approx(480)
+
+
 def test_in_bed_from_other_apps_is_ignored():
     # Only the iPhone's (or the watch's) In Bed counts. Another app's would stretch time in bed.
     stages = [
@@ -226,14 +237,15 @@ def test_time_in_bed_falls_back_to_sleep_window():
 
 def test_overnight_rhr_is_lowest_30_minute_average():
     readings = []
-    # Every 5 minutes from 23:00 to 05:55 at 60 bpm, except 02:00-02:30 at 50 bpm.
+    # Every 5 minutes from 23:00 to 05:55 at 60 bpm, except 02:00-02:25 at 50 bpm. The dip is shorter than
+    # the window, so only a 30-minute window gives five 50s and one 60.
     t = pd.Timestamp("2026-09-01 23:00:00")
     while t < pd.Timestamp("2026-09-02 06:00:00"):
-        bpm = 50 if pd.Timestamp("2026-09-02 02:00:00") <= t < pd.Timestamp("2026-09-02 02:30:00") else 60
+        bpm = 50 if pd.Timestamp("2026-09-02 02:00:00") <= t < pd.Timestamp("2026-09-02 02:25:00") else 60
         readings.append(hr(t.strftime("%Y-%m-%d %H:%M:%S"), bpm))
         t += pd.Timedelta(minutes=5)
     row = P.run_pipeline(export(*night("2026-09-01", "2026-09-02"), *readings), days=None).nights.iloc[0]
-    assert row["rhr_night_bpm"] == pytest.approx(50, abs=1.5)
+    assert row["rhr_night_bpm"] == pytest.approx((5 * 50 + 60) / 6)
     assert row["hr_night_count"] == 84  # 23:00 to 05:55, every 5 minutes
 
 
@@ -337,6 +349,14 @@ def test_the_days_window_keeps_a_day_sleepers_sleep_whole():
     r = P.run_pipeline(export(*recs), days=3)
     assert (r.nights["naps"] == 0).all()
     assert (r.nights.dropna(subset=["tst_min"])["tst_min"] == 450).all()
+
+
+def test_one_bogus_long_sleep_record_does_not_stretch_the_days_window():
+    # A 30-day "asleep" record across the cut is dropped by cleaning, so it mustn't move the cut back either.
+    recs = [r for d in range(1, 20) for r in night(f"2026-09-{d:02d}", f"2026-09-{d + 1:02d}")]
+    recs.append(sleep("2026-08-15 00:00:00", "2026-09-17 00:00:00", "AsleepUnspecified", "Other app"))
+    r = P.run_pipeline(export(*recs), days=5)
+    assert r.records["start_local"].min() >= pd.Timestamp("2026-09-13")
 
 
 def test_in_bed_from_another_app_says_so_in_the_removal_log():

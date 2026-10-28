@@ -10,21 +10,19 @@ when something changed: new readings, or the clock passing the user's update tim
 """
 
 import json
-import math
 import threading
 from dataclasses import asdict
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-import numpy as np
 import pandas as pd
 
 from app.core import db
+from app.core.json_values import clean
 from app.readiness.features import build_features
 from app.readiness.model import get_model
 from layer1 import config as C
 from layer1 import incremental as I
-from layer1 import pipeline as P
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS nights (
@@ -128,28 +126,10 @@ def utc_now() -> datetime:
 # ---------------------------------------------------------------- saving and loading nightly rows
 
 
-def _to_json_value(v):
-    if v is None or (isinstance(v, float) and math.isnan(v)) or v is pd.NaT:
-        return None
-    if isinstance(v, (pd.Timestamp, datetime)):
-        return v.isoformat()
-    if isinstance(v, date):
-        return v.isoformat()
-    if isinstance(v, (np.bool_, bool)):
-        return bool(v)
-    if isinstance(v, np.integer):
-        return int(v)
-    if isinstance(v, np.floating):
-        return None if np.isnan(v) else float(v)
-    if pd.isna(v):
-        return None
-    return v
-
-
 def save_nights(conn, user_id: str, nights: pd.DataFrame):
     rows = []
     for rec in nights.to_dict(orient="records"):
-        data = {k: _to_json_value(v) for k, v in rec.items()}
+        data = {k: clean(v) for k, v in rec.items()}
         rows.append((user_id, data["night_date"], json.dumps(data)))
     conn.execute("DELETE FROM nights WHERE user_id = ?", (user_id,))
     conn.executemany("INSERT INTO nights VALUES (?,?,?)", rows)
@@ -215,18 +195,10 @@ def load_nights(conn, user_id: str) -> pd.DataFrame:
     return df
 
 
-def ml_table(conn, user_id: str) -> pd.DataFrame:
-    """The ML-ready table (one row per night) from the saved rows."""
-    nights = load_nights(conn, user_id)
-    if nights.empty:
-        return pd.DataFrame(columns=list(P.ML_COLUMNS))
-    return P.build_ml_table(nights, user_id)
-
-
 # ---------------------------------------------------------------- deciding when to run
 
 
-def _last_run(conn, user_id: str):
+def last_run(conn, user_id: str):
     return conn.execute("SELECT * FROM runs WHERE user_id = ? ORDER BY run DESC LIMIT 1", (user_id,)).fetchone()
 
 
@@ -235,7 +207,7 @@ def needs_processing(conn, user_id: str, now_utc: datetime | None = None) -> boo
     user = conn.execute("SELECT data_changed_ms, update_time FROM users WHERE user_id = ?", (user_id,)).fetchone()
     if user is None or user["data_changed_ms"] is None:
         return False
-    last = _last_run(conn, user_id)
+    last = last_run(conn, user_id)
     if last is None or (last["data_changed_ms"] or 0) < user["data_changed_ms"]:
         return True
     if last["ready_through"] is None:
@@ -268,6 +240,29 @@ def _reaches_back(changed_from_ms: int | None, last) -> bool:
     return earliest_night < oldest_redone
 
 
+def _since_ms(proc: I.DailyProcessor, scheduled: date) -> int | None:
+    """
+    How far back a run that carries on from the saved nights needs readings: two days before the oldest
+    night it could work out. Cleaning looks at one reading at a time and each night only reads the hours
+    around it, so older readings can't change anything.
+    """
+    if proc.nights.empty:
+        return None
+    done = sorted(proc.nights["night_date"])
+    redo = max(proc.recompute_nights - 1, 0)
+    holes = sorted(set(pd.date_range(done[0], done[-1]).date) - set(done))
+    oldest = min(
+        [
+            done[-1] + timedelta(days=1),  # the first new night
+            scheduled - timedelta(days=redo),
+            *(done[-redo:] if redo else []),  # the nights redone every run
+            *holes[:1],
+            *(proc.reports[-1].new_nights if proc.reports else []),  # last run's new nights get redone too
+        ]
+    )
+    return int(datetime.combine(oldest - timedelta(days=2), time(0), tzinfo=timezone.utc).timestamp() * 1000)
+
+
 def process_user(
     user_id: str, now_utc: datetime | None = None, update_now: bool = False, force: bool = False
 ) -> I.RunReport | None:
@@ -284,12 +279,9 @@ def process_user(
         if user is None:
             return None
         seen_change = user["data_changed_ms"]
-        records = db.load_records(conn, user_id)
-        if records.empty:
-            return None
 
         proc = I.DailyProcessor(user_id, update_time=parse_update_time(user["update_time"]))
-        last = _last_run(conn, user_id)
+        last = last_run(conn, user_id)
         # Start over when asked to, or when new readings reach back past the nights a run redoes.
         # Otherwise carry on from the saved nights, which only redoes the last few.
         rebuild = force or _reaches_back(user["changed_from_ms"], last)
@@ -332,6 +324,11 @@ def process_user(
         scheduled = I.scheduled_ready_night(sync, parse_update_time(user["update_time"]))
         early = rebuild and last is not None and last["ready_through"] is not None
         keep_early = early and date.fromisoformat(last["ready_through"]) > scheduled
+        records = db.load_records(conn, user_id, None if rebuild else _since_ms(proc, scheduled))
+        if records.empty:  # nothing recent, so let the whole history decide, as before
+            records = db.load_records(conn, user_id)
+            if records.empty:
+                return None
         # All saved readings go in as one batch. The processor cleans them and keeps
         # only what it needs, so this matches feeding them in day by day.
         report = proc.sync(records, sync, update_now=update_now or keep_early)
@@ -364,8 +361,3 @@ def process_user(
         )
         report.run = run
         return report
-
-
-def ensure_processed(user_id: str, now_utc: datetime | None = None) -> I.RunReport | None:
-    """Call before reading results. Does nothing when the saved results are current."""
-    return process_user(user_id, now_utc)

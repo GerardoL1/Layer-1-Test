@@ -22,27 +22,28 @@ def add_baselines(nights: pd.DataFrame, only_dates=None) -> pd.DataFrame:
     baseline it already has. Daily updates use this so old nights aren't touched.
     """
     df = nights.copy()
-    dates = pd.to_datetime(df["night_date"])
-    rows = range(len(df)) if only_dates is None else [i for i, d in enumerate(df["night_date"]) if d in set(only_dates)]
+    days = pd.to_datetime(df["night_date"]).to_numpy()
+    targets = None if only_dates is None else set(only_dates)
+    rows = range(len(df)) if targets is None else [i for i, d in enumerate(df["night_date"]) if d in targets]
+    span = np.timedelta64(C.BASELINE_WINDOW_NIGHTS, "D")
     for col, (zcol, _label, gate) in C.ZSCORE_METRICS.items():
-        usable = df[col].where(df[gate].fillna(False).astype(bool))
-        for name in (f"{col}_base_mean", f"{col}_base_sd", f"{col}_base_n", zcol):
-            if name not in df:
-                df[name] = np.nan
+        usable = df[col].where(df[gate].fillna(False).astype(bool)).to_numpy()
+        names = (f"{col}_base_mean", f"{col}_base_sd", f"{col}_base_n", zcol)
+        # Work on plain arrays and write each column once, pandas row-by-row writes are slow.
+        out = {n: df[n].to_numpy(dtype=float, copy=True) if n in df else np.full(len(df), np.nan) for n in names}
         for i in rows:
-            d = dates.iloc[i]
-            window = (dates >= d - pd.Timedelta(days=C.BASELINE_WINDOW_NIGHTS)) & (dates < d)
-            vals = usable[window].dropna()
+            d = days[i]
+            vals = pd.Series(usable[(days >= d - span) & (days < d)]).dropna()
             n = len(vals)
             if n >= C.BASELINE_MIN_NIGHTS:
                 mu = float(vals.mean())
                 sd = max(float(vals.std(ddof=1)), C.MIN_SD_FRACTION_OF_MEAN * abs(mu))
-                tonight = usable.iloc[i]
+                tonight = usable[i]
                 z = (tonight - mu) / sd if pd.notna(tonight) and sd > 0 else np.nan
             else:
                 mu = sd = z = np.nan
-            df.iloc[i, df.columns.get_loc(f"{col}_base_mean")] = mu
-            df.iloc[i, df.columns.get_loc(f"{col}_base_sd")] = sd
-            df.iloc[i, df.columns.get_loc(f"{col}_base_n")] = n
-            df.iloc[i, df.columns.get_loc(zcol)] = z
+            for name, v in zip(names, (mu, sd, n, z)):
+                out[name][i] = v
+        for name, arr in out.items():
+            df[name] = arr
     return df

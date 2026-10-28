@@ -8,7 +8,7 @@ from app.core.urls import USER
 from app.readiness.usual import BASE_COLUMN, METRICS, usual_range
 from app.schemas.profile import Profile
 from app.services import processing
-from app.services.users import last_run, night_rows, read_settings, require_user
+from app.services.users import night_rows, read_settings, require_user
 from layer1 import config as C
 
 router = APIRouter(prefix=USER, tags=["profile"])
@@ -16,10 +16,10 @@ router = APIRouter(prefix=USER, tags=["profile"])
 
 @router.get("/profile", response_model=Profile)
 def profile(user_id: str):
-    processing.ensure_processed(user_id)
+    processing.process_user(user_id)
     with db.connect() as conn:
         require_user(conn, user_id)
-        run = last_run(conn, user_id)
+        run = processing.last_run(conn, user_id)
         sources = [
             r[0]
             for r in conn.execute(

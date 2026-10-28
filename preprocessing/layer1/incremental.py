@@ -260,15 +260,15 @@ class DailyProcessor:
 # ======================================================================= simulation helpers
 
 
-def arrival_times(records: pd.DataFrame, late_hrv: bool = False) -> pd.Series:
+def arrival_times(records: pd.DataFrame, late_hrv: bool = False, hours: float = 26) -> pd.Series:
     """
     When each record reaches the phone/server, in local time. Normally right after it
-    ends; with late_hrv, HRV readings show up 26 hours later (after the next sync).
+    ends; with late_hrv, HRV readings show up `hours` later (26 by default, after the next sync).
     """
     arrive = records["end_local"].copy()
     if late_hrv:
         hrv = records["metric"] == "hrv_sdnn"
-        arrive[hrv] = arrive[hrv] + pd.Timedelta(hours=26)
+        arrive[hrv] = arrive[hrv] + pd.Timedelta(hours=hours)
     return arrive
 
 

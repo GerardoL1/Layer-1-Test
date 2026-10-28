@@ -26,8 +26,6 @@ import time as clock
 from datetime import datetime, time, timedelta
 from pathlib import Path
 
-import pandas as pd
-
 from agent_testing.checks import Result, expectation_checks, spec_checks, truth_checks, zscore_oracle
 from agent_testing.scenario_builder import build, load_spec
 from layer1 import config as C
@@ -52,10 +50,7 @@ def run_unit_tests() -> Result:
 
 def daily_check(zip_path: Path, name: str, late_hours) -> Result:
     recs, _ = P.load_export(zip_path, days=None)
-    arrive = recs["end_local"].copy()
-    if late_hours:
-        hrv = recs["metric"] == "hrv_sdnn"
-        arrive[hrv] = arrive[hrv] + pd.Timedelta(hours=late_hours)
+    arrive = I.arrival_times(recs, late_hrv=bool(late_hours), hours=late_hours or 26)
     first_day = recs["start_local"].min().date()
     last_day = recs["end_local"].max().date() + timedelta(days=1)
     span = (last_day - first_day).days
@@ -78,6 +73,14 @@ def daily_check(zip_path: Path, name: str, late_hours) -> Result:
     return Result(label, "fail" if problems else "pass", "; ".join(problems[:5]) or f"{runs} daily runs")
 
 
+NOISE_REASON = {
+    "duplicates": "Exact duplicate",
+    "glitches": "Value outside plausible range",
+    "other_app_hr": "Not recorded by the Apple Watch",
+    "other_app_sleep": "Not recorded by the Apple Watch",
+}
+
+
 def run_scenario(spec_path: Path, build_dir: Path, skip_daily: bool) -> dict:
     spec = load_spec(spec_path)
     t0 = clock.time()
@@ -93,11 +96,14 @@ def run_scenario(spec_path: Path, build_dir: Path, skip_daily: bool) -> dict:
         noise = sc.truth["noise"]
         if noise:
             removed = r.removal_log.groupby("reason")["removed"].sum().to_dict() if len(r.removal_log) else {}
+            # Each kind of noise must be removed by its own rule, not just "something was removed".
+            missing = {NOISE_REASON[k] for k in noise} - set(removed)
             results.append(
                 Result(
                     "Cleaning removed the injected noise",
-                    "pass" if removed else "fail",
-                    ", ".join(f"{k}: {v}" for k, v in removed.items()) or "nothing removed",
+                    "fail" if missing else "pass",
+                    (f"nothing removed by: {', '.join(sorted(missing))}. " if missing else "")
+                    + (", ".join(f"{k}: {v}" for k, v in removed.items()) or "nothing removed"),
                 )
             )
         results += expectation_checks(spec.get("expect", []), sc.truth, nights)

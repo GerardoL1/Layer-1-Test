@@ -8,7 +8,6 @@ Four ways data can arrive (all land in the same database):
   3. Apple Shortcuts automation      POST .../readings/shortcuts           app/routers/readings.py
   4. Apple Health export file        POST .../imports                      app/routers/imports.py
                                      (or python import_export.py)
-The URLs from before /api/v1 still work but are deprecated (app/routers/legacy.py).
 
 Every reading is stored with its UTC offset so nights can be worked out in local time.
 After new data arrives the Layer 1 preprocessing runs in the background (app/services/processing.py).
@@ -32,7 +31,6 @@ from app.routers import (
     demo,
     health,
     imports,
-    legacy,
     processing_runs,
     profile,
     readings,
@@ -63,7 +61,6 @@ for module in (
     sweat,
     processing_runs,
     demo,
-    legacy,
 ):
     app.include_router(module.router)
 app.include_router(sweat.demo_router)

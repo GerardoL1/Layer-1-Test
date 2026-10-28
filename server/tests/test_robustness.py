@@ -131,12 +131,8 @@ def test_shortcuts_takes_a_first_sync_bigger_than_1_mb():
     times = [f"2026-09-{1 + i // 1440:02d}T{i // 60 % 24:02d}:{i % 60:02d}:00-05:00" for i in range(20000)]
     rows = "\n".join(f"{t} | {t} | 52 | Test Apple Watch" for t in times)
     assert len(rows) > 1024 * 1024
-    for url, data in (
-        ("/api/v1/users/big_sc/readings/shortcuts", {"metric": "heart_rate", "rows": rows}),
-        ("/api/shortcut", {"user": "big_sc_old", "metric": "heart_rate", "rows": rows}),
-    ):
-        r = client.post(url, data=data)
-        assert r.status_code == 200 and "new 20000" in r.text, url
+    r = client.post("/api/v1/users/big_sc/readings/shortcuts", data={"metric": "heart_rate", "rows": rows})
+    assert r.status_code == 200 and "new 20000" in r.text
 
 
 def test_a_shortcuts_sleep_batch_with_unreadable_lines_is_refused_whole():
@@ -345,8 +341,10 @@ def test_a_unit_conversion_that_overflows_is_never_stored(tmp_path):
 @pytest.mark.parametrize("gap", ["\u00a0", "\u202f", "\t", " "])
 def test_shortcuts_reads_a_unit_after_any_kind_of_space(gap):
     line = f"2026-09-30T23:30:00-05:00 | 2026-09-30T23:30:00-05:00 | 48,5{gap}ms | Apple Watch"
-    r = client.post("/api/v1/users/sc_gap/readings/shortcuts", data={"metric": "hrv_sdnn", "rows": line})
-    assert "could not be read" not in r.text
+    user = f"sc_gap_{ord(gap)}"  # one person per case, so each one really has to save its reading
+    r = client.post(f"/api/v1/users/{user}/readings/shortcuts", data={"metric": "hrv_sdnn", "rows": line})
+    assert r.status_code == 200
+    assert _values(user, "hrv_sdnn") == [48.5]
 
 
 def test_health_auto_export_note_names_units_that_are_not_text():

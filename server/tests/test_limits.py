@@ -37,11 +37,6 @@ def test_the_real_limits():
         USER + "/workouts/{workout_id}/sweat",
         USER + "/sweat/nix/preview",
         USER + "/sweat/nix",
-        # deprecated URLs, still limited
-        "/api/import",
-        "/upload",
-        "/api/hae",
-        "/api/shortcut",
     }
     assert limits.limit_for("/api/v1/users/sam/imports") == (USER + "/imports", limits.MAX_EXPORT_UPLOAD_BYTES)
     assert limits.limit_for("/api/v1/users/sam/readings/shortcuts") == (

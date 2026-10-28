@@ -85,7 +85,7 @@ def test_sweat_session_reads_every_field():
     s = load("nix_metric_sweat.xlsx")
     assert s.start_local == datetime(2026, 10, 20, 18, 0)
     assert s.end_local == datetime(2026, 10, 20, 19, 0)
-    assert s.duration_min == 60
+    assert s.file_duration_min == 60
     assert s.unit_system == "metric"
     assert s.fluid_loss_ml == 682  # 15 min at 30 ml/h + 45 min at 900 ml/h = 682.5, Nix writes whole ml
     assert s.sweat_rate_l_h == pytest.approx(0.682)
@@ -276,9 +276,15 @@ def test_duration_that_doesnt_match_the_times_is_a_warning():
     assert C.WARN_DURATION_MISMATCH.format(duration=30, span=60) in s.warnings
 
 
+def test_far_off_duration_doesnt_make_a_false_fluid_warning():
+    # Found in the Layer 2/3 audit. A 10 hour Duration on a 1 hour workout said the fluid didn't match.
+    s = read_nix(make(S.sweat_workout(), summary_edit=lambda x: set_value(x, "Duration", "10:00:00")))
+    assert s.warnings == [C.WARN_DURATION_MISMATCH.format(duration=600, span=60)]
+
+
 def test_missing_duration_uses_start_and_end():
     s = read_nix(make(S.sweat_workout(), summary_edit=lambda x: set_value(x, "Duration", "--")))
-    assert s.duration_min == 60
+    assert s.file_duration_min is None
     assert s.warnings == []
 
 
@@ -539,7 +545,7 @@ def test_odd_workbooks_give_a_plain_error(make_bad):
 def test_odd_digits_in_duration_dont_crash():
     # 4. "²" passed isdigit() and then broke int().
     s = read_nix(make(S.sweat_workout(), summary_edit=lambda x: set_value(x, "Duration", "0²:00:00")))
-    assert s.duration_min == 60
+    assert s.file_duration_min is None
     assert s.warnings == [C.WARN_DURATION_UNREADABLE.format(value="0²:00:00")]
 
 
@@ -642,7 +648,7 @@ def test_minus_zero_is_negative():
 def test_durations_other_than_hh_mm_ss_use_the_times(value):
     # 12. "1:00" was read as one minute, the others were dropped without a word.
     s = read_nix(make(S.sweat_workout(), summary_edit=lambda x: set_value(x, "Duration", value)))
-    assert s.duration_min == 60
+    assert s.file_duration_min is None
     assert s.warnings == [C.WARN_DURATION_UNREADABLE.format(value=value)]
 
 

@@ -20,14 +20,15 @@ def render(data: AppData) -> None:
     R = data.R
     st.subheader("Clean")
     st.markdown(
-        "Five rules, applied in order:\n"
+        "Six rules, applied in order:\n"
         "1. **Unrecognised sleep values** removed (sleep categories from newer iOS versions we don't handle yet).\n"
         "2. **Apple Watch only.** Other apps (chest-strap apps, third-party sleep trackers) measure "
         "differently, so mixing them would add noise. **In Bed** times from the iPhone or the watch are kept for "
         "time in bed. In Bed from other apps is removed, since it would stretch time in bed.\n"
         "3. **Exact duplicates** removed (sync glitches, re-imports).\n"
-        "4. **Impossible values** removed, such as a heart rate of 12 or 250 from a loose strap.\n"
-        "5. **Broken sleep pieces** removed: shorter than 30 seconds or longer than 16 hours.\n\n"
+        "4. **Unknown units** removed: heart rate or HRV in a unit we can't convert.\n"
+        "5. **Impossible values** removed, such as a heart rate of 12 or 250 from a loose strap.\n"
+        "6. **Broken sleep pieces** removed: shorter than 30 seconds or longer than 16 hours.\n\n"
         "Apple Watch doesn't share raw motion or sensor signals, so there is no motion-artifact filtering "
         "to do here: HealthKit values are already processed by the watch."
     )
@@ -48,9 +49,7 @@ def render(data: AppData) -> None:
     ba = pd.DataFrame({"before": before, "after": after}).fillna(0).astype(int)
     ba["removed"] = ba["before"] - ba["after"]
     st.markdown("**Before and after**")
-    st.dataframe(
-        ba.reset_index().rename(columns={"index": "data", "data": "data"}), hide_index=True, use_container_width=True
-    )
+    st.dataframe(ba.reset_index(), hide_index=True, use_container_width=True)
 
     hr_removed = R.removed_rows[R.removed_rows["metric"] == "heart_rate"]
     hr_kept = R.cleaned["heart_rate"]

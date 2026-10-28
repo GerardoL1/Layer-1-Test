@@ -146,7 +146,7 @@ def _parse(data: bytes) -> NixSession:
         raise HTTPException(400, str(e)) from None
 
 
-def _offsets(conn, user_id: str, local: datetime, phone_offset: int | None) -> list[int]:
+def utc_offsets(conn, user_id: str, local: datetime, phone_offset: int | None) -> list[int]:
     """
     The UTC offsets a Nix time could have (it has no time zone): from the Settings time zone for that date,
     else the newest reading's, else the phone's. Two in the hour repeated when clocks go back, and a time
@@ -183,7 +183,7 @@ def _offsets(conn, user_id: str, local: datetime, phone_offset: int | None) -> l
     raise HTTPException(400, ERR_NO_TIME_ZONE)
 
 
-def _utc_ms(local: datetime, offset_min: int) -> int:
+def local_utc_ms(local: datetime, offset_min: int) -> int:
     return (local - timedelta(minutes=offset_min) - datetime(1970, 1, 1)) // timedelta(milliseconds=1)
 
 
@@ -193,9 +193,9 @@ def _real_times(conn, user_id: str, s: NixSession, phone_offset: int | None) -> 
     duration wins, and between equal fits the one overlapping a workout (else summer time, the first).
     """
     choices = []
-    for start_tz in _offsets(conn, user_id, s.start_local, phone_offset):
-        for end_tz in _offsets(conn, user_id, s.end_local, phone_offset):
-            start_ms, end_ms = _utc_ms(s.start_local, start_tz), _utc_ms(s.end_local, end_tz)
+    for start_tz in utc_offsets(conn, user_id, s.start_local, phone_offset):
+        for end_tz in utc_offsets(conn, user_id, s.end_local, phone_offset):
+            start_ms, end_ms = local_utc_ms(s.start_local, start_tz), local_utc_ms(s.end_local, end_tz)
             if end_ms >= start_ms:
                 choices.append((start_ms, end_ms, start_tz, end_tz))
     if not choices:
@@ -294,10 +294,6 @@ def _conflicts(conn, user_id: str, session_id: str, workout_id: str | None) -> l
     return [dict(r) for r in rows]
 
 
-def _precision(unit_system: str) -> int:
-    return C3.UNIT_PRECISION[unit_system]
-
-
 REFUSED = ("keeps_more_precise", "keeps_sweat_data")
 
 
@@ -316,10 +312,10 @@ def _existing(new: dict, conflicts: list[dict]) -> str:
     if new_sweat:
         # Breathing-only copies lose to sweat data anyway, so only sweat data takes part in the precision race.
         conflicts = [c for c in conflicts if c["sweat_detected"]]
-    best = max(_precision(c["unit_system"]) for c in conflicts)
-    if best > _precision(new["unit_system"]):
+    best = max(C3.UNIT_PRECISION[c["unit_system"]] for c in conflicts)
+    if best > C3.UNIT_PRECISION[new["unit_system"]]:
         return "keeps_more_precise"
-    if best < _precision(new["unit_system"]):
+    if best < C3.UNIT_PRECISION[new["unit_system"]]:
         return "replaces_less_precise"
     old = conflicts[0]
     if len(conflicts) == 1 and old["id"] == new["id"] and old["workout_id"] == new["workout_id"]:
@@ -540,14 +536,22 @@ def for_workout(user_id: str, workout_id: str) -> dict:
         return _out(_session_row(row), _weight(conn, user_id))
 
 
+def _now(conn, user_id: str) -> datetime:
+    """The person's own clock, like the workouts list, so a demo person's fixed clock counts too."""
+    try:
+        return processing.local_now(conn, user_id, processing.utc_now())
+    except ValueError:
+        # A demo user's fixed clock that can't be read. The real date is close enough.
+        return processing.utc_now().replace(tzinfo=None)
+
+
 def list_sessions(user_id: str, days: int) -> list[dict]:
-    since = int(time.time() * 1000) - days * 24 * HOUR_MS
     with db.connect() as conn:
         require_user(conn, user_id)
-        rows = [_session_row(r) for r in conn.execute(_SESSIONS_SQL, (user_id,)).fetchall()]
+        since = _now(conn, user_id) - timedelta(days=days)
+        sessions = _sessions(conn, user_id)
         weight = _weight(conn, user_id)
-    rows = sorted((r for r in rows if r["start_ms"] >= since), key=lambda r: r["start_ms"])
-    return [_out(r, weight) for r in rows]
+    return [_out(s, weight) for s in sessions if s["start_at"] >= since]
 
 
 # ---------------------------------------------------------------- Today, Trends and the readiness model
@@ -626,11 +630,7 @@ def daily(user_id: str, nights: int) -> dict:
     """Sweat per day for the Trends chart, by the day the workout started, ending yesterday."""
     with db.connect() as conn:
         user = require_user(conn, user_id)
-        try:
-            today = processing.local_now(conn, user_id, processing.utc_now()).date()
-        except ValueError:
-            # A demo user's fixed clock that can't be read. Today's UTC date is close enough for a chart.
-            today = processing.utc_now().date()
+        today = _now(conn, user_id).date()
         sessions = _sessions(conn, user_id)
     first = today - timedelta(days=nights)
     days: list[dict[str, Any]] = []

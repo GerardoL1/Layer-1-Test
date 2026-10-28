@@ -40,13 +40,8 @@ LIMITS_BY_PATH = {
     USER + "/workouts/{workout_id}/sweat": MAX_SMALL_JSON_BYTES,
     USER + "/sweat/nix/preview": MAX_NIX_UPLOAD_BYTES,
     USER + "/sweat/nix": MAX_NIX_UPLOAD_BYTES,
-    # Old URLs, kept while older app builds and phone automations still use them.
-    "/api/import": MAX_EXPORT_UPLOAD_BYTES,
-    "/upload": MAX_JSON_BYTES,
-    "/api/hae": MAX_JSON_BYTES,
-    "/api/shortcut": MAX_JSON_BYTES,
 }
-EXPORT_UPLOAD_PATHS = {USER + "/imports", "/api/import"}
+EXPORT_UPLOAD_PATHS = {USER + "/imports"}
 
 
 def _pattern(template: str) -> re.Pattern:

@@ -39,6 +39,13 @@ def test_demo_sweat_loads_workouts_and_sessions(sam):
     assert by_workout["demo-legs-0929"]["workout_id"] == "demo-legs-0929"
 
 
+def test_sweat_list_counts_days_on_the_demo_clock(sam):
+    # Found in the Layer 2/3 audit. The list counted back from the real date, so the last 28 days of a
+    # demo person (clock fixed at 1 Oct 2026) came back nearly empty while their workouts list was full.
+    sessions = client.get("/api/v1/users/demo-sam/sweat/sessions", params={"days": 28}).json()
+    assert len(sessions) == 5
+
+
 def test_demo_morning_has_a_hydration_line(sam):
     # The demo clock is 1 Oct, 8:30 am, so Today shows the night of 30 Sep and yesterday's evening run.
     assert sweat.hydration_line("demo-sam", date(2026, 9, 30)).startswith("Yesterday's easy run cost about")

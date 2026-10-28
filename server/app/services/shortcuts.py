@@ -7,6 +7,7 @@ import math
 from datetime import datetime
 
 from app.core import db
+from app.services.time_checks import utc_ms
 from layer1.units import factor
 
 SHORTCUT_METRICS = ("heart_rate", "resting_heart_rate", "hrv_sdnn", "sleep")
@@ -26,16 +27,7 @@ def shortcut_date(text: str) -> tuple[int, int]:
     offset = dt.utcoffset()
     if offset is None:
         raise ValueError("date has no time zone, set the date format to ISO 8601 with time")
-    minutes = int(offset.total_seconds() // 60)
-    if not db.valid_offset(minutes):
-        raise ValueError(f"impossible UTC offset: {text}")
-    try:
-        ms = int(dt.timestamp() * 1000)
-    except OverflowError:  # year 1 with a positive offset falls before year 1 in UTC
-        raise ValueError(f"date out of range: {text}") from None
-    if not db.valid_time(ms):
-        raise ValueError(f"date out of range: {text}")
-    return ms, minutes
+    return utc_ms(dt, offset, text)
 
 
 def sleep_stage(value: str) -> str | None:

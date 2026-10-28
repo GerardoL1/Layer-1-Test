@@ -9,13 +9,14 @@ import json
 import os
 import subprocess
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import main
 import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
+from test_checkins_workouts import local_ms
 from test_processing import load, store, to_utc
 
 from app.core import db
@@ -28,8 +29,7 @@ SERVER = Path(__file__).resolve().parent.parent
 
 def ms_at(day, hour, minute=0):
     """UTC milliseconds for a Los Angeles wall-clock time."""
-    local = datetime(day.year, day.month, day.day, hour, minute, tzinfo=timezone.utc)
-    return int(local.timestamp() * 1000) - LA * 60000
+    return local_ms(day.year, day.month, day.day, hour, minute, offset=LA)
 
 
 @pytest.fixture(scope="module")
