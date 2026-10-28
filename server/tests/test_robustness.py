@@ -341,8 +341,10 @@ def test_a_unit_conversion_that_overflows_is_never_stored(tmp_path):
 @pytest.mark.parametrize("gap", ["\u00a0", "\u202f", "\t", " "])
 def test_shortcuts_reads_a_unit_after_any_kind_of_space(gap):
     line = f"2026-09-30T23:30:00-05:00 | 2026-09-30T23:30:00-05:00 | 48,5{gap}ms | Apple Watch"
-    r = client.post("/api/v1/users/sc_gap/readings/shortcuts", data={"metric": "hrv_sdnn", "rows": line})
-    assert "could not be read" not in r.text
+    user = f"sc_gap_{ord(gap)}"  # one person per case, so each one really has to save its reading
+    r = client.post(f"/api/v1/users/{user}/readings/shortcuts", data={"metric": "hrv_sdnn", "rows": line})
+    assert r.status_code == 200
+    assert _values(user, "hrv_sdnn") == [48.5]
 
 
 def test_health_auto_export_note_names_units_that_are_not_text():
