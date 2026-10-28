@@ -58,13 +58,12 @@ WORKOUTS = [
     ),
     DemoWorkout("demo-upper-0915", datetime(2026, 9, 15, 18, 5), 48, "Upper body", "apple_health", None),
 ]
-MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
 def _nix_time(t: datetime) -> str:
     """The way Nix writes it: "Sep 30, 2026 at 6:05 PM"."""
     hour = t.hour % 12 or 12
-    return f"{MONTHS[t.month - 1]} {t.day}, {t.year} at {hour}:{t.minute:02d}{NNBSP}{'PM' if t.hour >= 12 else 'AM'}"
+    return f"{t:%b} {t.day}, {t.year} at {hour}:{t.minute:02d}{NNBSP}{'PM' if t.hour >= 12 else 'AM'}"
 
 
 def nix_file(start: datetime, minutes: int, type_: str, sweat_ml_h: float, sodium_mg_h: float, units: str) -> bytes:
@@ -99,10 +98,10 @@ def load(person: str) -> dict:
         conn.execute("DELETE FROM sweat_sessions WHERE user_id = ?", (user_id,))
         conn.execute("DELETE FROM workouts WHERE user_id = ? AND id LIKE 'demo-%'", (user_id,))
         # The demo person's readings say which offset they live in (no time zone setting).
-        offsets = {w.id: sweat._offsets(conn, user_id, w.start, None)[0] for w in WORKOUTS}
+        offsets = {w.id: sweat.utc_offsets(conn, user_id, w.start, None)[0] for w in WORKOUTS}
     sessions = 0
     for wid, start, minutes, type_, source, data in WORKOUTS:
-        start_ms = sweat._utc_ms(start, offsets[wid])
+        start_ms = sweat.local_utc_ms(start, offsets[wid])
         save_workout(
             user_id,
             WorkoutIn(
