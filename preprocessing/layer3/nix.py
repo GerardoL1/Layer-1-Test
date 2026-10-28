@@ -525,9 +525,12 @@ def _session(rows: dict[str, _Row], minutes: list[NixMinute], ts_systems: set[st
         duration = _duration_min(duration_raw)
         if duration is None:
             warnings.append(C.WARN_DURATION_UNREADABLE.format(value=_short(_clean(duration_raw))))
-    used_min = duration if duration is not None else span_min
+    # A Duration far from the times is a broken file, so the checks below use the times, like the server.
+    used_min = span_min
     if duration is not None and abs(duration - span_min) > C.DURATION_CHECK_TOLERANCE_MIN:
         warnings.append(C.WARN_DURATION_MISMATCH.format(duration=duration, span=span_min))
+    elif duration is not None:
+        used_min = duration
     if sweat_rate is not None:
         expected = sweat_rate * 1000 * used_min / 60
         if abs(fluid - expected) > max(C.FLUID_CHECK_TOLERANCE * expected, C.FLUID_CHECK_ABS_ML):

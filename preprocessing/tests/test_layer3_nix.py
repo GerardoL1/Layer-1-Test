@@ -276,6 +276,12 @@ def test_duration_that_doesnt_match_the_times_is_a_warning():
     assert C.WARN_DURATION_MISMATCH.format(duration=30, span=60) in s.warnings
 
 
+def test_far_off_duration_doesnt_make_a_false_fluid_warning():
+    # Found in the Layer 2/3 audit. A 10 hour Duration on a 1 hour workout said the fluid didn't match.
+    s = read_nix(make(S.sweat_workout(), summary_edit=lambda x: set_value(x, "Duration", "10:00:00")))
+    assert s.warnings == [C.WARN_DURATION_MISMATCH.format(duration=600, span=60)]
+
+
 def test_missing_duration_uses_start_and_end():
     s = read_nix(make(S.sweat_workout(), summary_edit=lambda x: set_value(x, "Duration", "--")))
     assert s.file_duration_min is None
