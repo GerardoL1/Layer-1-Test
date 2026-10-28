@@ -237,14 +237,15 @@ def test_time_in_bed_falls_back_to_sleep_window():
 
 def test_overnight_rhr_is_lowest_30_minute_average():
     readings = []
-    # Every 5 minutes from 23:00 to 05:55 at 60 bpm, except 02:00-02:30 at 50 bpm.
+    # Every 5 minutes from 23:00 to 05:55 at 60 bpm, except 02:00-02:25 at 50 bpm. The dip is shorter than
+    # the window, so only a 30-minute window gives five 50s and one 60.
     t = pd.Timestamp("2026-09-01 23:00:00")
     while t < pd.Timestamp("2026-09-02 06:00:00"):
-        bpm = 50 if pd.Timestamp("2026-09-02 02:00:00") <= t < pd.Timestamp("2026-09-02 02:30:00") else 60
+        bpm = 50 if pd.Timestamp("2026-09-02 02:00:00") <= t < pd.Timestamp("2026-09-02 02:25:00") else 60
         readings.append(hr(t.strftime("%Y-%m-%d %H:%M:%S"), bpm))
         t += pd.Timedelta(minutes=5)
     row = P.run_pipeline(export(*night("2026-09-01", "2026-09-02"), *readings), days=None).nights.iloc[0]
-    assert row["rhr_night_bpm"] == pytest.approx(50, abs=1.5)
+    assert row["rhr_night_bpm"] == pytest.approx((5 * 50 + 60) / 6)
     assert row["hr_night_count"] == 84  # 23:00 to 05:55, every 5 minutes
 
 
