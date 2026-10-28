@@ -544,10 +544,9 @@ def list_sessions(user_id: str, days: int) -> list[dict]:
     since = int(time.time() * 1000) - days * 24 * HOUR_MS
     with db.connect() as conn:
         require_user(conn, user_id)
-        rows = [_session_row(r) for r in conn.execute(_SESSIONS_SQL, (user_id,)).fetchall()]
+        sessions = _sessions(conn, user_id)
         weight = _weight(conn, user_id)
-    rows = sorted((r for r in rows if r["start_ms"] >= since), key=lambda r: r["start_ms"])
-    return [_out(r, weight) for r in rows]
+    return [_out(s, weight) for s in sessions if s["start_ms"] >= since]
 
 
 # ---------------------------------------------------------------- Today, Trends and the readiness model
