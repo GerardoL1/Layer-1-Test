@@ -49,9 +49,7 @@ def render(data: AppData) -> None:
     ba = pd.DataFrame({"before": before, "after": after}).fillna(0).astype(int)
     ba["removed"] = ba["before"] - ba["after"]
     st.markdown("**Before and after**")
-    st.dataframe(
-        ba.reset_index().rename(columns={"index": "data", "data": "data"}), hide_index=True, use_container_width=True
-    )
+    st.dataframe(ba.reset_index(), hide_index=True, use_container_width=True)
 
     hr_removed = R.removed_rows[R.removed_rows["metric"] == "heart_rate"]
     hr_kept = R.cleaned["heart_rate"]
