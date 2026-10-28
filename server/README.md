@@ -17,6 +17,8 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 - `http://localhost:8000/docs` lists every endpoint and lets you try them.
 - The database is `platform.db` next to this file (git-ignored). Stop the server and delete it for a fresh start.
   Set `RECOVERY_DB` to use another file.
+- Run one server process only (no `--workers`). Import progress and the per-person processing lock live in memory,
+  so a second process would lose track of imports and could save two runs with the same number.
 
 For the iPhone (or Health Auto Export / Shortcuts) to reach the server, both must be on the same Wi-Fi. Find the
 computer's IP (Windows: `ipconfig`, look for IPv4 Address. Mac: `ipconfig getifaddr en0`), then open
