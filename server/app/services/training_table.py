@@ -62,24 +62,19 @@ def _list(values) -> str | None:
     return ";".join(values) if values else "none"
 
 
-def _daily_load(conn, user_id: str) -> dict[date, float]:
-    """Effort x minutes per local day, from rated workouts only."""
-    out: dict[date, float] = {}
+def _daily_load(conn, user_id: str) -> tuple[dict[date, float], dict[date, int]]:
+    """Effort x minutes and the number of rated workouts, per local day, from rated workouts only."""
+    load: dict[date, float] = {}
+    rated: dict[date, int] = {}
     rows = conn.execute(
         "SELECT start_ms, end_ms, start_tz_min, effort FROM workouts WHERE user_id = ? AND effort IS NOT NULL",
         (user_id,),
     )
     for r in rows:
         day = local_time(r["start_ms"], r["start_tz_min"]).date()
-        out[day] = out.get(day, 0.0) + r["effort"] * (r["end_ms"] - r["start_ms"]) / 60000
-    return out
-
-
-def _rated_days(conn, user_id: str) -> list[date]:
-    rows = conn.execute(
-        "SELECT start_ms, start_tz_min FROM workouts WHERE user_id = ? AND effort IS NOT NULL", (user_id,)
-    )
-    return [local_time(r["start_ms"], r["start_tz_min"]).date() for r in rows]
+        load[day] = load.get(day, 0.0) + r["effort"] * (r["end_ms"] - r["start_ms"]) / 60000
+        rated[day] = rated.get(day, 0) + 1
+    return load, rated
 
 
 def build(conn, user_ids: list[str] | None = None, include_catch_up: bool = False) -> pd.DataFrame:
@@ -88,8 +83,7 @@ def build(conn, user_ids: list[str] | None = None, include_catch_up: bool = Fals
     rows = []
     for user_id in user_ids:
         weight = conn.execute("SELECT weight_kg FROM users WHERE user_id = ?", (user_id,)).fetchone()
-        load = _daily_load(conn, user_id)
-        rated = _rated_days(conn, user_id)
+        load, rated = _daily_load(conn, user_id)
         checkins = {r["night_date"]: r for r in conn.execute("SELECT * FROM checkins WHERE user_id = ?", (user_id,))}
         sweat_by_night = sweat.daily_sweat_table(conn, user_id).set_index("night_date").to_dict("index")
         snaps = conn.execute(
@@ -114,7 +108,7 @@ def build(conn, user_ids: list[str] | None = None, include_catch_up: bool = Fals
             # Training up to and including the evening the night started, since that's what the morning feels.
             for col, days in LOAD_WINDOWS.items():
                 row[col] = round(sum(load.get(night - timedelta(days=i), 0.0) for i in range(days)), 1)
-            row["rated_workouts_7d"] = sum(1 for d in rated if night - timedelta(days=6) <= d <= night)
+            row["rated_workouts_7d"] = sum(rated.get(night - timedelta(days=i), 0) for i in range(7))
             c = checkins.get(s["night_date"])
             if c is not None:
                 answers = json.loads(c["answers"])
