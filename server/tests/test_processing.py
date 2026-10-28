@@ -5,6 +5,7 @@ database, several times a day, gives the same table as processing everything at 
     python -m pytest -q tests
 """
 
+import time as clock
 from datetime import datetime, time, timedelta, timezone
 
 import main
@@ -241,3 +242,29 @@ def test_a_rebuild_does_not_call_old_nights_new():
     assert first.new_nights  # the first run really does add them
     again = processing.process_user(user, force=True)  # a rebuild with nothing new
     assert again.new_nights == []
+
+
+def test_readings_saved_during_a_run_keep_their_reach_back_mark(monkeypatch):
+    user = "mid-run"
+    recs = load("sam")
+    store(user, recs)
+    processing.process_user(user, force=True)
+    old_ms = int(recs["start_utc"].min().timestamp() * 1000) + 86_400_000
+    real_load = db.load_records
+
+    def a_late_reading_lands_mid_run(conn, user_id, *args, **kwargs):
+        loaded = real_load(conn, user_id, *args, **kwargs)
+        clock.sleep(0.002)  # data_changed_ms is in milliseconds, so make sure it moves
+        with db.connect() as other:
+            sample = (db.sample_id(user, "hrv_sdnn", old_ms, old_ms, 50.0, "late"), "hrv_sdnn", 50.0)
+            db.add_readings(other, user, [(*sample, old_ms, old_ms, -420, "late")])
+        return loaded
+
+    monkeypatch.setattr(db, "load_records", a_late_reading_lands_mid_run)
+    processing.process_user(user, update_now=True)
+    monkeypatch.undo()
+    with db.connect() as conn:
+        mark = conn.execute("SELECT changed_from_ms FROM users WHERE user_id = ?", (user,)).fetchone()[0]
+    # The run never saw that reading, so the next run must still know it reaches back that far.
+    assert mark is not None
+    assert processing.process_user(user) is not None
