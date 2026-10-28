@@ -65,7 +65,6 @@ class NixMinute:
 class NixSession:
     start_local: datetime  # phone's local time, no time zone in the file
     end_local: datetime
-    duration_min: float
     unit_system: str  # metric or customary, the less precise one if a file mixes them
     fluid_loss_ml: float
     sweat_rate_l_h: float | None
@@ -549,7 +548,6 @@ def _session(rows: dict[str, _Row], minutes: list[NixMinute], ts_systems: set[st
     return NixSession(
         start_local=start,
         end_local=end,
-        duration_min=used_min,
         unit_system=unit_system,
         fluid_loss_ml=fluid,
         sweat_rate_l_h=sweat_rate,
