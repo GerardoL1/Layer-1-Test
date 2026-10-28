@@ -536,13 +536,22 @@ def for_workout(user_id: str, workout_id: str) -> dict:
         return _out(_session_row(row), _weight(conn, user_id))
 
 
+def _now(conn, user_id: str) -> datetime:
+    """The person's own clock, like the workouts list, so a demo person's fixed clock counts too."""
+    try:
+        return processing.local_now(conn, user_id, processing.utc_now())
+    except ValueError:
+        # A demo user's fixed clock that can't be read. The real date is close enough.
+        return processing.utc_now().replace(tzinfo=None)
+
+
 def list_sessions(user_id: str, days: int) -> list[dict]:
-    since = int(time.time() * 1000) - days * 24 * HOUR_MS
     with db.connect() as conn:
         require_user(conn, user_id)
+        since = _now(conn, user_id) - timedelta(days=days)
         sessions = _sessions(conn, user_id)
         weight = _weight(conn, user_id)
-    return [_out(s, weight) for s in sessions if s["start_ms"] >= since]
+    return [_out(s, weight) for s in sessions if s["start_at"] >= since]
 
 
 # ---------------------------------------------------------------- Today, Trends and the readiness model
@@ -621,11 +630,7 @@ def daily(user_id: str, nights: int) -> dict:
     """Sweat per day for the Trends chart, by the day the workout started, ending yesterday."""
     with db.connect() as conn:
         user = require_user(conn, user_id)
-        try:
-            today = processing.local_now(conn, user_id, processing.utc_now()).date()
-        except ValueError:
-            # A demo user's fixed clock that can't be read. Today's UTC date is close enough for a chart.
-            today = processing.utc_now().date()
+        today = _now(conn, user_id).date()
         sessions = _sessions(conn, user_id)
     first = today - timedelta(days=nights)
     days: list[dict[str, Any]] = []
