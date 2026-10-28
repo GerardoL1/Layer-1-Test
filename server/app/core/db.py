@@ -235,7 +235,7 @@ def load_records(
     """
     A user's readings in the same shape as preprocessing's load_export(), so the
     tested pipeline runs on database rows without any changes.
-    since_ms and sleep_only are for quick looks at recent sleep, not for processing.
+    since_ms keeps only readings that end after it. sleep_only is for quick looks at recent sleep.
     """
     since = since_ms if since_ms is not None else -(2**62)
     q = pd.read_sql_query(

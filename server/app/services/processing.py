@@ -12,7 +12,7 @@ when something changed: new readings, or the clock passing the user's update tim
 import json
 import threading
 from dataclasses import asdict
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import pandas as pd
@@ -240,6 +240,29 @@ def _reaches_back(changed_from_ms: int | None, last) -> bool:
     return earliest_night < oldest_redone
 
 
+def _since_ms(proc: I.DailyProcessor, scheduled: date) -> int | None:
+    """
+    How far back a run that carries on from the saved nights needs readings: two days before the oldest
+    night it could work out. Cleaning looks at one reading at a time and each night only reads the hours
+    around it, so older readings can't change anything.
+    """
+    if proc.nights.empty:
+        return None
+    done = sorted(proc.nights["night_date"])
+    redo = max(proc.recompute_nights - 1, 0)
+    holes = sorted(set(pd.date_range(done[0], done[-1]).date) - set(done))
+    oldest = min(
+        [
+            done[-1] + timedelta(days=1),  # the first new night
+            scheduled - timedelta(days=redo),
+            *(done[-redo:] if redo else []),  # the nights redone every run
+            *holes[:1],
+            *(proc.reports[-1].new_nights if proc.reports else []),  # last run's new nights get redone too
+        ]
+    )
+    return int(datetime.combine(oldest - timedelta(days=2), time(0), tzinfo=timezone.utc).timestamp() * 1000)
+
+
 def process_user(
     user_id: str, now_utc: datetime | None = None, update_now: bool = False, force: bool = False
 ) -> I.RunReport | None:
@@ -256,9 +279,6 @@ def process_user(
         if user is None:
             return None
         seen_change = user["data_changed_ms"]
-        records = db.load_records(conn, user_id)
-        if records.empty:
-            return None
 
         proc = I.DailyProcessor(user_id, update_time=parse_update_time(user["update_time"]))
         last = last_run(conn, user_id)
@@ -304,6 +324,11 @@ def process_user(
         scheduled = I.scheduled_ready_night(sync, parse_update_time(user["update_time"]))
         early = rebuild and last is not None and last["ready_through"] is not None
         keep_early = early and date.fromisoformat(last["ready_through"]) > scheduled
+        records = db.load_records(conn, user_id, None if rebuild else _since_ms(proc, scheduled))
+        if records.empty:  # nothing recent, so let the whole history decide, as before
+            records = db.load_records(conn, user_id)
+            if records.empty:
+                return None
         # All saved readings go in as one batch. The processor cleans them and keeps
         # only what it needs, so this matches feeding them in day by day.
         report = proc.sync(records, sync, update_now=update_now or keep_early)
