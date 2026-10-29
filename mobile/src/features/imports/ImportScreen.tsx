@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
   section: { marginBottom: 24 },
   bar: { marginTop: 4 },
   phase: { marginTop: 8, marginBottom: 4 },
-  rule: { borderTopWidth: 1 },
+  rule: { marginTop: 8 },
   problem: { marginTop: 10 },
   goToday: { alignSelf: 'flex-start', marginTop: 16 },
   columns: { flexDirection: 'row', gap: 56 },

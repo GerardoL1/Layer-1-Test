@@ -2,10 +2,12 @@
  * Readiness scale and Readiness summary from Figma.
  * The 40 / 70 cut-offs come from the server and are placeholders until the team decides.
  */
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { AccessibilityInfo, Animated, StyleSheet, View } from 'react-native';
 
 import { ReadinessStatus } from '../api/client';
 import { useTheme } from '../theme/theme';
+import { radius } from '../theme/tokens';
 import { Text } from './Text';
 
 export const STATUS_WORD: Record<ReadinessStatus, string> = {
@@ -91,6 +93,84 @@ export function ReadinessSummary({ score, status, cutoffs, verdict, reason }: Su
   );
 }
 
+/**
+ * A person's usual score: the middle half of their recent scores (25th to 75th percentile).
+ * Null until there are 7 scored nights, so a new person's band isn't built on a few nights.
+ */
+export function usualScores(scores: (number | null)[]): [number, number] | null {
+  const xs = scores.filter((v): v is number => v !== null).sort((a, b) => a - b);
+  if (xs.length < 7) return null;
+  const at = (q: number) => Math.round(xs[Math.round(q * (xs.length - 1))]);
+  return [at(0.25), at(0.75)];
+}
+
+// Spring from the motion spec: no bounce (damping ratio 1), 0.45 s response.
+const STIFFNESS = (2 * Math.PI / 0.45) ** 2;
+const SPRING = { stiffness: STIFFNESS, damping: 2 * Math.sqrt(STIFFNESS), mass: 1, useNativeDriver: false };
+
+type BandProps = {
+  score: number;
+  /** The night before's score. The mark glides from there on open. */
+  from: number | null;
+  /** "Today" or "Monday" while an older night is shown. */
+  name: string;
+  usual: [number, number] | null;
+};
+
+/** Today's readiness band: a track from 0 to 100, your usual range shaded, and a mark at the score. */
+export function ReadinessBand({ score, from, name, usual }: BandProps) {
+  const { colors } = useTheme();
+  const [at] = useState(() => new Animated.Value(from ?? score));
+  const [shown, setShown] = useState(from ?? score);
+  useEffect(() => {
+    const id = at.addListener(({ value }) => setShown(Math.round(value)));
+    let anim: Animated.CompositeAnimation | null = null;
+    let live = true;
+    // Reduced motion: the mark appears in place. Either way the label ends on the exact score.
+    AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
+      if (!live) return;
+      if (reduce) {
+        at.setValue(score);
+        setShown(score);
+      } else {
+        anim = Animated.spring(at, { toValue: score, ...SPRING });
+        anim.start(() => live && setShown(score));
+      }
+    });
+    return () => {
+      live = false;
+      anim?.stop();
+      at.removeListener(id);
+    };
+  }, [at, score]);
+  const left = at.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'], extrapolate: 'clamp' });
+  // Near the right end the label sits left of the mark so it stays on screen.
+  const late = score > 70;
+  const usualText = usual ? `Your usual: ${usual[0]} to ${usual[1]}` : null;
+  return (
+    <View accessible role="group"
+      accessibilityLabel={`${name}, readiness ${score} out of 100.${usualText ? ` ${usualText}.` : ''}`}>
+      <View style={styles.bandLabelRow}>
+        <Animated.View style={[late ? { right: at.interpolate({ inputRange: [0, 100],
+          outputRange: ['100%', '0%'], extrapolate: 'clamp' }) } : { left }, styles.bandLabel]}>
+          <Text variant="labelSmall" style={late ? styles.labelBefore : styles.labelAfter}>{`${name}, ${shown}`}</Text>
+        </Animated.View>
+      </View>
+      <View style={styles.band}>
+        <View style={[styles.bandTrack, { backgroundColor: colors.surface }]} />
+        {usual ? <View style={[styles.usual, { backgroundColor: colors.baseline, left: `${usual[0]}%`,
+          width: `${Math.max(usual[1] - usual[0], 1)}%` }]} /> : null}
+        <Animated.View style={[styles.mark, { left, backgroundColor: colors.textPrimary }]} />
+      </View>
+      <View style={styles.bandEnds} aria-hidden>
+        <Text variant="bodySmall" color="textSecondary">Low</Text>
+        {usualText ? <Text variant="bodySmall" color="textSecondary">{usualText}</Text> : null}
+        <Text variant="bodySmall" color="textSecondary">Ready</Text>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   scale: { flexDirection: 'row', gap: 3 },
   track: { height: 12, justifyContent: 'center' },
@@ -105,4 +185,13 @@ const styles = StyleSheet.create({
   scaleSpace: { marginTop: 16 },
   verdict: { marginTop: 28 },
   reason: { marginTop: 10 },
+  bandLabelRow: { height: 20 },
+  bandLabel: { position: 'absolute', bottom: 2 },
+  labelAfter: { marginLeft: 6 },
+  labelBefore: { marginRight: 6 },
+  band: { height: 22, justifyContent: 'center' },
+  bandTrack: { height: 10, borderRadius: radius.full },
+  usual: { position: 'absolute', height: 10, borderRadius: radius.full },
+  mark: { position: 'absolute', width: 2, height: 22, marginLeft: -1, borderRadius: 1 },
+  bandEnds: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, gap: 8 },
 });

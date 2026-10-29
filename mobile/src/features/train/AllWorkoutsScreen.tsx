@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { Page, PageState } from '../../components/Page';
+import { Panel } from '../../components/Panel';
 import { SectionHeader } from '../../components/SectionHeader';
 import { SubPageHeader } from '../../components/SubPageHeader';
 import { Text } from '../../components/Text';
@@ -15,12 +16,12 @@ import { RefreshError } from './RefreshError';
 import { tagsFor, useTrainData } from './useTrainData';
 
 export default function AllWorkoutsScreen() {
-  const { data, loading, error } = useTrainData();
+  const { data, loading, error, reload } = useTrainData();
   const header = (
     <SubPageHeader back="Train" home="/train" label="Workouts" title="All workouts"
       intro="Everything from your Apple Watch and the app, newest first." />
   );
-  if (!data) return <Page>{header}<PageState loading={loading} error={error} /></Page>;
+  if (!data) return <Page>{header}<PageState loading={loading} error={error} onRetry={reload} /></Page>;
 
   const groups = sections(data.workouts, data.nowLocal);
   return (
@@ -28,23 +29,30 @@ export default function AllWorkoutsScreen() {
       {header}
       <RefreshError error={error} />
       {groups.length === 0 ? (
-        <Text variant="body" color="textSecondary">No workouts yet.</Text>
+        <Panel><Text variant="body" color="textSecondary" style={styles.empty}>No workouts yet.</Text></Panel>
       ) : (
         groups.map((g) => (
           <View key={g.title} style={styles.group}>
             <SectionHeader title={g.title} note={`${g.items.length} ${g.items.length === 1 ? 'workout' : 'workouts'}`} />
-            {g.items.map((w) => (
-              <WorkoutRow key={w.id} startLocal={w.start_local} type={w.type} minutes={w.duration_min}
-                source={w.source} tags={tagsFor(w.id, data.withSweat)}
-                onPress={() => router.push({ pathname: '/train/workout/[workoutId]', params: { workoutId: w.id } })} />
-            ))}
+            <Panel>
+              {g.items.map((w) => (
+                <WorkoutRow key={w.id} startLocal={w.start_local} type={w.type} minutes={w.duration_min}
+                  source={w.source} tags={tagsFor(w.id, data.withSweat)}
+                  onPress={() => router.push({ pathname: '/train/workout/[workoutId]', params: { workoutId: w.id } })} />
+              ))}
+            </Panel>
           </View>
         ))
       )}
+      <Text variant="bodySmall" color="textSecondary" style={styles.note}>
+        Workouts from your Apple Watch appear here on their own. Open one to add exercises, patch and sweat data.
+      </Text>
     </Page>
   );
 }
 
 const styles = StyleSheet.create({
-  group: { marginTop: 12, marginBottom: 12 },
+  group: { marginBottom: 24 },
+  empty: { paddingVertical: 14 },
+  note: { marginTop: 4 },
 });

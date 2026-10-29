@@ -7,7 +7,7 @@
  */
 import { ReactNode, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
-import Svg, { Circle, G, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 
 import { useTheme } from '../theme/theme';
 import { describeHistory, describeSleep, describeTrend } from './chartText';
@@ -143,7 +143,7 @@ export type HistoryBar = { date: string; score: number | null; status: string };
 export function ReadinessHistory({ bars, cutoffs, height = 100 }: {
   bars: HistoryBar[]; cutoffs?: { low_below: number; ready_from: number } | null; height?: number;
 }) {
-  const { colors, statusColor } = useTheme();
+  const { colors } = useTheme();
   if (bars.length === 0) return <Text color="textMuted" style={styles.empty}>No nights yet.</Text>;
   return (
     <View>
@@ -154,13 +154,10 @@ export function ReadinessHistory({ bars, cutoffs, height = 100 }: {
           const y = (s: number) => height - (s / 100) * height;
           return (
             <Svg width={w} height={height}>
-              {(cutoffs ? [cutoffs.low_below, cutoffs.ready_from] : []).map((c) => (
-                <Line key={c} x1={0} x2={w} y1={y(c)} y2={y(c)} stroke={colors.border} strokeWidth={1} />
-              ))}
-              <Line x1={0} x2={w} y1={height - 0.5} y2={height - 0.5} stroke={colors.borderStrong} strokeWidth={1} />
               {bars.map((b, i) => b.score === null ? null : (
                 <Rect key={b.date} x={i * (bw + gap)} y={y(Math.max(b.score, 2))} width={bw}
-                  height={height - y(Math.max(b.score, 2))} fill={statusColor(b.status)} />
+                  // Grey bars, with low nights picked out in amber (Figma's Readiness history).
+                  height={height - y(Math.max(b.score, 2))} fill={b.status === 'low' ? colors.moderate : colors.sleepCore} />
               ))}
             </Svg>
           );

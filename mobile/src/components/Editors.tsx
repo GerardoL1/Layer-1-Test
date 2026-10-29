@@ -20,8 +20,7 @@ function Chip({ label, on, onPress, multi }: { label: string; on: boolean; onPre
   const { colors } = useTheme();
   return (
     <Pressable onPress={onPress} accessibilityRole={multi ? 'checkbox' : 'radio'} aria-checked={on}
-      style={[styles.chip, { borderColor: on ? colors.borderStrong : colors.border,
-        backgroundColor: on ? colors.inverse : 'transparent' }]}>
+      style={[styles.chip, { backgroundColor: on ? colors.inverse : colors.surface }]}>
       <Text variant="body" style={{ color: on ? colors.canvas : colors.textPrimary }}>{label}</Text>
     </Pressable>
   );
@@ -86,6 +85,7 @@ export function TextEditor({ initial, label, placeholder, keyboard, onSave, hint
   const { colors } = useTheme();
   const [text, setText] = useState(initial);
   const [busy, setBusy] = useState(false);
+  const [focused, setFocused] = useState(false);
   async function submit() {
     setBusy(true);
     try {
@@ -98,9 +98,11 @@ export function TextEditor({ initial, label, placeholder, keyboard, onSave, hint
     <View style={styles.editor}>
       <View style={styles.inputRow}>
         <TextInput value={text} onChangeText={setText} placeholder={placeholder} keyboardType={keyboard}
+          onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
           autoCapitalize="none" autoCorrect={false} placeholderTextColor={colors.textMuted}
           accessibilityLabel={label} accessibilityHint={hint} onSubmitEditing={submit} returnKeyType="done"
-          style={[styles.input, { color: colors.textPrimary, borderColor: colors.borderStrong }]} />
+          style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.surface,
+            borderColor: focused ? colors.link : 'transparent' }]} />
         <Button title="Save" busy={busy} onPress={submit} />
       </View>
       {hint ? <Text variant="bodySmall" color="textMuted">{hint}</Text> : null}
@@ -126,11 +128,11 @@ export function EditRow({ label, value, children, open, onToggle, error }: {
 }
 
 const styles = StyleSheet.create({
-  chip: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.sm,
-    borderWidth: 1 },
+  chip: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.full },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   editor: { gap: 8 },
   inputRow: { flexDirection: 'row', gap: 8 },
-  input: { ...type.body, flex: 1, borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 10 },
+  input: { ...type.body, flex: 1, borderWidth: 2, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 10,
+    outlineColor: 'transparent' },
   opened: { paddingBottom: 16, gap: 8 },
 });

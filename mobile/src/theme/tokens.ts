@@ -1,6 +1,6 @@
 /**
- * Design tokens copied from the Figma Foundations page ("Field notes" style).
- * Light = "Graph paper", Dark = "Midnight". Change a value here and every screen follows.
+ * Design tokens from the Figma "Refresh" variables (Foundations page, Light and Dark modes).
+ * The app keeps its older names, each mapped to the Refresh colour that does the same job.
  */
 
 export type Colors = {
@@ -16,11 +16,8 @@ export type Colors = {
   accent: string;
   onAccent: string;
   ready: string;
-  readyBg: string;
   moderate: string;
-  moderateBg: string;
   low: string;
-  lowBg: string;
   hrv: string;
   rhr: string;
   sleep: string;
@@ -29,105 +26,115 @@ export type Colors = {
   sleepRem: string;
   baseline: string;
   sweat: string;
+  infoTint: string;
+  warningTint: string;
+  raised: string;
+  chrome: string;
+  // Refresh "accent": the teal for links and the focus outline. Not the app's accent, which fills buttons.
+  link: string;
 };
 
+// Refresh name for each: canvas = ground, accent = primary (filled buttons), low = negative (errors too),
+// borderStrong = control (secondary button outline), charts use chart-ink, chart-grey and the teal accent.
 export const light: Colors = {
-  canvas: '#E4EAF0',
-  surface: '#EEF2F6',
-  surfaceMuted: '#D3DCE6',
-  inverse: '#132036',
-  textPrimary: '#132036',
-  textSecondary: '#46536A',
-  // Darker than Figma's #6B7790 so small text reaches 4.5:1 contrast on the canvas.
-  textMuted: '#56627A',
-  border: '#C2CCD8',
-  borderStrong: '#132036',
-  accent: '#1F3C88',
-  onAccent: '#E4EAF0',
-  ready: '#1E7466',
-  readyBg: '#D3E6E2',
-  // Darker than Figma's #A9741A for 4.5:1 contrast, on the canvas and on moderateBg.
-  moderate: '#8A5D10',
-  moderateBg: '#EFE3CC',
-  low: '#B5306B',
-  lowBg: '#F0D6E1',
-  hrv: '#132036',
-  rhr: '#7A5C2E',
-  sleep: '#3E4F9E',
-  sleepDeep: '#26336E',
-  sleepCore: '#6C7CC4',
-  sleepRem: '#A9B5E6',
-  baseline: '#D3DCE6',
-  sweat: '#3A6EA5',
+  canvas: '#FFFFFF',
+  surface: '#F1F4F4',
+  surfaceMuted: '#F1F4F4',
+  inverse: '#1D201F',
+  textPrimary: '#1D201F',
+  textSecondary: '#5D6362',
+  textMuted: '#5D6362',
+  border: '#E6EAEA',
+  borderStrong: '#D6DBDB',
+  accent: '#1D201F',
+  onAccent: '#FFFFFF',
+  ready: '#247B50',
+  moderate: '#9A4A0B',
+  low: '#B42318',
+  hrv: '#1D201F',
+  rhr: '#1D201F',
+  sleep: '#1D201F',
+  sleepDeep: '#1D201F',
+  sleepCore: '#9AA09F',
+  sleepRem: '#1B6E66',
+  baseline: '#E2ECEA',
+  sweat: '#9AA09F',
+  infoTint: '#E3F0EE',
+  warningTint: '#FBF1E4',
+  raised: '#FFFFFF',
+  chrome: '#F4F6F6',
+  link: '#1B6E66',
 };
 
 export const dark: Colors = {
-  canvas: '#101826',
-  // Figma has no Midnight value for these, so they're picked to sit between canvas and text.
-  surface: '#172133',
-  inverse: '#E9E6DC',
-  readyBg: '#1C3A35',
-  moderateBg: '#3B3420',
-  lowBg: '#3F2A22',
-  hrv: '#E9E6DC',
-  rhr: '#D2AE74',
-  sleep: '#8E9BE6',
-  baseline: '#1D2738',
-  // From Figma.
-  surfaceMuted: '#1D2738',
-  textPrimary: '#E9E6DC',
-  textSecondary: '#B4B3AE',
-  textMuted: '#7E8594',
-  border: '#2A3445',
-  borderStrong: '#E9E6DC',
-  accent: '#9DB8F2',
-  onAccent: '#101826',
-  ready: '#6CC198',
-  moderate: '#E2C15A',
-  low: '#F08A4B',
-  sleepDeep: '#5F6BC0',
-  sleepCore: '#8E9BE6',
-  sleepRem: '#C2CBF5',
-  sweat: '#7FB2E0',
+  canvas: '#0E0F0F',
+  surface: '#1B1D1D',
+  surfaceMuted: '#1B1D1D',
+  inverse: '#F2F4F3',
+  textPrimary: '#F2F4F3',
+  textSecondary: '#A8AEAD',
+  textMuted: '#A8AEAD',
+  border: '#2B2E2E',
+  borderStrong: '#4A4E4E',
+  accent: '#F2F4F3',
+  onAccent: '#0E0F0F',
+  ready: '#46C07F',
+  moderate: '#E3A457',
+  low: '#EF6F6A',
+  hrv: '#F2F4F3',
+  rhr: '#F2F4F3',
+  sleep: '#F2F4F3',
+  sleepDeep: '#F2F4F3',
+  sleepCore: '#5C6261',
+  sleepRem: '#62BDB1',
+  baseline: '#20302E',
+  sweat: '#5C6261',
+  infoTint: '#18302D',
+  warningTint: '#2B2117',
+  raised: '#242727',
+  chrome: '#151717',
+  link: '#62BDB1',
 };
 
 export const fonts = {
-  heading: 'Fraunces_600SemiBold',
-  body: 'IBMPlexSans_400Regular',
-  bodyMedium: 'IBMPlexSans_500Medium',
-  bodySemiBold: 'IBMPlexSans_600SemiBold',
-  number: 'IBMPlexSansCondensed_600SemiBold',
-  numberRegular: 'IBMPlexSansCondensed_400Regular',
-  label: 'IBMPlexMono_500Medium',
+  serif: 'InstrumentSerif_400Regular',
+  sans: 'InstrumentSans_400Regular',
+  sansMedium: 'InstrumentSans_500Medium',
+  sansSemiBold: 'InstrumentSans_600SemiBold',
 };
 
-// Text styles from Figma. lineHeight there is a multiple, here it's in points.
-const t = (fontFamily: string, fontSize: number, lineHeight: number, extra: object = {}) => ({
+// Refresh text styles from Figma: size, line height and letter spacing (Figma gives it in % of the size).
+const t = (fontFamily: string, fontSize: number, lineHeight: number, spacingPct = 0) => ({
   fontFamily,
   fontSize,
-  lineHeight: Math.round(fontSize * lineHeight),
-  ...extra,
+  lineHeight,
+  letterSpacing: (fontSize * spacingPct) / 100,
 });
 
+// The old names are kept so every screen picks up the new look without changes.
+// Instrument Serif is only for greetings and page titles, everything else is Instrument Sans.
 export const type = {
-  scoreHero: t(fonts.number, 168, 0.86),
-  scoreSuffix: t(fonts.numberRegular, 24, 1.1),
-  scoreMetric: t(fonts.number, 30, 1.1),
-  h1: t(fonts.heading, 30, 1.12),
-  h2: t(fonts.heading, 21, 1.25),
-  h3: t(fonts.heading, 18, 1.3),
-  bodyLarge: t(fonts.body, 16, 1.45),
-  bodyEmphasis: t(fonts.bodyMedium, 16, 1.3),
-  body: t(fonts.body, 15, 1.45),
-  bodySmall: t(fonts.body, 12, 1.4),
-  button: t(fonts.bodySemiBold, 15, 1.2),
-  // Labels are always uppercase.
-  labelMedium: t(fonts.label, 11, 1.2, { textTransform: 'uppercase' as const, letterSpacing: 0.4 }),
-  labelSmall: t(fonts.label, 10, 1.2, { textTransform: 'uppercase' as const, letterSpacing: 0.4 }),
+  greetingLarge: t(fonts.serif, 48, 52, -1.5),
+  greeting: t(fonts.serif, 32, 36, -1),
+  scoreHero: t(fonts.sans, 48, 52, -1.5),
+  scoreSuffix: t(fonts.sans, 22, 28, -1),
+  scoreMetric: t(fonts.sans, 32, 36, -1.5),
+  h1: t(fonts.serif, 32, 36, -1),
+  h2: t(fonts.sans, 24, 30, -1),
+  h3: t(fonts.sansSemiBold, 15, 22),
+  bodyLarge: t(fonts.sans, 18, 26, -0.5),
+  bodyEmphasis: t(fonts.sansMedium, 15, 22),
+  body: t(fonts.sans, 15, 22),
+  bodySmall: t(fonts.sans, 13, 18, 0.2),
+  button: t(fonts.sansMedium, 15, 20),
+  // Labels used to be small uppercase mono. The redesign names things in sentence case at reading size.
+  labelMedium: t(fonts.sansMedium, 13, 18, 0.2),
+  labelSmall: t(fonts.sansMedium, 13, 18, 0.2),
 };
 
 export const space = { 4: 4, 8: 8, 12: 12, 16: 16, 20: 20, 24: 24, 32: 32, 48: 48 } as const;
-export const radius = { sm: 2, md: 3, lg: 4 } as const;
+// Refresh shapes: inputs 14, rows 16, panels 22, buttons, chips and tags fully round.
+export const radius = { sm: 14, md: 16, lg: 22, full: 999 } as const;
 
 // Below this width the app uses the iPhone layout (tab bar), above it the computer layout (sidebar).
 export const WIDE_BREAKPOINT = 768;

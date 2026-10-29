@@ -11,13 +11,14 @@ import { Button } from '../../components/Button';
 import { ListRow } from '../../components/ListRow';
 import { LiveText } from '../../components/LiveText';
 import { Page, PageState } from '../../components/Page';
+import { Panel } from '../../components/Panel';
 import { SubPageHeader } from '../../components/SubPageHeader';
 import { Text } from '../../components/Text';
 import { fieldError } from '../../lib/a11y';
 import { AmountKind, amountHint, amountInput, amountUnit, startLabel, typedValue, Units } from '../../lib/sweat';
 import { errorText, useLoad } from '../../lib/useLoad';
 import { useTheme } from '../../theme/theme';
-import { type } from '../../theme/tokens';
+import { radius, type } from '../../theme/tokens';
 
 const FIELDS: { kind: AmountKind; label: string; spoken: string }[] = [
   { kind: 'fluid', label: 'Sweat loss', spoken: 'Sweat loss' },
@@ -28,17 +29,20 @@ const UNIT_WORDS: Record<string, string> = { ml: 'millilitres', oz: 'ounces', mg
   'L/h': 'litres an hour', 'oz/h': 'ounces an hour' };
 const EMPTY: Record<AmountKind, string> = { fluid: '', sodium: '', rate: '' };
 
-/** One underlined box with its label, unit and error, like Figma's Text field. */
+/** A tinted box with its label, unit and error, like Figma's Text field: teal outline while typing, red on error. */
 function Field({ id, label, spoken, unit, value, onChange, onSubmit, error, hint }: {
   id: string; label: string; spoken: string; unit: string; value: string; onChange: (t: string) => void;
   onSubmit: () => void; error: string | null; hint: string;
 }) {
   const { colors } = useTheme();
+  const [focused, setFocused] = useState(false);
+  const lineColor = error ? colors.low : focused ? colors.link : 'transparent';
   return (
     <View style={styles.field}>
-      <Text variant="labelSmall" color={error ? 'low' : 'textSecondary'}>{label}</Text>
-      <View style={[styles.inputRow, { borderBottomColor: error ? colors.low : colors.borderStrong }]}>
+      <Text variant="bodySmall" color={error ? 'low' : 'textSecondary'}>{label}</Text>
+      <View style={[styles.inputRow, { borderColor: lineColor, backgroundColor: colors.surface }]}>
         <TextInput value={value} onChangeText={onChange} keyboardType="decimal-pad" autoCorrect={false}
+          onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
           onSubmitEditing={onSubmit} returnKeyType="done" placeholder={hint} placeholderTextColor={colors.textMuted}
           accessibilityLabel={`${spoken}, in ${UNIT_WORDS[unit] ?? unit}`} {...fieldError(`${id}-error`, !!error)}
           style={[styles.input, { color: colors.textPrimary }]} />
@@ -86,21 +90,21 @@ export default function LogSweatScreen() {
   }
 
   const home = { pathname: '/train/workout/[workoutId]' as const, params: { workoutId } };
-  const header = (back: string) => (
-    <SubPageHeader back={back} home={home} label="Sweat sensor" title="Log a sweat session"
+  const header = (back: string, to: typeof home | '/train' = home) => (
+    <SubPageHeader back={back} home={to} label="Sweat sensor" title="Log a sweat session"
       intro="Add the numbers from your sweat sensor after a workout." />
   );
   // Opened without a workout (an old link, say), so there's nothing to log against.
   if (!workoutId) {
     return (
       <Page>
-        <SubPageHeader back="Train" home="/train" label="Sweat sensor" title="Log a sweat session" />
+        {header('Train', '/train')}
         <Text variant="body" color="textSecondary">Open a workout first, then log its sweat session from there.</Text>
       </Page>
     );
   }
   if (!current) {
-    return <Page>{header('Workout')}<PageState loading={base.loading || !!base.data} error={base.error} /></Page>;
+    return <Page>{header('Workout')}<PageState loading={base.loading || !!base.data} error={base.error} onRetry={base.reload} /></Page>;
   }
   const { workout, units } = current;
 
@@ -128,7 +132,7 @@ export default function LogSweatScreen() {
       if (router.canGoBack()) router.back();
       else router.replace(home);
     } catch (e) {
-      setSaveError(errorText(e));
+      setSaveError(`Couldn't save. ${errorText(e)}`);
     } finally {
       busy.current = false;
       setSaving(false);
@@ -138,18 +142,18 @@ export default function LogSweatScreen() {
   return (
     <Page form>
       {header(workout.type)}
-      <ListRow label="Workout" value={`${startLabel(workout.start_local).split(' · ')[0]} · ${workout.type}`} />
-      <ListRow label="Import a Nix file" value=".xlsx"
-        onPress={() => router.replace({ pathname: '/train/import', params: { workoutId } })} />
+      <Panel style={styles.panel}>
+        <ListRow label="Workout" value={`${startLabel(workout.start_local).split(' · ')[0]} · ${workout.type}`} />
+        <ListRow label="Import a Nix file" value=".xlsx"
+          onPress={() => router.replace({ pathname: '/train/import', params: { workoutId } })} />
+      </Panel>
       <View style={styles.form}>
         {FIELDS.map((f) => (
           <Field key={f.kind} id={`sweat-${f.kind}`} label={f.label} spoken={f.spoken} hint={amountHint(f.kind, units)}
             unit={amountUnit(f.kind, units)} value={typed[f.kind]} error={errors[f.kind] ?? null} onSubmit={save}
             onChange={(t) => setTyped((prev) => ({ ...prev, [f.kind]: t }))} />
         ))}
-        <Text variant="bodySmall" color="textMuted">
-          Copy these from your sensor’s app after the workout. Units follow Settings → Units.
-        </Text>
+        <Text variant="bodySmall" color="textSecondary">Copy these from your sensor’s app after the workout.</Text>
         {saveError ? <LiveText error color="low">{saveError}</LiveText> : null}
         <Button title="Save session" busy={saving} onPress={save} />
         <Button title="Cancel" kind="secondary" disabled={saving}
@@ -160,9 +164,11 @@ export default function LogSweatScreen() {
 }
 
 const styles = StyleSheet.create({
-  form: { marginTop: 24, gap: 20, maxWidth: 520 },
-  field: { gap: 4 },
-  inputRow: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 2, minHeight: 44, gap: 8 },
-  input: { ...type.bodyLarge, flex: 1, minHeight: 44, paddingVertical: 8 },
+  panel: { maxWidth: 520 },
+  form: { marginTop: 24, gap: 18, maxWidth: 520 },
+  field: { gap: 6 },
+  inputRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 2, borderRadius: radius.sm, minHeight: 46,
+    paddingHorizontal: 14, gap: 8 },
+  input: { ...type.body, flex: 1, minHeight: 44, paddingVertical: 8, outlineColor: 'transparent' },
   error: { marginTop: 4 },
 });

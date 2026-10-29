@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { Settings } from '../../api/client';
 import { Chips, DaysPicker, EditRow, TextEditor, TRAINING } from '../../components/Editors';
 import { ListRow } from '../../components/ListRow';
+import { Panel } from '../../components/Panel';
 import { SectionHeader } from '../../components/SectionHeader';
 import { clock, WEEKDAYS } from '../../lib/format';
 import { canPickFile } from '../../lib/pickFile';
@@ -25,6 +26,7 @@ export function ProfileSettings({ settings: s, reload }: { settings: Settings; r
   return (
     <View>
       <SectionHeader title="About you" />
+      <Panel>
       <EditRow label="Age" value={s.age ? String(s.age) : 'Choose'} open={isOpen('age')} onToggle={() => toggle('age')}
         error={error}>
         <TextEditor initial={s.age ? String(s.age) : ''} label="Age" keyboard="number-pad" placeholder="Age"
@@ -40,9 +42,11 @@ export function ProfileSettings({ settings: s, reload }: { settings: Settings; r
         open={isOpen('days')} onToggle={() => toggle('days')} error={error}>
         <DaysPicker value={s.training_days} onChange={(days) => save({ training_days: days }, false)} />
       </EditRow>
+      </Panel>
 
       <View style={styles.group}>
         <SectionHeader title="Settings" />
+        <Panel>
         <EditRow label="Appearance" value={APPEARANCE.find((a) => a.value === session.appearance)!.label}
           open={isOpen('appearance')} onToggle={() => toggle('appearance')}>
           <Chips name="Appearance" options={APPEARANCE} value={session.appearance} onPick={(a) => session.update({ appearance: a })} />
@@ -58,15 +62,18 @@ export function ProfileSettings({ settings: s, reload }: { settings: Settings; r
           onToggle={() => toggle('units')} error={error}>
           <Chips name="Units" options={UNITS} value={s.units} onPick={(u) => save({ units: u })} />
         </EditRow>
+        </Panel>
       </View>
 
       <View style={styles.group}>
         <SectionHeader title="Your data" />
+        <Panel>
         {canPickFile ? (
           <ListRow label="Import Apple Health export" value="export.zip" onPress={() => router.push('/profile/import')} />
         ) : null}
         <ListRow label="Export my data" comingSoon onPress={() => {}} />
         <ListRow label="Delete my data" danger comingSoon onPress={() => {}} />
+        </Panel>
       </View>
     </View>
   );

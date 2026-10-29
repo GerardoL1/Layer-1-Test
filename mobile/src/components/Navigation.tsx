@@ -1,7 +1,6 @@
 /**
  * Tab bar (iPhone) and Sidebar (computer) from Figma. Both are text only:
- * the current tab gets a short dark bar on the rule above it, the current page
- * a dark bar on its left edge.
+ * the current tab gets a short dark bar above its label, the current page sits on a raised pill.
  */
 import { Href, Link, usePathname } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -9,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { currentPage } from '../lib/a11y';
 import { useTheme } from '../theme/theme';
+import { radius } from '../theme/tokens';
 import { Text } from './Text';
 
 export const TABS: { href: Href; path: string; label: string }[] = [
@@ -31,7 +31,7 @@ export function TabBar() {
         return (
           <Link key={tab.path} href={tab.href} asChild>
             <Pressable accessibilityRole="link" {...currentPage(active)} style={styles.tab}>
-              <View style={[styles.tabMark, { backgroundColor: active ? colors.borderStrong : 'transparent' }]} />
+              <View style={[styles.tabMark, { backgroundColor: active ? colors.textPrimary : 'transparent' }]} />
               <Text variant="labelSmall" color={active ? 'textPrimary' : 'textMuted'}>{tab.label}</Text>
             </Pressable>
           </Link>
@@ -45,14 +45,14 @@ export function Sidebar({ footer }: { footer?: string | null }) {
   const { colors } = useTheme();
   const path = usePathname();
   return (
-    <View style={[styles.sidebar, { borderRightColor: colors.borderStrong }]}>
+    <View style={[styles.sidebar, { backgroundColor: colors.chrome }]}>
       <Text variant="h1" style={styles.brand}>Recovery</Text>
       {TABS.map((tab) => {
         const active = path.startsWith(tab.path);
         return (
           <Link key={tab.path} href={tab.href} asChild>
             <Pressable accessibilityRole="link" {...currentPage(active)}
-              style={StyleSheet.flatten([styles.link, { borderLeftColor: active ? colors.borderStrong : 'transparent' }])}>
+              style={StyleSheet.flatten([styles.link, { backgroundColor: active ? colors.raised : 'transparent' }])}>
               <Text variant={active ? 'bodyEmphasis' : 'body'} color={active ? 'textPrimary' : 'textSecondary'}>
                 {tab.label}
               </Text>
@@ -67,12 +67,12 @@ export function Sidebar({ footer }: { footer?: string | null }) {
 }
 
 const styles = StyleSheet.create({
-  tabBar: { borderTopWidth: 1, flexDirection: 'row' },
+  tabBar: { flexDirection: 'row' },
   tab: { flex: 1, alignItems: 'center', paddingTop: 16, minHeight: 44 },
   tabMark: { position: 'absolute', top: -1, height: 3, width: 32 },
-  sidebar: { width: 232, borderRightWidth: 1, paddingTop: 40, paddingHorizontal: 24, paddingBottom: 24 },
-  brand: { fontSize: 28, marginBottom: 40 },
-  link: { minHeight: 44, justifyContent: 'center', paddingVertical: 10, paddingLeft: 14, borderLeftWidth: 2,
-    marginBottom: 6 },
+  sidebar: { width: 232, paddingTop: 40, paddingHorizontal: 16, paddingBottom: 24 },
+  brand: { fontSize: 28, marginBottom: 40, paddingLeft: 14 },
+  link: { minHeight: 44, justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 14, borderRadius: radius.full,
+    marginBottom: 4 },
   spacer: { flex: 1 },
 });

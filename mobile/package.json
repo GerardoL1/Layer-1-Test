@@ -3,10 +3,8 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
-    "@expo-google-fonts/fraunces": "^0.4.1",
-    "@expo-google-fonts/ibm-plex-mono": "^0.4.1",
-    "@expo-google-fonts/ibm-plex-sans": "^0.4.1",
-    "@expo-google-fonts/ibm-plex-sans-condensed": "^0.4.1",
+    "@expo-google-fonts/instrument-sans": "^0.4.2",
+    "@expo-google-fonts/instrument-serif": "^0.4.1",
     "@expo/metro-runtime": "~57.0.16",
     "@kingstinct/react-native-healthkit": "^16.0.0",
     "@react-native-async-storage/async-storage": "2.2.0",

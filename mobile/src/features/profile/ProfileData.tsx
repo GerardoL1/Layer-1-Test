@@ -3,6 +3,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 
 import { Profile } from '../../api/client';
 import { ListRow } from '../../components/ListRow';
+import { Panel } from '../../components/Panel';
 import { SectionHeader } from '../../components/SectionHeader';
 import { LiveText } from '../../components/LiveText';
 import { useHealthSync } from '../../health/HealthSync';
@@ -18,6 +19,7 @@ export function ProfileData({ profile: p, reload }: { profile: Profile; reload: 
   return (
     <View>
       <SectionHeader title="Data source" note="Apple Watch only" />
+      <Panel>
       {Platform.OS === 'ios'
         ? (
           <View>
@@ -39,14 +41,17 @@ export function ProfileData({ profile: p, reload }: { profile: Profile; reload: 
       <ListRow label="Last update" value={p.last_update_local
         ? `${dayLabel(p.last_update_local)}, ${clock(p.last_update_local)}` : 'Not yet'} />
       <ListRow label="What we read" value="HRV, heart rate, sleep" />
+      </Panel>
 
       <View style={styles.usual}>
         <SectionHeader title="Your usual" note={`Previous ${p.baseline_window_nights} nights`} />
+        <Panel>
         {p.usual_ranges.filter((u) => USUAL_LABELS[u.key]).map((u) => (
           <ListRow key={u.key} label={USUAL_LABELS[u.key]}
             value={rangeText(u.usual_low, u.usual_high, u.key) ?? `Needs ${p.baseline_min_nights} nights`} />
         ))}
         {p.usual_ranges.length === 0 ? <ListRow label="Usual ranges" value={`Needs ${p.baseline_min_nights} nights`} /> : null}
+        </Panel>
       </View>
     </View>
   );

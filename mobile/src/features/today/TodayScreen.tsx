@@ -3,11 +3,12 @@ import { StyleSheet, View } from 'react-native';
 
 import { useApi } from '../../api/useApi';
 import { Button } from '../../components/Button';
+import { Notice } from '../../components/Notice';
 import { Page, PageState } from '../../components/Page';
-import { SectionHeader } from '../../components/SectionHeader';
+import { usualScores } from '../../components/Readiness';
 import { Text } from '../../components/Text';
 import { useHealthSync } from '../../health/HealthSync';
-import { clock, dayLabel, weekdayName, weekdayShort } from '../../lib/format';
+import { clock, dayLabel, fullDay, partOfDay, weekdayShort } from '../../lib/format';
 import { errorText, useLoad } from '../../lib/useLoad';
 import { useTheme } from '../../theme/theme';
 import { LastNight } from './LastNight';
@@ -15,9 +16,16 @@ import { NightlyChart } from './NightlyChart';
 import { TimeZoneNote } from './TimeZoneNote';
 import { TodaySummary } from './TodaySummary';
 
+/** The device's own clock, for the greeting when Today itself couldn't load. */
+function nowLocal(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 export default function TodayScreen() {
   const api = useApi();
-  const { colors, isWide } = useTheme();
+  const { isWide } = useTheme();
   const health = useHealthSync();
   // Reload when the tester changes or the phone just sent new Apple Health data.
   const key = useMemo(() => ({ api, v: health.dataVersion }), [api, health.dataVersion]);
@@ -44,22 +52,37 @@ export default function TodayScreen() {
   }
 
   const t = today.data;
-  if (!t) return <Page><PageState loading={today.loading} error={today.error} /></Page>;
+  if (!t) {
+    if (!today.error) return <Page><PageState loading={today.loading} error={null} /></Page>;
+    return (
+      <Page>
+        <Text variant={isWide ? 'greetingLarge' : 'greeting'} accessibilityRole="header">{`${partOfDay(nowLocal())}.\nWe can’t load today.`}</Text>
+        <Text variant="bodyLarge" color="textSecondary" style={styles.lead}>{today.error}</Text>
+        <Button title="Try again" onPress={today.reload} style={styles.retry} />
+      </Page>
+    );
+  }
 
-  const top = (
-    <View style={[styles.top, { borderBottomColor: colors.borderStrong }]}>
-      <Text variant="labelMedium">{dayLabel(t.now_local)}</Text>
-      {!isWide && t.updated_at ? <Text variant="labelMedium" color="textSecondary">Synced {clock(t.updated_at)}</Text> : null}
+  // Phone sync trouble doesn't stop Today, it says what's shown and offers to try again.
+  const syncFailed = health.lastError ? (
+    <View style={styles.syncFailed}>
+      <Notice type="warning" label="Couldn’t sync" live
+        action={{ label: health.syncing ? 'Syncing…' : 'Try again', onPress: health.syncNow }}>
+        {`Showing data from ${t.updated_at ? `${dayLabel(t.updated_at)}, ${clock(t.updated_at)}` : 'earlier'}. `
+          + health.lastError}
+      </Notice>
     </View>
-  );
-  const timeZone = <TimeZoneNote onChanged={() => { today.reload(); trends.reload(); }} />;
+  ) : null;
 
   if (!t.readiness) {
     return (
       <Page>
-        {top}
-        <Text variant="h1" accessibilityRole="header">No nights yet</Text>
-        <Text variant="bodyLarge" color="textSecondary" style={styles.noNights}>
+        {syncFailed}
+        <Text variant="bodySmall" color="textSecondary">{fullDay(t.now_local)}</Text>
+        <Text variant={isWide ? 'greetingLarge' : 'greeting'} accessibilityRole="header" style={styles.greeting}>
+          {`${partOfDay(t.now_local)}.\nNo nights yet.`}
+        </Text>
+        <Text variant="bodyLarge" color="textSecondary" style={styles.lead}>
           Once your watch has recorded a night of sleep and it has synced, your first night shows here.
           Your score starts after 7 nights.
         </Text>
@@ -68,77 +91,39 @@ export default function TodayScreen() {
   }
 
   const waiting = !!t.night_date && !t.is_last_night;
-  const summary = <TodaySummary today={{ ...t, readiness: t.readiness }} waiting={waiting} updating={updating}
-    updateNote={updateNote} onUpdateNow={updateNow} />;
-  const lastNight = <LastNight today={t} title={waiting ? `${weekdayName(t.night_date!)} night` : 'Last night'} />;
-
+  const rows = trends.data?.rows ?? [];
+  const shown = rows.findIndex((r) => r.night_date === t.night_date);
+  const previous = shown > 0 ? rows[shown - 1].readiness.score : null;
+  const night = t.metrics.find((m) => m.key === 'hrv');
   // The charts end at the night on screen: "Last night", or its short weekday while waiting ("Mon").
-  const chartEnd = waiting ? weekdayShort(t.night_date!) : 'Last night';
-  const hrvChart = <NightlyChart title="HRV, 14 nights" label="Heart rate variability, last 14 nights" metric="hrv"
-    trends={trends} lastLabel={chartEnd} />;
-  const rhrChart = <NightlyChart title="Resting heart rate, 14 nights" label="Resting heart rate, last 14 nights"
-    metric="rhr" color={colors.rhr} trends={trends} lastLabel={chartEnd} />;
+  const chartEnd = `${waiting ? weekdayShort(t.night_date!) : 'Last night'}${night?.value != null ? `, ${Math.round(night.value)} ms` : ''}`;
 
-  const checkIn = (
-    <View>
-      <SectionHeader title="Morning check-in" note="Coming soon" />
-      <View style={isWide ? styles.checkInWide : styles.checkIn}>
-        <Text variant="body" color="textSecondary" style={isWide ? styles.column : undefined}>
-          How do your legs feel? Your answers will teach the score what normal feels like for you.
-        </Text>
-        <Button title="Start check-in" disabled />
-      </View>
-    </View>
-  );
-
-  const footer = (
-    <Text variant="bodySmall" color="textMuted" style={[styles.footer, { borderTopColor: colors.border }]}>
-      From your Apple Watch. Score and wording are placeholders while the team decides the formula.
-      A guide, not medical advice.
-    </Text>
-  );
-
-  if (isWide) {
-    return (
-      <Page>
-        {top}
-        {timeZone}
-        <View style={styles.columns}>
-          <View style={styles.column}>{summary}</View>
-          <View style={styles.column}>{lastNight}</View>
-        </View>
-        <View style={[styles.columns, styles.chartsWide]}>
-          <View style={styles.column}>{hrvChart}</View>
-          <View style={styles.column}>{rhrChart}</View>
-        </View>
-        <View style={styles.space32}>{checkIn}</View>
-        {footer}
-      </Page>
-    );
-  }
   return (
     <Page>
-      {top}
-      {timeZone}
-      {summary}
-      <View style={styles.space32}>{lastNight}</View>
-      <View style={styles.space8}>{hrvChart}</View>
-      <View style={styles.space32}>{checkIn}</View>
-      {footer}
+      {syncFailed}
+      <TodaySummary today={{ ...t, readiness: t.readiness }} waiting={waiting} previous={previous}
+        usual={usualScores(rows.map((r) => r.readiness.score))} updating={updating} updateNote={updateNote}
+        onUpdateNow={updateNow} notice={<TimeZoneNote onChanged={() => { today.reload(); trends.reload(); }} />} />
+      <View style={styles.space32}><LastNight today={t} /></View>
+      <View style={styles.space12}>
+        <NightlyChart title="HRV, last 14 nights" label="Heart rate variability, last 14 nights" metric="hrv"
+          trends={trends} lastLabel={chartEnd} />
+      </View>
+      <Text variant="bodySmall" color="textMuted" style={[styles.footer, isWide && styles.footerWide]}>
+        From your Apple Watch. Score and wording are placeholders while the team builds the model.
+        A guide, not medical advice.
+      </Text>
     </Page>
   );
 }
 
 const styles = StyleSheet.create({
-  top: { flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 12, marginBottom: 20,
-    borderBottomWidth: 1 },
-  noNights: { marginTop: 10 },
-  checkIn: { gap: 16 },
-  checkInWide: { flexDirection: 'row', alignItems: 'center', gap: 24 },
-  footer: { marginTop: 24, paddingTop: 12, borderTopWidth: 1 },
-  columns: { flexDirection: 'row', gap: 56 },
-  column: { flex: 1 },
-  chartsWide: { marginTop: 40 },
+  greeting: { marginTop: 8 },
+  lead: { marginTop: 12 },
+  retry: { alignSelf: 'flex-start', marginTop: 16 },
+  syncFailed: { marginBottom: 24 },
   space32: { marginTop: 32 },
-  space8: { marginTop: 8 },
+  space12: { marginTop: 12 },
+  footer: { marginTop: 24 },
+  footerWide: { maxWidth: 640 },
 });

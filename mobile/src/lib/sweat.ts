@@ -94,19 +94,19 @@ function parts(iso: string) {
 }
 
 function clock(h: number, min: number): string {
-  return `${h % 12 === 0 ? 12 : h % 12}:${String(min).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+  return `${h % 12 === 0 ? 12 : h % 12}:${String(min).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
 }
 
 const dayText = (d: Date) => `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 
-/** "Tue 30 Sep · 7:05 AM" (a label style shows it in capitals). */
+/** "Tue 30 Sep · 7:05 am". */
 export function startLabel(startLocal: string): string {
   const p = parts(startLocal);
   return p ? `${dayText(p.date)} · ${clock(p.h, p.min)}` : DASH;
 }
 
 /**
- * "Mon 29 Sep · 6:10–7:08 PM". Both halves in full when AM and PM differ, the end day too when the
+ * "Mon 29 Sep · 6:10–7:08 pm". Both halves in full when am and pm differ, the end day too when the
  * workout crosses midnight, and just the start when it has no length.
  */
 export function spanLabel(startLocal: string, endLocal: string): string {
@@ -309,19 +309,31 @@ export function notThisWorkout(startLocal: string): string {
 
 type Extras = {
   electrolytes_mg: number | null;
-  electrolyte_rate_mg_h: number | null;
   sodium_rate_mg_h: number | null;
+  sweat_composition_mg_l: number | null;
   nix_index: number | null;
 };
 
-/** The numbers besides the main three: "Also in the file: electrolytes 860 mg, Nix index 74." */
+/** The numbers besides the main three, as Figma's "Also in the file" rows. Missing ones are left out. */
+export function fileExtras(s: Extras): { label: string; value: string }[] {
+  const row = (label: string, x: number | null, unit: string) =>
+    x === null ? [] : [{ label, value: `${thousands(Math.round(x))}${unit ? ` ${unit}` : ''}` }];
+  return [
+    ...row('Electrolyte loss', s.electrolytes_mg, 'mg'),
+    ...row('Sodium rate', s.sodium_rate_mg_h, 'mg/h'),
+    ...row('Sweat composition', s.sweat_composition_mg_l, 'mg/L'),
+    ...row('Nix index', s.nix_index, ''),
+  ];
+}
+
+const SENTENCE_NAMES: Record<string, string> = { 'Electrolyte loss': 'electrolytes' };
+
+/** The same numbers as one line for the iPhone: "Also in the file: electrolytes 860 mg, Nix index 74." */
 export function alsoSaved(s: Extras): string | null {
-  const bits = [
-    s.electrolytes_mg === null ? null : `electrolytes ${thousands(Math.round(s.electrolytes_mg))} mg`,
-    s.electrolyte_rate_mg_h === null ? null : `electrolyte rate ${thousands(Math.round(s.electrolyte_rate_mg_h))} mg/h`,
-    s.sodium_rate_mg_h === null ? null : `sodium rate ${thousands(Math.round(s.sodium_rate_mg_h))} mg/h`,
-    s.nix_index === null ? null : `Nix index ${Math.round(s.nix_index)}`,
-  ].filter(Boolean);
+  const bits = fileExtras(s).map((r) => {
+    const name = SENTENCE_NAMES[r.label] ?? (r.label === 'Nix index' ? r.label : r.label.toLowerCase());
+    return `${name} ${r.value}`;
+  });
   return bits.length ? `Also in the file: ${bits.join(', ')}.` : null;
 }
 

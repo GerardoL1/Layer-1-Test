@@ -95,6 +95,26 @@ export function displayName(userId: string): string {
 }
 
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September',
+  'October', 'November', 'December'];
+
+/** "Wednesday 1 October" */
+export function fullDay(iso: string): string {
+  const { date } = parts(iso);
+  return `${WEEKDAY_NAMES[date.getDay()]} ${date.getDate()} ${MONTH_NAMES[date.getMonth()]}`;
+}
+
+/** "Morning", "Afternoon" or "Evening" for a local time like "2026-10-01T08:30". */
+export function partOfDay(iso: string): string {
+  const { h } = parts(iso);
+  return h < 12 ? 'Morning' : h < 18 ? 'Afternoon' : 'Evening';
+}
+
+/** 52 -> "52 min", 70 -> "1 h 10 min". */
+export function durationText(min: number): string {
+  const m = Math.round(min);
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
+}
 
 /** "2026-09-28" -> "Monday" */
 export function weekdayName(iso: string): string {
