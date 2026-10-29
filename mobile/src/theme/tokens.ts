@@ -29,6 +29,7 @@ export type Colors = {
   infoTint: string;
   warningTint: string;
   raised: string;
+  chrome: string;
 };
 
 // Refresh name for each: canvas = ground, accent = primary (filled buttons), low = negative (errors too),
@@ -59,6 +60,7 @@ export const light: Colors = {
   infoTint: '#E3F0EE',
   warningTint: '#FBF1E4',
   raised: '#FFFFFF',
+  chrome: '#F4F6F6',
 };
 
 export const dark: Colors = {
@@ -87,6 +89,7 @@ export const dark: Colors = {
   infoTint: '#18302D',
   warningTint: '#2B2117',
   raised: '#242727',
+  chrome: '#151717',
 };
 
 export const fonts = {

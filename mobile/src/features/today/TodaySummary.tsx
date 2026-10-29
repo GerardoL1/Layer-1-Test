@@ -48,18 +48,15 @@ export function TodaySummary({ today: t, waiting, previous, usual, updating, upd
   const text = lead(t, waiting);
   const date = `${fullDay(t.now_local)}${isWide && t.updated_at ? ` · updated ${clock(t.updated_at)}` : ''}`;
   const score = t.readiness.score;
-  return (
-    <View>
-      {!isWide ? <Text variant="bodySmall" color="textSecondary">{date}</Text> : null}
-      <Text variant={isWide ? 'greetingLarge' : 'greeting'} accessibilityRole="header" style={styles.greeting}>{greeting}</Text>
-      {text ? <Text variant="bodyLarge" color="textSecondary" style={styles.lead}>{text}</Text> : null}
-      {notice}
-      {score !== null ? (
-        <View style={styles.band}>
-          <ReadinessBand score={score} from={previous} usual={usual}
-            name={waiting ? weekdayName(t.night_date!) : 'Today'} />
-        </View>
-      ) : null}
+  const band = score !== null ? (
+    <View style={styles.band}>
+      <ReadinessBand score={score} from={previous} usual={usual}
+        name={waiting ? weekdayName(t.night_date!) : 'Today'} />
+    </View>
+  ) : null;
+  // Figma: on a computer the buttons and date sit right under the words, above the note and the band.
+  const actions = (
+    <>
       <View style={[styles.actions, isWide && styles.actionsWide]}>
         {waiting ? (
           <Button title="Update now" kind="secondary" busy={updating} disabled={!t.can_update_now} onPress={onUpdateNow} />
@@ -69,6 +66,15 @@ export function TodaySummary({ today: t, waiting, previous, usual, updating, upd
         {isWide ? <Text variant="bodySmall" color="textSecondary">{date}</Text> : null}
       </View>
       <Text variant="bodySmall" color="textMuted" style={styles.soon}>Check-ins are coming soon.</Text>
+    </>
+  );
+  return (
+    <View>
+      {!isWide ? <Text variant="bodySmall" color="textSecondary">{date}</Text> : null}
+      <Text variant={isWide ? 'greetingLarge' : 'greeting'} accessibilityRole="header" style={styles.greeting}>{greeting}</Text>
+      {text ? <Text variant="bodyLarge" color="textSecondary" style={styles.lead}>{text}</Text> : null}
+      {isWide ? actions : <>{notice}{band}</>}
+      {isWide ? <>{notice}{band}</> : actions}
       {updateNote ? <LiveText variant="bodySmall" color="textSecondary" style={styles.soon}>{updateNote}</LiveText> : null}
     </View>
   );
