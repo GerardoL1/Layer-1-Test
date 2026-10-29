@@ -603,6 +603,11 @@ export interface components {
             sodium_mg: number | null;
             /** Duration Min */
             duration_min: number;
+            /**
+             * Units
+             * @enum {string}
+             */
+            units: "metric" | "imperial";
             /** Line */
             line: string;
         };

@@ -75,5 +75,5 @@ def test_today_shows_yesterdays_run():
     # The demo clock is 1 Oct 8:30 am, and the 30 Sep run picked up sweat.
     h = client.get(f"{SAM}/today").json()["hydration"]
     assert h["title"] == "Yesterday's easy run"  # the demo workout is called "Easy run"
-    assert h["fluid_ml"] > 0 and h["duration_min"] > 0
+    assert h["fluid_ml"] > 0 and h["duration_min"] > 0 and h["units"] in ("metric", "imperial")
     assert h["line"].startswith("Yesterday's easy run cost about")

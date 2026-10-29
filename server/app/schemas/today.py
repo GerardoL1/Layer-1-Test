@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, StrictBool
 
 from app.schemas.common import Cutoffs, MetricRow, Readiness, SleepBlock
@@ -10,6 +12,7 @@ class Hydration(BaseModel):
     fluid_ml: float
     sodium_mg: float | None
     duration_min: float
+    units: Literal["metric", "imperial"]  # so the app shows L or oz like the line does
     line: str
 
 

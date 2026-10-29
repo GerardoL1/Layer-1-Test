@@ -1788,6 +1788,14 @@
             "type": "number",
             "title": "Duration Min"
           },
+          "units": {
+            "type": "string",
+            "enum": [
+              "metric",
+              "imperial"
+            ],
+            "title": "Units"
+          },
           "line": {
             "type": "string",
             "title": "Line"
@@ -1799,6 +1807,7 @@
           "fluid_ml",
           "sodium_mg",
           "duration_min",
+          "units",
           "line"
         ],
         "title": "Hydration",

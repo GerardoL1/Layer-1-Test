@@ -632,6 +632,7 @@ def hydration(user_id: str, night_date: date) -> dict | None:
         "fluid_ml": total,
         "sodium_mg": sum(sodium) if sodium else None,
         "duration_min": sum(s["duration_min"] for s in sweaty),
+        "units": user["units"] or "metric",
         "line": f"{when} {what} cost about {_amount(total, user['units'])} of sweat. "
         "Drink a little more than usual this morning.",
     }
