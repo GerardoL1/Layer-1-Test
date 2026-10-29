@@ -53,7 +53,7 @@ export default function ProfileScreen() {
 
   return (
     <Page>
-      <Text variant="h1" accessibilityRole="header">{displayName(p.user_id)}</Text>
+      <Text variant="h1" accessibilityRole="header">{p.settings.name ?? displayName(p.user_id)}</Text>
       <Text variant="body" color="textSecondary" style={styles.since}>
         {p.first_night
           ? `Tracking since ${longDate(p.first_night)} · ${p.nights_usable} ${p.nights_usable === 1 ? 'night' : 'nights'} recorded`

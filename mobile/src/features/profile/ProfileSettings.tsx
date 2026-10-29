@@ -27,6 +27,11 @@ export function ProfileSettings({ settings: s, reload }: { settings: Settings; r
     <View>
       <SectionHeader title="About you" />
       <Panel>
+      <EditRow label="Name" value={s.name ?? 'Choose'} open={isOpen('name')} onToggle={() => toggle('name')}
+        error={error}>
+        <TextEditor initial={s.name ?? ''} label="Name" placeholder="Your first name"
+          onSave={(t) => save({ name: t || null })} />
+      </EditRow>
       <EditRow label="Age" value={s.age ? String(s.age) : 'Choose'} open={isOpen('age')} onToggle={() => toggle('age')}
         error={error}>
         <TextEditor initial={s.age ? String(s.age) : ''} label="Age" keyboard="number-pad" placeholder="Age"
