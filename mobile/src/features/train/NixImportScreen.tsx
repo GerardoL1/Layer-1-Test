@@ -19,7 +19,8 @@ import { ListRow } from '../../components/ListRow';
 import { LiveText } from '../../components/LiveText';
 import { Notice } from '../../components/Notice';
 import { NumberedSteps } from '../../components/NumberedSteps';
-import { Page, PageState } from '../../components/Page';
+import { Page } from '../../components/Page';
+import { Panel } from '../../components/Panel';
 import { SectionHeader } from '../../components/SectionHeader';
 import { SubPageHeader } from '../../components/SubPageHeader';
 import { Text } from '../../components/Text';
@@ -42,6 +43,7 @@ import { errorText, useLoad } from '../../lib/useLoad';
 import { weightText } from '../../lib/weight';
 import { useTheme } from '../../theme/theme';
 import { Announce } from './Announce';
+import { LoadState } from './LoadState';
 
 const STEPS_PHONE = [
   'Open Insights, then Workouts.',
@@ -86,7 +88,8 @@ export default function NixImportScreen() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [weight, setWeight] = useState<{ busy: boolean; saved: boolean; error: string | null }>(
     { busy: false, saved: false, error: null });
-  const [checking, setChecking] = useState(false);
+  // The workout being checked (or 'new'), so its row can say "Checking…".
+  const [checking, setChecking] = useState<string | null>(null);
   // A ref, not state: two taps in the same moment both see state from before the first one.
   const busy = useRef(false);
 
@@ -106,7 +109,7 @@ export default function NixImportScreen() {
     return (
       <Page>
         <SubPageHeader back={back} home={home} label="Sweat data" title="Add sweat data" />
-        <PageState loading={base.loading || !!base.data} error={base.error} />
+        <LoadState loading={base.loading || !!base.data} error={base.error} onRetry={base.reload} />
       </Page>
     );
   }
@@ -161,7 +164,7 @@ export default function NixImportScreen() {
   async function checkFor(file: UploadFile, preview: NixPreview, reason: PickReason, target: Target) {
     if (busy.current) return;
     busy.current = true;
-    setChecking(true);
+    setChecking('workoutId' in target.save ? target.save.workoutId : 'new');
     reset();
     try {
       const fresh = await api.previewNix(file, target.save);
@@ -170,10 +173,10 @@ export default function NixImportScreen() {
         ? await api.workout(fresh.session.workout_id).catch(() => null) : null;
       setStep({ kind: 'check', file, preview: fresh, target: made ? { ...target, label: workoutName(made) } : target });
     } catch (e) {
-      setStep({ kind: 'pick', file, preview, reason, problem: errorText(e) });
+      setStep({ kind: 'pick', file, preview, reason, problem: `Couldn't check this workout. ${errorText(e)}` });
     } finally {
       busy.current = false;
-      setChecking(false);
+      setChecking(null);
     }
   }
 
@@ -190,7 +193,7 @@ export default function NixImportScreen() {
       else if (savedTo) router.replace({ pathname: '/train/workout/[workoutId]', params: { workoutId: savedTo } });
       else router.replace('/train');
     } catch (e) {
-      setSaveError(errorText(e));
+      setSaveError(`Couldn't save. ${errorText(e)}`);
     } finally {
       busy.current = false;
       setSaving(false);
@@ -214,7 +217,7 @@ export default function NixImportScreen() {
     <Button title="Enter numbers by hand" kind="secondary" style={styles.space12}
       onPress={() => router.replace({ pathname: '/train/log', params: { workoutId: from.id } })} />
   ) : null;
-  const fromRow = from ? <ListRow label="Workout" value={workoutName(from)} /> : null;
+  const fromRow = from ? <Panel style={styles.space16}><ListRow label="Workout" value={workoutName(from)} /></Panel> : null;
   const steps = (
     <View style={styles.space24}>
       <SectionHeader title="In the Nix app" note="4 steps" />
@@ -276,7 +279,7 @@ export default function NixImportScreen() {
           intro="Here’s what’s wrong with it. Export the workout again from the Nix app if you can." />
         {/* The file name goes in the text, so it keeps its own capitals. */}
         <Notice type="warning" label="Nix file" live>{`${step.fileName || 'The file'}: ${step.message}`}</Notice>
-        <View style={styles.space16}>{fromRow}</View>
+        {fromRow}
         {steps}
         <Button title="Choose another file" style={styles.space24} onPress={() => setStep({ kind: 'choose' })} />
         {typeByHand}
@@ -306,25 +309,30 @@ export default function NixImportScreen() {
       <Page>
         <Announce text={`Which workout is this? ${intro}`} />
         <SubPageHeader back={back} home={home} label="Nix file" title="Which workout is this?" intro={intro} />
-        {options.length ? (
+        {options.length || (from && reason === 'not-this') ? (
           <View style={styles.space8}>
             <SectionHeader title="Pick a workout" note={matched ? 'Best match first' : 'Closest first'} />
-            {options.map((w) => (
-              <ListRow key={w.id} label={workoutName(w)} value={w.id === matched?.id ? 'Matches the file'
-                : startLabel(w.start_local).split(' · ')[1]} onPress={() => pick(w)} />
-            ))}
+            <Panel>
+              {options.map((w) => (
+                <ListRow key={w.id} label={workoutName(w)} value={checking === w.id ? 'Checking…'
+                  : w.id === matched?.id ? 'Matches the file' : startLabel(w.start_local).split(' · ')[1]}
+                  onPress={checking ? undefined : () => pick(w)} />
+              ))}
+              {from && reason === 'not-this' ? (
+                <ListRow label={`Save to ${from.type} anyway`} value={checking === from.id ? 'Checking…' : null}
+                  onPress={checking ? undefined : () => pick(from)} />
+              ) : null}
+            </Panel>
           </View>
         ) : null}
-        {from && reason === 'not-this' ? <ListRow label={`Save to ${from.type} anyway`} onPress={() => pick(from)} /> : null}
-        {checking ? <LiveText color="textSecondary" style={styles.space12}>Checking…</LiveText> : null}
         {step.problem ? <LiveText error color="low" style={styles.space12}>{step.problem}</LiveText> : null}
         <Text variant="bodySmall" color="textMuted" style={styles.space12}>
           Not listed? Save it as a new workout using the times in the file.
         </Text>
-        <Button title="Save as a new workout" style={styles.space16} disabled={checking}
+        <Button title="Save as a new workout" style={styles.space16} busy={checking === 'new'} disabled={!!checking}
           onPress={() => checkFor(file, preview, reason,
             { save: { newWorkout: true }, label: `New workout · ${s.workout_type ?? 'Workout'}` })} />
-        <Button title="Choose a different file" kind="secondary" style={styles.space12} disabled={checking}
+        <Button title="Choose a different file" kind="secondary" style={styles.space12} disabled={!!checking}
           onPress={() => setStep({ kind: 'choose' })} />
       </Page>
     );
@@ -344,31 +352,36 @@ export default function NixImportScreen() {
   const numbers = (
     <View style={styles.space24}>
       <SectionHeader title="Sweat" note="From Nix" />
-      {sessionStats(s, units).map((x) => (
-        <ListRow key={x.label} label={checkLabel(x.label)} value={x.shown ? joined(x.shown) : 'Not measured'} />
-      ))}
+      <Panel>
+        {sessionStats(s, units).map((x) => (
+          <ListRow key={x.label} label={checkLabel(x.label)} value={x.shown ? joined(x.shown) : 'Not measured'} />
+        ))}
+      </Panel>
+      {!s.sweat_detected ? (
+        <View style={styles.space12}><Notice type="warning" label="No sweat picked up" live>{NO_SWEAT}</Notice></View>
+      ) : null}
       {extras ? <Text variant="bodySmall" color="textMuted" style={styles.space12}>{extras}</Text> : null}
       <Text variant="bodySmall" color="textMuted" style={styles.space8}>
         Nix counts sweat only after about 15 minutes, so the start of a workout reads low.
       </Text>
     </View>
   );
-  const notices = (
+  // Figma puts these at the top, right under the intro, so they're seen before the numbers.
+  const notices = otherWarnings.length || note || moves ? (
     <View style={styles.notices}>
-      {!s.sweat_detected ? <Notice type="warning" label="No sweat picked up" live>{NO_SWEAT}</Notice> : null}
       {otherWarnings.map((w, i) => <Notice key={`${i}-${w}`} type="info" label="Check the numbers" live>{w}</Notice>)}
       {note ? <Notice type={blocked ? 'warning' : 'info'} label="Already saved" live>{note}</Notice> : null}
       {moves ? <Notice type="warning" label="Moves sweat data" live>{moves}</Notice> : null}
-      {suggestion && !weight.saved ? (
-        <View style={styles.weight}>
-          <Text variant="body" style={styles.fill}>{`Use ${weightText(suggestion, units)} from your Nix file?`}</Text>
-          <Button title="Use it" kind="secondary" busy={weight.busy} onPress={() => saveWeight(suggestion)} />
-        </View>
-      ) : null}
-      {weight.error ? <LiveText error variant="bodySmall" color="low">{weight.error}</LiveText> : null}
-      {weight.saved ? <LiveText variant="bodySmall" color="textSecondary">Saved to your Settings.</LiveText> : null}
     </View>
-  );
+  ) : null;
+  const weightOffer = suggestion ? (
+    <View style={styles.weight}>
+      <Text variant="body" style={styles.fill}>{`Use ${weightText(suggestion, units)} from your Nix file?`}</Text>
+      {weight.saved ? <LiveText variant="bodySmall" color="textSecondary">Saved to your Settings.</LiveText>
+        : <Button title="Use it" kind="secondary" busy={weight.busy} onPress={() => saveWeight(suggestion)} />}
+      {weight.error ? <LiveText error variant="bodySmall" color="low">{weight.error}</LiveText> : null}
+    </View>
+  ) : null;
   const actions = (
     <View style={styles.space24}>
       {saveError ? <LiveText error color="low" style={styles.space12}>{saveError}</LiveText> : null}
@@ -378,12 +391,11 @@ export default function NixImportScreen() {
     </View>
   );
   const rows = (
-    <>
+    <Panel style={styles.space16}>
       <ListRow label="Workout" value={target.label} hint="Changes which workout this is saved to"
         onPress={() => setStep({ kind: 'pick', file, preview, reason: 'change' })} />
-      {/* A no-break space, so the label stays on one line on a 320 px screen. */}
-      <ListRow label={'Nix file'} value={fileTimes} />
-    </>
+      <ListRow label="Nix file" value={fileTimes} />
+    </Panel>
   );
   return (
     <Page>
@@ -391,16 +403,17 @@ export default function NixImportScreen() {
       <SubPageHeader back={back} home={home} label="Nix file" title="Check your import"
         intro={matchedHere ? 'We matched this file to your workout. Check the numbers, then save.'
           : 'Check the numbers, then save.'} />
+      {notices}
       {isWide ? (
         <View style={styles.columns}>
           <View style={styles.column}>{rows}{numbers}</View>
-          <View style={styles.column}>{notices}{actions}</View>
+          <View style={styles.column}>{weightOffer}{actions}</View>
         </View>
       ) : (
         <>
           {rows}
           {numbers}
-          {notices}
+          {weightOffer}
           {actions}
         </>
       )}
@@ -412,8 +425,8 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   columns: { flexDirection: 'row', gap: 56 },
   column: { flex: 1 },
-  notices: { marginTop: 24, gap: 14 },
-  weight: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
+  notices: { marginTop: 8, gap: 14 },
+  weight: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 20 },
   space8: { marginTop: 8 },
   space12: { marginTop: 12 },
   space16: { marginTop: 16 },
