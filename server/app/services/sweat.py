@@ -626,11 +626,12 @@ def hydration(user_id: str, night_date: date) -> dict | None:
     what = "workouts" if len(sweaty) > 1 else _type_text(sweaty[0])
     # A workout that started the morning the line is shown, before the update time, isn't "yesterday".
     when = "This morning's" if all(s["start_at"].date() > night_date for s in sweaty) else "Yesterday's"
+    # A total that leaves out a workout would look like the whole amount, so no sodium unless all have it.
     sodium = [s["sodium_mg"] for s in sweaty if s["sodium_mg"] is not None]
     return {
         "title": f"{when} {what}",
         "fluid_ml": total,
-        "sodium_mg": sum(sodium) if sodium else None,
+        "sodium_mg": sum(sodium) if len(sodium) == len(sweaty) else None,
         "duration_min": sum(s["duration_min"] for s in sweaty),
         "units": user["units"] or "metric",
         "line": f"{when} {what} cost about {_amount(total, user['units'])} of sweat. "

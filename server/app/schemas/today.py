@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, StrictBool
+from pydantic import BaseModel, ConfigDict, StrictBool
 
 from app.schemas.common import Cutoffs, MetricRow, Readiness, SleepBlock
 
@@ -43,6 +43,8 @@ class Today(BaseModel):
 
 
 class FeedbackIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     helpful: StrictBool
 
 

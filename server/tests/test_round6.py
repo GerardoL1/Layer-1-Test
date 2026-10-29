@@ -77,3 +77,41 @@ def test_today_shows_yesterdays_run():
     assert h["title"] == "Yesterday's easy run"  # the demo workout is called "Easy run"
     assert h["fluid_ml"] > 0 and h["duration_min"] > 0 and h["units"] in ("metric", "imperial")
     assert h["line"].startswith("Yesterday's easy run cost about")
+
+
+def test_a_new_person_gets_their_name_before_any_night():
+    client.patch("/api/v1/users/r6-new/settings", json={"name": "New"})
+    assert client.get("/api/v1/users/r6-new/today").json()["name"] == "New"
+
+
+@pytest.mark.parametrize(
+    "sent, saved",
+    [
+        ("​", None),  # a zero-width space alone is no name
+        ("Sam\x00\x1b", "Sam"),  # control characters go
+        ("‮Sam", "Sam"),  # so does right-to-left override
+        ("👨‍👩‍👧" * 6, "👨‍👩‍👧" * 6),  # family emoji keep their joiners and count as people
+    ],
+)
+def test_name_drops_invisible_characters(sent, saved):
+    assert client.patch(f"{SAM}/settings", json={"name": sent}).json()["name"] == saved
+
+
+def test_feedback_only_takes_plain_dates_and_known_fields():
+    night = client.get(f"{SAM}/today").json()["night_date"]
+    assert client.put(f"{SAM}/nights/1790726400/feedback", json={"helpful": True}).status_code == 422
+    assert client.put(f"{SAM}/nights/{night}T00:00/feedback", json={"helpful": True}).status_code == 422
+    assert client.put(f"{SAM}/nights/{night}/feedback", json={"helpful": True, "extra": 5}).status_code == 422
+
+
+def test_hydration_has_no_sodium_unless_every_workout_has_it():
+    # A morning ride on 30 Sep with typed-in sweat but no sodium, next to the run that has sodium.
+    start = 1790787600000  # 30 Sep 2026, 9:00 am at UTC-7
+    ride = {"id": "r6-ride", "start_ms": start, "end_ms": start + 45 * 60000, "start_tz_min": -420,
+            "end_tz_min": -420, "type": "Ride"}
+    assert client.post(f"{SAM}/workouts", json=ride).status_code in (200, 201)
+    assert client.put(f"{SAM}/workouts/r6-ride/sweat", json={"fluid_loss_ml": 400}).status_code == 200
+    h = client.get(f"{SAM}/today").json()["hydration"]
+    assert h["title"] == "Yesterday's workouts" and h["sodium_mg"] is None
+    client.post("/api/v1/demo-users/sam")  # back to the plain demo for anything after this
+    client.post("/api/v1/demo-users/sam/sweat")

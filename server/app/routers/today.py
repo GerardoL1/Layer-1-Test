@@ -7,6 +7,7 @@ import time
 from datetime import date, timedelta
 
 from fastapi import APIRouter, HTTPException
+from fastapi import Path as UrlPart
 
 from app.core import db
 from app.core.json_values import clean, r1
@@ -74,6 +75,8 @@ def today(user_id: str):
             "metrics": [],
             "sleep": None,
             "quality_notes": None,
+            # So the greeting has the name from the first morning, before any night is processed.
+            "name": user["name"],
         }
 
     row = nights.iloc[-1].to_dict()
@@ -105,7 +108,8 @@ def today(user_id: str):
         "text_placeholder": explainer.placeholder,
         "name": user["name"],
         "helpful": helpful(user_id, shown),
-        "hydration": sweat.hydration(user_id, shown),
+        # Always this morning's advice, even while Today still shows an older night before the update time.
+        "hydration": sweat.hydration(user_id, last_night),
     }
 
 
@@ -119,8 +123,15 @@ def helpful(user_id: str, night: date) -> bool | None:
 
 
 @router.put("/nights/{night_date}/feedback", response_model=Feedback)
-def save_feedback(user_id: str, night_date: date, body: FeedbackIn):
+def save_feedback(
+    user_id: str, body: FeedbackIn, night: str = UrlPart(alias="night_date", pattern=r"^\d{4}-\d{2}-\d{2}$")
+):
     """Why this score's "Was this helpful?" for one night. Answering again replaces the earlier answer."""
+    # Only YYYY-MM-DD, so timestamps and other date forms FastAPI would accept are refused.
+    try:
+        night_date = date.fromisoformat(night)
+    except ValueError:
+        raise HTTPException(422, f"{night} isn't a real date. Use YYYY-MM-DD.") from None
     with db.connect() as conn:
         require_user(conn, user_id)
         if not conn.execute(

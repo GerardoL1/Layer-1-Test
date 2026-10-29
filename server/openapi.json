@@ -390,7 +390,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
               "title": "Night Date"
             }
           }
@@ -1687,6 +1687,7 @@
             "title": "Helpful"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "helpful"
