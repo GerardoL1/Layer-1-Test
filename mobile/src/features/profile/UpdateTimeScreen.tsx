@@ -32,6 +32,7 @@ export default function UpdateTimeScreen() {
   const [otherText, setOtherText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [focused, setFocused] = useState(false);
 
   const selected = picked ?? settings?.update_time ?? '08:00';
   const isPreset = PRESETS.includes(selected);
@@ -77,8 +78,10 @@ export default function UpdateTimeScreen() {
         {otherOpen ? (
           <View style={styles.other}>
             <TextInput value={otherText} onChangeText={setOtherText} placeholder="4:00 pm" autoFocus
+              onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
               placeholderTextColor={colors.textMuted} accessibilityLabel="Other update time" onSubmitEditing={applyOther}
-              style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.surface }]} />
+              style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.surface,
+                borderColor: focused ? colors.link : 'transparent' }]} />
             <Button title="Use" kind="secondary" onPress={applyOther} />
           </View>
         ) : null}
@@ -141,7 +144,8 @@ export default function UpdateTimeScreen() {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   other: { flexDirection: 'row', gap: 8, paddingBottom: 12 },
-  input: { ...type.body, flex: 1, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 10 },
+  input: { ...type.body, flex: 1, borderWidth: 2, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 10,
+    outlineColor: 'transparent' },
   hint: { marginTop: 12 },
   error: { marginTop: 8 },
   wideContent: { paddingHorizontal: 48, paddingTop: 40, paddingBottom: 40 },

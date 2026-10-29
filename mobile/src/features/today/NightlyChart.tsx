@@ -41,9 +41,12 @@ export function NightlyChart({ title, label, metric, trends, lastLabel }: Props)
     });
   }, [ready, today, reveal]);
   const width = reveal.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
+  // Before 7 scored nights there's no usual range to shade, so the note says when it comes.
+  const hasUsual = trends.data?.rows.some((r) => r[metric].usual_low !== null) ?? true;
+  const note = hasUsual ? 'Shaded: your usual range' : 'Your usual range appears after 7 scored nights';
   return (
     <View style={[styles.panel, { backgroundColor: colors.surface }]}>
-      <SectionHeader title={title} note={isWide ? 'Shaded: your usual range' : null} />
+      <SectionHeader title={title} note={isWide ? note : null} />
       {trends.data ? (
         <View style={[styles.card, { backgroundColor: colors.raised }]}
           onLayout={(e) => setChartWidth(e.nativeEvent.layout.width - 24)}>
@@ -56,7 +59,7 @@ export function NightlyChart({ title, label, metric, trends, lastLabel }: Props)
           </Animated.View>
         </View>
       ) : <PageState loading={trends.loading} error={trends.error} />}
-      {!isWide ? <Text variant="bodySmall" color="textSecondary" style={styles.caption}>Shaded: your usual range.</Text> : null}
+      {!isWide ? <Text variant="bodySmall" color="textSecondary" style={styles.caption}>{`${note}.`}</Text> : null}
     </View>
   );
 }

@@ -34,6 +34,7 @@ export default function WeightScreen({ back = 'Profile', home = '/profile' }: { 
   const text = typed ?? (settings ? weightInput(settings.weight_kg, settings.units) : '');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [focused, setFocused] = useState(false);
 
   function leave() {
     if (router.canGoBack()) router.back();
@@ -67,13 +68,14 @@ export default function WeightScreen({ back = 'Profile', home = '/profile' }: { 
   }
 
   const other = units === 'imperial' ? 'kg' : 'lb';
-  // A tinted box, outlined in red only when the weight can't be saved.
-  const lineColor = error ? colors.low : 'transparent';
+  // A tinted box: teal outline while typing (Figma's Focused state), red when the weight can't be saved.
+  const lineColor = error ? colors.low : focused ? colors.link : 'transparent';
   const field = (
     <View>
       <Text variant="labelSmall" color={error ? 'low' : 'textSecondary'}>Weight</Text>
       <View style={[styles.inputRow, { borderColor: lineColor, backgroundColor: colors.surface }]}>
         <TextInput value={text} onChangeText={setTyped} keyboardType="decimal-pad" onSubmitEditing={save}
+          onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
           editable={!!settings} autoCorrect={false} autoCapitalize="none" spellCheck={false}
           accessibilityLabel={settings ? `Weight in ${weightUnit(units) === 'kg' ? 'kilograms' : 'pounds'}` : 'Weight'}
           {...fieldError('weight-error', !!error)}
@@ -135,9 +137,10 @@ export default function WeightScreen({ back = 'Profile', home = '/profile' }: { 
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  inputRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: radius.sm, minHeight: 46,
+  inputRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 2, borderRadius: radius.sm, minHeight: 46,
     paddingHorizontal: 14, marginTop: 6, gap: 8 },
-  input: { ...type.bodyLarge, flex: 1, paddingVertical: 8 },
+  // The box's own teal outline shows focus, so the browser's ring is turned off.
+  input: { ...type.bodyLarge, flex: 1, paddingVertical: 8, outlineColor: 'transparent' },
   error: { marginTop: 8 },
   hint: { marginTop: 12 },
   cancel: { minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },

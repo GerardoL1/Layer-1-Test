@@ -30,6 +30,8 @@ export type Colors = {
   warningTint: string;
   raised: string;
   chrome: string;
+  // Refresh "accent": the teal for links and the focus outline. Not the app's accent, which fills buttons.
+  link: string;
 };
 
 // Refresh name for each: canvas = ground, accent = primary (filled buttons), low = negative (errors too),
@@ -61,6 +63,7 @@ export const light: Colors = {
   warningTint: '#FBF1E4',
   raised: '#FFFFFF',
   chrome: '#F4F6F6',
+  link: '#1B6E66',
 };
 
 export const dark: Colors = {
@@ -90,6 +93,7 @@ export const dark: Colors = {
   warningTint: '#2B2117',
   raised: '#242727',
   chrome: '#151717',
+  link: '#62BDB1',
 };
 
 export const fonts = {

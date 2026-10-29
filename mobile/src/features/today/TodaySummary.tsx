@@ -24,7 +24,7 @@ type Props = {
 };
 
 /** "Readiness 28 of 100, which is low. <reason>", or what Today shows while last night isn't in yet. */
-function lead(t: Props['today'], waiting: boolean): string | null {
+function lead(t: Props['today'], waiting: boolean, firstWeek: boolean): string | null {
   const { score, status } = t.readiness;
   const word = status in { low: 1, moderate: 1, ready: 1 } ? STATUS_WORD[status].toLowerCase() : null;
   if (waiting) {
@@ -33,6 +33,8 @@ function lead(t: Props['today'], waiting: boolean): string | null {
       + (score !== null && word ? `: readiness ${score}, which is ${word}.` : '.');
   }
   const head = score !== null && word ? `Readiness ${score} of 100, which is ${word}.` : null;
+  // In the first week there's no usual to compare with, so only the score is said (Figma's first-week frame).
+  if (firstWeek && head) return head;
   return [head, t.reason].filter(Boolean).join(' ') || null;
 }
 
@@ -45,7 +47,7 @@ export function TodaySummary({ today: t, waiting, previous, usual, updating, upd
   // No name yet, so the greeting is just the time of day. A name comes with Round 6.
   const second = waiting ? 'Last night isn’t in yet.' : t.verdict;
   const greeting = `${partOfDay(t.now_local)}.${second ? (isWide ? ' ' : '\n') + second : ''}`;
-  const text = lead(t, waiting);
+  const text = lead(t, waiting, usual === null);
   const date = `${fullDay(t.now_local)}${isWide && t.updated_at ? ` · updated ${clock(t.updated_at)}` : ''}`;
   const score = t.readiness.score;
   const band = score !== null ? (

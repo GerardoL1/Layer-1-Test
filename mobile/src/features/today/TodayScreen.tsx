@@ -58,7 +58,7 @@ export default function TodayScreen() {
       <Page>
         <Text variant={isWide ? 'greetingLarge' : 'greeting'} accessibilityRole="header">{`${partOfDay(nowLocal())}.\nWe can’t load today.`}</Text>
         <Text variant="bodyLarge" color="textSecondary" style={styles.lead}>{today.error}</Text>
-        <Button title="Try again" kind="secondary" onPress={today.reload} style={styles.retry} />
+        <Button title="Try again" onPress={today.reload} style={styles.retry} />
       </Page>
     );
   }
@@ -66,11 +66,11 @@ export default function TodayScreen() {
   // Phone sync trouble doesn't stop Today, it says what's shown and offers to try again.
   const syncFailed = health.lastError ? (
     <View style={styles.syncFailed}>
-      <Notice type="warning" label="Couldn’t sync" live>
+      <Notice type="warning" label="Couldn’t sync" live
+        action={{ label: health.syncing ? 'Syncing…' : 'Try again', onPress: health.syncNow }}>
         {`Showing data from ${t.updated_at ? `${dayLabel(t.updated_at)}, ${clock(t.updated_at)}` : 'earlier'}. `
           + health.lastError}
       </Notice>
-      <Button title="Try again" kind="secondary" busy={health.syncing} onPress={health.syncNow} style={styles.retry} />
     </View>
   ) : null;
 
