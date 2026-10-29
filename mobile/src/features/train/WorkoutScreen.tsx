@@ -121,8 +121,7 @@ export default function WorkoutScreen() {
               </View>
             ) : null}
             <Text variant="bodySmall" color="textSecondary">
-              {s.sweat_detected ? 'Sweat numbers are estimates from the sensor.'
-                : 'Sweat numbers are estimates from the sensor. The advice is a placeholder until the team decides it.'}
+              Sweat numbers are estimates from the sensor. The advice is a placeholder until the team decides it.
             </Text>
           </View>
         ) : null}
