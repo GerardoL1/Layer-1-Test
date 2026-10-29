@@ -8,7 +8,8 @@ import { Text } from './Text';
 export function Tag({ label }: { label: string }) {
   const { colors } = useTheme();
   return (
-    <View style={[styles.tag, { backgroundColor: colors.surface }]}>
+    // Tags sit on rows inside a grey panel, so they're raised to show up against it.
+    <View style={[styles.tag, { backgroundColor: colors.raised }]}>
       <Text variant="bodySmall" color="textSecondary">{label}</Text>
     </View>
   );
