@@ -34,7 +34,7 @@ export function ListRow({ label, value, onPress, comingSoon, danger, valueColor,
           {comingSoon ? 'Coming soon' : value ?? ''}
         </Text>
         {/* The arrow is only a picture, so screen readers skip it. */}
-        {link || (onPress && comingSoon) ? <Text variant="body" color="textSecondary" aria-hidden>→</Text> : null}
+        {link || (onPress && comingSoon) ? <Text variant="body" color="textSecondary" aria-hidden>›</Text> : null}
       </View>
     </>
   );

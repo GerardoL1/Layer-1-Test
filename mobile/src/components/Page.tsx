@@ -1,7 +1,8 @@
 import { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme/theme';
+import { Button } from './Button';
 import { LiveText } from './LiveText';
 import { Text } from './Text';
 
@@ -21,17 +22,22 @@ export function Page({ children, form }: { children: ReactNode; form?: boolean }
   );
 }
 
-/** Shown while a page loads or when the server can't be reached. */
-export function PageState({ loading, error }: { loading: boolean; error: string | null }) {
+/**
+ * Shown while a page loads (a spinner) or when the server can't be reached.
+ * onRetry adds a Try again button, the page's only action then, so it's primary.
+ */
+export function PageState({ loading, error, onRetry }: { loading: boolean; error: string | null; onRetry?: () => void }) {
+  const { colors } = useTheme();
   if (error) {
     return (
       <View style={styles.state}>
         <Text variant="h3" accessibilityRole="header">{"Couldn't load this page"}</Text>
         <LiveText error color="low">{error}</LiveText>
+        {onRetry ? <Button title="Try again" onPress={onRetry} style={styles.retry} /> : null}
       </View>
     );
   }
-  if (loading) return <LiveText color="textMuted" style={styles.state}>Loading…</LiveText>;
+  if (loading) return <ActivityIndicator accessibilityLabel="Loading" color={colors.textSecondary} style={styles.state} />;
   return null;
 }
 
@@ -42,4 +48,5 @@ const styles = StyleSheet.create({
   column: { width: '100%', alignSelf: 'center' },
   columnWide: { maxWidth: 1112 },
   state: { marginTop: 24, gap: 6 },
+  retry: { marginTop: 10 },
 });

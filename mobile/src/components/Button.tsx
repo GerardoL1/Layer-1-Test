@@ -7,7 +7,8 @@ import { Text } from './Text';
 type Props = {
   title: string;
   onPress?: () => void;
-  kind?: 'primary' | 'secondary';
+  /** text: no fill and no outline, for quieter actions like "Choose a different file". */
+  kind?: 'primary' | 'secondary' | 'text';
   /** Figma's State = Disabled, for actions that aren't available (like "Coming soon"). */
   disabled?: boolean;
   busy?: boolean;
@@ -25,9 +26,11 @@ export function Button({ title, onPress, kind = 'primary', disabled, busy, style
     ? disabled
       ? { fill: colors.surfaceMuted, border: colors.surfaceMuted, text: colors.textMuted }
       : { fill: colors.accent, border: colors.accent, text: colors.onAccent }
-    : disabled
-      ? { fill: 'transparent', border: colors.borderStrong, text: colors.textMuted }
-      : { fill: 'transparent', border: colors.borderStrong, text: colors.textPrimary };
+    : kind === 'text'
+      ? { fill: 'transparent', border: 'transparent', text: disabled ? colors.textMuted : colors.textPrimary }
+      : disabled
+        ? { fill: 'transparent', border: colors.borderStrong, text: colors.textMuted }
+        : { fill: 'transparent', border: colors.borderStrong, text: colors.textPrimary };
   const off = disabled || busy;
   return (
     // react-native-web sets aria-disabled from disabled, so both are given.

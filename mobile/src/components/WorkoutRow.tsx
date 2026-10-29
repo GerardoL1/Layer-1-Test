@@ -34,7 +34,7 @@ export function WorkoutRow({ startLocal, type, minutes, source, tags, onPress }:
       <View style={styles.right}>
         {tags.map((t) => <Tag key={t} label={t} />)}
         {/* The arrow is only a picture, so screen readers skip it. */}
-        <Text variant="body" color="textSecondary" aria-hidden>→</Text>
+        <Text variant="body" color="textSecondary" aria-hidden>›</Text>
       </View>
     </Pressable>
   );
