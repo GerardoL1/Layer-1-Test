@@ -107,8 +107,14 @@ def test_feedback_only_takes_plain_dates_and_known_fields():
 def test_hydration_has_no_sodium_unless_every_workout_has_it():
     # A morning ride on 30 Sep with typed-in sweat but no sodium, next to the run that has sodium.
     start = 1790787600000  # 30 Sep 2026, 9:00 am at UTC-7
-    ride = {"id": "r6-ride", "start_ms": start, "end_ms": start + 45 * 60000, "start_tz_min": -420,
-            "end_tz_min": -420, "type": "Ride"}
+    ride = {
+        "id": "r6-ride",
+        "start_ms": start,
+        "end_ms": start + 45 * 60000,
+        "start_tz_min": -420,
+        "end_tz_min": -420,
+        "type": "Ride",
+    }
     assert client.post(f"{SAM}/workouts", json=ride).status_code in (200, 201)
     assert client.put(f"{SAM}/workouts/r6-ride/sweat", json={"fluid_loss_ml": 400}).status_code == 200
     h = client.get(f"{SAM}/today").json()["hydration"]
