@@ -27,6 +27,7 @@ import { Text } from '../../components/Text';
 import { pickNix } from '../../lib/pickNix';
 import {
   alsoSaved,
+  fileExtras,
   checkLabel,
   duration,
   existingNote,
@@ -68,6 +69,12 @@ type Step =
   | { kind: 'unreadable'; fileName: string; message: string };
 
 /** "Thu 25 Sep · Leg day", how a workout row names a workout. */
+// Shown beside "Which workout is this?" on the computer.
+const WHY_NO_MATCH = [
+  'Your watch wasn’t recording a workout at that time.',
+  'The file is from a different workout than you meant.',
+  'You changed time zones, so the times look shifted.',
+];
 const workoutName = (w: Workout) => `${startLabel(w.start_local).split(' · ')[0]} · ${w.type}`;
 
 export default function NixImportScreen() {
@@ -309,8 +316,10 @@ export default function NixImportScreen() {
       <Page>
         <Announce text={`Which workout is this? ${intro}`} />
         <SubPageHeader back={back} home={home} label="Nix file" title="Which workout is this?" intro={intro} />
-        {/* On the computer Figma keeps this to the left half, with the buttons side by side. */}
-        <View style={isWide && styles.half}>
+        {/* On the computer Figma keeps this to the left half, with the buttons side by side,
+            and explains on the right why a file might not match. */}
+        <View style={isWide && styles.columns}>
+        <View style={isWide ? styles.column : undefined}>
         {options.length || (from && reason === 'not-this') ? (
           <View style={styles.space8}>
             <SectionHeader title="Pick a workout" note={matched ? 'Best match first' : 'Closest first'} />
@@ -338,6 +347,13 @@ export default function NixImportScreen() {
           <Button title="Choose a different file" kind="secondary" disabled={!!checking}
             onPress={() => setStep({ kind: 'choose' })} />
         </View>
+        </View>
+        {isWide ? (
+          <View style={[styles.column, styles.space8]}>
+            <SectionHeader title="Why this happens" />
+            <NumberedSteps steps={WHY_NO_MATCH} />
+          </View>
+        ) : null}
         </View>
       </Page>
     );
@@ -367,10 +383,17 @@ export default function NixImportScreen() {
       ) : null}
     </View>
   );
-  // On the computer these go in the right column, like Figma's "Also in the file".
+  // The computer shows the extra numbers as rows in the right column. The iPhone keeps one sentence, to stay short.
+  const extraRows = fileExtras(s);
   const fileNotes = (
     <View style={isWide ? styles.space24 : undefined}>
-      {extras ? <Text variant="bodySmall" color="textMuted" style={styles.space12}>{extras}</Text> : null}
+      {isWide && extraRows.length ? (
+        <>
+          <SectionHeader title="Also in the file" note="Saved too" />
+          <Panel>{extraRows.map((r) => <ListRow key={r.label} label={r.label} value={r.value} />)}</Panel>
+        </>
+      ) : null}
+      {!isWide && extras ? <Text variant="bodySmall" color="textMuted" style={styles.space12}>{extras}</Text> : null}
       <Text variant="bodySmall" color="textMuted" style={styles.space8}>
         Nix counts sweat only after about 15 minutes, so the start of a workout reads low.
       </Text>
@@ -444,7 +467,6 @@ const styles = StyleSheet.create({
   space12: { marginTop: 12 },
   space16: { marginTop: 16 },
   space24: { marginTop: 24 },
-  half: { maxWidth: 520 },
   buttons: { marginTop: 16, gap: 12 },
   buttonsWide: { marginTop: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
 });

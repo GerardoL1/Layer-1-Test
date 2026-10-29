@@ -204,10 +204,18 @@ const checks = {
       'This workout already has more precise sweat data, so saving this file won’t change it.');
     assert.strictEqual(s.notThisWorkout('2026-09-28T09:10'), 'This file is from Mon 28 Sep at 9:10 am, not this workout.');
     const all = { sweat_detected: true, electrolytes_mg: 860, electrolyte_rate_mg_h: null, sodium_rate_mg_h: 403.4,
-      nix_index: 74 };
+      sweat_composition_mg_l: 1344.2, nix_index: 74 };
     // Shown on the preview, before anything is saved, so it says what's in the file.
-    assert.strictEqual(s.alsoSaved(all), 'Also in the file: electrolytes 860 mg, sodium rate 403 mg/h, Nix index 74.');
-    assert.strictEqual(s.alsoSaved({ ...all, electrolytes_mg: null, sodium_rate_mg_h: null, nix_index: null }), null);
+    assert.strictEqual(s.alsoSaved(all),
+      'Also in the file: electrolytes 860 mg, sodium rate 403 mg/h, sweat composition 1,344 mg/L, Nix index 74.');
+    assert.deepStrictEqual(s.fileExtras({ ...all, nix_index: null }), [
+      { label: 'Electrolyte loss', value: '860 mg' },
+      { label: 'Sodium rate', value: '403 mg/h' },
+      { label: 'Sweat composition', value: '1,344 mg/L' },
+    ]);
+    const none = { ...all, electrolytes_mg: null, sodium_rate_mg_h: null, sweat_composition_mg_l: null, nix_index: null };
+    assert.strictEqual(s.alsoSaved(none), null);
+    assert.deepStrictEqual(s.fileExtras(none), []);
   },
   'a comma after a leading zero is a decimal, not thousands': () => {
     assert.deepStrictEqual(s.parseAmount('0,500', 'rate', 'metric'), { value: 0.5 });
