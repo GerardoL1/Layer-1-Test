@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { ListRow } from '../../components/ListRow';
-import { Page } from '../../components/Page';
+import { Page, PageState } from '../../components/Page';
 import { Panel } from '../../components/Panel';
 import { SectionHeader } from '../../components/SectionHeader';
 import { Text } from '../../components/Text';
@@ -15,7 +15,6 @@ import { headingLevel } from '../../lib/a11y';
 import { dayLabel } from '../../lib/format';
 import { lastSevenDays, suggestion } from '../../lib/sweat';
 import { useTheme } from '../../theme/theme';
-import { LoadState } from './LoadState';
 import { RefreshError } from './RefreshError';
 import { tagsFor, useTrainData } from './useTrainData';
 
@@ -26,7 +25,7 @@ export default function TrainScreen() {
     return (
       <Page>
         <Text variant="h1" accessibilityRole="header">Train</Text>
-        <LoadState loading={loading} error={error} onRetry={reload} />
+        <PageState loading={loading} error={error} onRetry={reload} />
       </Page>
     );
   }

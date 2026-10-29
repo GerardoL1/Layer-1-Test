@@ -5,14 +5,13 @@
 import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
-import { Page } from '../../components/Page';
+import { Page, PageState } from '../../components/Page';
 import { Panel } from '../../components/Panel';
 import { SectionHeader } from '../../components/SectionHeader';
 import { SubPageHeader } from '../../components/SubPageHeader';
 import { Text } from '../../components/Text';
 import { WorkoutRow } from '../../components/WorkoutRow';
 import { sections } from '../../lib/sweat';
-import { LoadState } from './LoadState';
 import { RefreshError } from './RefreshError';
 import { tagsFor, useTrainData } from './useTrainData';
 
@@ -22,7 +21,7 @@ export default function AllWorkoutsScreen() {
     <SubPageHeader back="Train" home="/train" label="Workouts" title="All workouts"
       intro="Everything from your Apple Watch and the app, newest first." />
   );
-  if (!data) return <Page>{header}<LoadState loading={loading} error={error} onRetry={reload} /></Page>;
+  if (!data) return <Page>{header}<PageState loading={loading} error={error} onRetry={reload} /></Page>;
 
   const groups = sections(data.workouts, data.nowLocal);
   return (

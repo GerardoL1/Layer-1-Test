@@ -10,7 +10,7 @@ import { useApi } from '../../api/useApi';
 import { Button } from '../../components/Button';
 import { ListRow } from '../../components/ListRow';
 import { LiveText } from '../../components/LiveText';
-import { Page } from '../../components/Page';
+import { Page, PageState } from '../../components/Page';
 import { Panel } from '../../components/Panel';
 import { SubPageHeader } from '../../components/SubPageHeader';
 import { Text } from '../../components/Text';
@@ -19,7 +19,6 @@ import { AmountKind, amountHint, amountInput, amountUnit, startLabel, typedValue
 import { errorText, useLoad } from '../../lib/useLoad';
 import { useTheme } from '../../theme/theme';
 import { radius, type } from '../../theme/tokens';
-import { LoadState } from './LoadState';
 
 const FIELDS: { kind: AmountKind; label: string; spoken: string }[] = [
   { kind: 'fluid', label: 'Sweat loss', spoken: 'Sweat loss' },
@@ -105,7 +104,7 @@ export default function LogSweatScreen() {
     );
   }
   if (!current) {
-    return <Page>{header('Workout')}<LoadState loading={base.loading || !!base.data} error={base.error} onRetry={base.reload} /></Page>;
+    return <Page>{header('Workout')}<PageState loading={base.loading || !!base.data} error={base.error} onRetry={base.reload} /></Page>;
   }
   const { workout, units } = current;
 

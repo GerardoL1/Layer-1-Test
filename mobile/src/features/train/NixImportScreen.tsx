@@ -19,7 +19,7 @@ import { ListRow } from '../../components/ListRow';
 import { LiveText } from '../../components/LiveText';
 import { Notice } from '../../components/Notice';
 import { NumberedSteps } from '../../components/NumberedSteps';
-import { Page } from '../../components/Page';
+import { Page, PageState } from '../../components/Page';
 import { Panel } from '../../components/Panel';
 import { SectionHeader } from '../../components/SectionHeader';
 import { SubPageHeader } from '../../components/SubPageHeader';
@@ -44,7 +44,6 @@ import { errorText, useLoad } from '../../lib/useLoad';
 import { weightText } from '../../lib/weight';
 import { useTheme } from '../../theme/theme';
 import { Announce } from './Announce';
-import { LoadState } from './LoadState';
 
 const STEPS_PHONE = [
   'Open Insights, then Workouts.',
@@ -116,7 +115,7 @@ export default function NixImportScreen() {
     return (
       <Page>
         <SubPageHeader back={back} home={home} label="Sweat data" title="Add sweat data" />
-        <LoadState loading={base.loading || !!base.data} error={base.error} onRetry={base.reload} />
+        <PageState loading={base.loading || !!base.data} error={base.error} onRetry={base.reload} />
       </Page>
     );
   }
@@ -221,7 +220,7 @@ export default function NixImportScreen() {
   // Typing numbers in can't replace Nix sweat data (that's refused), so it's only offered when it could work.
   const nixAlready = !!fromSweat && fromSweat.source === 'nix' && fromSweat.sweat_detected;
   const typeByHand = from && !nixAlready ? (
-    <Button title="Enter numbers by hand" kind="secondary" style={styles.space12}
+    <Button title="Enter numbers by hand" kind="text" style={styles.space12}
       onPress={() => router.replace({ pathname: '/train/log', params: { workoutId: from.id } })} />
   ) : null;
   const fromRow = from ? <Panel style={styles.space16}><ListRow label="Workout" value={workoutName(from)} /></Panel> : null;
@@ -344,7 +343,7 @@ export default function NixImportScreen() {
           <Button title="Save as a new workout" busy={checking === 'new'} disabled={!!checking}
             onPress={() => checkFor(file, preview, reason,
               { save: { newWorkout: true }, label: `New workout · ${s.workout_type ?? 'Workout'}` })} />
-          <Button title="Choose a different file" kind="secondary" disabled={!!checking}
+          <Button title="Choose a different file" kind="text" disabled={!!checking}
             onPress={() => setStep({ kind: 'choose' })} />
         </View>
         </View>
@@ -420,7 +419,7 @@ export default function NixImportScreen() {
       {saveError ? <LiveText error color="low" style={styles.space12}>{saveError}</LiveText> : null}
       <View style={isWide ? styles.buttonsWide : styles.buttons}>
         <Button title="Save sweat data" busy={saving} disabled={blocked} onPress={() => save(file, target)} />
-        <Button title="Choose a different file" kind="secondary" disabled={saving}
+        <Button title="Choose a different file" kind="text" disabled={saving}
           onPress={() => setStep({ kind: 'choose' })} />
       </View>
     </View>

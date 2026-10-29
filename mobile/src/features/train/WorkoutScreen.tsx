@@ -10,14 +10,13 @@ import { useApi } from '../../api/useApi';
 import { Button } from '../../components/Button';
 import { LiveText } from '../../components/LiveText';
 import { Notice } from '../../components/Notice';
-import { Page } from '../../components/Page';
+import { Page, PageState } from '../../components/Page';
 import { SectionHeader } from '../../components/SectionHeader';
 import { SubPageHeader } from '../../components/SubPageHeader';
 import { Text } from '../../components/Text';
 import { about, duration, durationWords, sessionStats, Shown, sourceText, spanLabel, Units } from '../../lib/sweat';
 import { errorText, useLoad } from '../../lib/useLoad';
 import { Colors } from '../../theme/tokens';
-import { LoadState } from './LoadState';
 import { RefreshError } from './RefreshError';
 
 const NO_SWEAT = "Nix didn't pick up any sweat this session. Only breathing loss was recorded, so this won't count "
@@ -67,7 +66,7 @@ export default function WorkoutScreen() {
     return (
       <Page>
         <SubPageHeader back="Train" home="/train" label="Workout" title="Workout" />
-        <LoadState loading={loading || !!data} error={error} onRetry={reload} />
+        <PageState loading={loading || !!data} error={error} onRetry={reload} />
       </Page>
     );
   }
@@ -79,9 +78,8 @@ export default function WorkoutScreen() {
   return (
     <Page>
       <View style={styles.column}>
-        {/* Figma puts this line above the title, but the shared header has no slot there, so it's the intro. */}
         <SubPageHeader back="Train" home="/train" label="Workout" title={w.type}
-          intro={`${spanLabel(w.start_local, w.end_local)} · ${sourceText(w.source)}`} />
+          detail={`${spanLabel(w.start_local, w.end_local)} · ${sourceText(w.source)}`} />
         <RefreshError error={error} />
         {/* In a row like the sweat figures, since the stat's flex sizing is meant for a row. */}
         <View style={styles.statsRow}>
