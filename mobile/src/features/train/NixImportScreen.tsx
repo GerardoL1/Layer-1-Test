@@ -309,6 +309,8 @@ export default function NixImportScreen() {
       <Page>
         <Announce text={`Which workout is this? ${intro}`} />
         <SubPageHeader back={back} home={home} label="Nix file" title="Which workout is this?" intro={intro} />
+        {/* On the computer Figma keeps this to the left half, with the buttons side by side. */}
+        <View style={isWide && styles.half}>
         {options.length || (from && reason === 'not-this') ? (
           <View style={styles.space8}>
             <SectionHeader title="Pick a workout" note={matched ? 'Best match first' : 'Closest first'} />
@@ -329,11 +331,14 @@ export default function NixImportScreen() {
         <Text variant="bodySmall" color="textMuted" style={styles.space12}>
           Not listed? Save it as a new workout using the times in the file.
         </Text>
-        <Button title="Save as a new workout" style={styles.space16} busy={checking === 'new'} disabled={!!checking}
-          onPress={() => checkFor(file, preview, reason,
-            { save: { newWorkout: true }, label: `New workout · ${s.workout_type ?? 'Workout'}` })} />
-        <Button title="Choose a different file" kind="secondary" style={styles.space12} disabled={!!checking}
-          onPress={() => setStep({ kind: 'choose' })} />
+        <View style={isWide ? styles.buttonsWide : styles.buttons}>
+          <Button title="Save as a new workout" busy={checking === 'new'} disabled={!!checking}
+            onPress={() => checkFor(file, preview, reason,
+              { save: { newWorkout: true }, label: `New workout · ${s.workout_type ?? 'Workout'}` })} />
+          <Button title="Choose a different file" kind="secondary" disabled={!!checking}
+            onPress={() => setStep({ kind: 'choose' })} />
+        </View>
+        </View>
       </Page>
     );
   }
@@ -360,6 +365,11 @@ export default function NixImportScreen() {
       {!s.sweat_detected ? (
         <View style={styles.space12}><Notice type="warning" label="No sweat picked up" live>{NO_SWEAT}</Notice></View>
       ) : null}
+    </View>
+  );
+  // On the computer these go in the right column, like Figma's "Also in the file".
+  const fileNotes = (
+    <View style={isWide ? styles.space24 : undefined}>
       {extras ? <Text variant="bodySmall" color="textMuted" style={styles.space12}>{extras}</Text> : null}
       <Text variant="bodySmall" color="textMuted" style={styles.space8}>
         Nix counts sweat only after about 15 minutes, so the start of a workout reads low.
@@ -385,9 +395,11 @@ export default function NixImportScreen() {
   const actions = (
     <View style={styles.space24}>
       {saveError ? <LiveText error color="low" style={styles.space12}>{saveError}</LiveText> : null}
-      <Button title="Save sweat data" busy={saving} disabled={blocked} onPress={() => save(file, target)} />
-      <Button title="Choose a different file" kind="secondary" style={styles.space12} disabled={saving}
-        onPress={() => setStep({ kind: 'choose' })} />
+      <View style={isWide ? styles.buttonsWide : styles.buttons}>
+        <Button title="Save sweat data" busy={saving} disabled={blocked} onPress={() => save(file, target)} />
+        <Button title="Choose a different file" kind="secondary" disabled={saving}
+          onPress={() => setStep({ kind: 'choose' })} />
+      </View>
     </View>
   );
   const rows = (
@@ -406,13 +418,14 @@ export default function NixImportScreen() {
       {notices}
       {isWide ? (
         <View style={styles.columns}>
-          <View style={styles.column}>{rows}{numbers}</View>
-          <View style={styles.column}>{weightOffer}{actions}</View>
+          <View style={styles.column}>{rows}{numbers}{actions}</View>
+          <View style={styles.column}>{fileNotes}{weightOffer}</View>
         </View>
       ) : (
         <>
           {rows}
           {numbers}
+          {fileNotes}
           {weightOffer}
           {actions}
         </>
@@ -431,4 +444,7 @@ const styles = StyleSheet.create({
   space12: { marginTop: 12 },
   space16: { marginTop: 16 },
   space24: { marginTop: 24 },
+  half: { maxWidth: 520 },
+  buttons: { marginTop: 16, gap: 12 },
+  buttonsWide: { marginTop: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
 });
