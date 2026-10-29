@@ -28,6 +28,7 @@ export type Colors = {
   sweat: string;
   infoTint: string;
   warningTint: string;
+  raised: string;
 };
 
 // Refresh name for each: canvas = ground, accent = primary (filled buttons), low = negative (errors too),
@@ -57,6 +58,7 @@ export const light: Colors = {
   sweat: '#9AA09F',
   infoTint: '#E3F0EE',
   warningTint: '#FBF1E4',
+  raised: '#FFFFFF',
 };
 
 export const dark: Colors = {
@@ -84,6 +86,7 @@ export const dark: Colors = {
   sweat: '#5C6261',
   infoTint: '#18302D',
   warningTint: '#2B2117',
+  raised: '#242727',
 };
 
 export const fonts = {

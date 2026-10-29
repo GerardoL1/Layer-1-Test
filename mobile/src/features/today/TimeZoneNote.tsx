@@ -42,7 +42,7 @@ export function TimeZoneNote({ onChanged }: { onChanged: () => void }) {
         {`Your phone is in ${phone}, but your profile says ${saved}. Your daily update follows your profile.`}
       </Notice>
       <View style={styles.buttons}>
-        <Button title={`Use ${phone}`} onPress={usePhone} busy={busy} />
+        <Button title={`Use ${phone}`} kind="secondary" onPress={usePhone} busy={busy} />
         <Button title="Change time zone" kind="secondary" onPress={() => router.push('/profile')} />
       </View>
       {error ? <LiveText error variant="bodySmall" color="low">{error}</LiveText> : null}
@@ -51,6 +51,6 @@ export function TimeZoneNote({ onChanged }: { onChanged: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  note: { gap: 12, marginBottom: 24 },
+  note: { gap: 12, marginTop: 20 },
   buttons: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
 });
