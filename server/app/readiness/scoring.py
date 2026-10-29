@@ -39,13 +39,32 @@ def readiness(row) -> dict:
     return {"score": score, "status": status, "z_count": len(zs), "placeholder": True}
 
 
-def _confidence(row, z_count: int) -> Confidence | None:
-    """Placeholder rule: the more of the five inputs a night has, the more the score can be trusted."""
+# What each input is called when the confidence line says it's missing.
+INPUT_NAMES = {
+    "z_hrv": "HRV",
+    "z_rhr": "resting heart rate",
+    "z_tst": "total sleep",
+    "z_eff": "sleep efficiency",
+    "z_frag": "awakenings",
+}
+
+
+def _confidence(row, z_count: int) -> tuple[Confidence | None, str | None]:
+    """
+    Placeholder rule: the more of the five inputs a night has, the more the score can be trusted.
+    Also the line Today shows under the band, saying why. High confidence says nothing.
+    """
     if z_count == 0:
-        return None
+        return None, None
     if pd.isna(row.get("z_hrv")) and pd.isna(row.get("z_rhr")):
-        return "sleep_only"
-    return "high" if z_count == 5 else "medium" if z_count >= 3 else "low"
+        return "sleep_only", "No HRV or resting heart rate last night, so only sleep counted."
+    if z_count == 5:
+        return "high", None
+    missing = [name for z, name in INPUT_NAMES.items() if pd.isna(row.get(z))]
+    listed = missing[0] if len(missing) == 1 else ", ".join(missing[:-1]) + " or " + missing[-1]
+    if z_count >= 3:
+        return "medium", f"Medium confidence: no {listed} to compare last night."
+    return "low", f"Low confidence: only {z_count} of 5 readings to compare last night."
 
 
 def _add_up(raw: list, total: float) -> list[Contribution]:
@@ -83,10 +102,12 @@ class PlaceholderModel:
                         (key, label, r1(features.get(col)), READINESS_POINTS_PER_SD * READINESS_SIGNS[zcol] * z / n)
                     )
             contributions = _add_up(raw, base["score"] - READINESS_CENTER)
+        confidence, reason = _confidence(features, n)
         return ReadinessResult(
             score=base["score"],
             status=base["status"],
-            confidence=_confidence(features, n),
+            confidence=confidence,
+            confidence_reason=reason,
             contributions=contributions,
             illness_flag=False,
             model_version=self.version,

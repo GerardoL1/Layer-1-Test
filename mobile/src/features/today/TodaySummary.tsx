@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -44,9 +45,11 @@ function lead(t: Props['today'], waiting: boolean, firstWeek: boolean): string |
  */
 export function TodaySummary({ today: t, waiting, previous, usual, updating, updateNote, onUpdateNow, notice }: Props) {
   const { isWide } = useTheme();
-  // No name yet, so the greeting is just the time of day. A name comes with Round 6.
+  // "Morning, Sam." with a name, just "Morning." without one.
   const second = waiting ? 'Last night isn’t in yet.' : t.verdict;
-  const greeting = `${partOfDay(t.now_local)}.${second ? (isWide ? ' ' : '\n') + second : ''}`;
+  // A name ending in a full stop ("Sam Jr.") doesn't get a second one.
+  const hello = t.name ? `${partOfDay(t.now_local)}, ${t.name.replace(/\.$/, '')}.` : `${partOfDay(t.now_local)}.`;
+  const greeting = `${hello}${second ? (isWide ? ' ' : '\n') + second : ''}`;
   const text = lead(t, waiting, usual === null);
   const date = `${fullDay(t.now_local)}${isWide && t.updated_at ? ` · updated ${clock(t.updated_at)}` : ''}`;
   const score = t.readiness.score;
@@ -54,6 +57,10 @@ export function TodaySummary({ today: t, waiting, previous, usual, updating, upd
     <View style={styles.band}>
       <ReadinessBand score={score} from={previous} usual={usual}
         name={waiting ? weekdayName(t.night_date!) : 'Today'} />
+      {/* Why the score is less certain. High confidence says nothing. */}
+      {t.readiness.confidence_reason ? (
+        <Text variant="bodySmall" color="textSecondary" style={styles.confidence}>{t.readiness.confidence_reason}</Text>
+      ) : null}
     </View>
   ) : null;
   // Figma: on a computer the buttons and date sit right under the words, above the note and the band.
@@ -65,6 +72,7 @@ export function TodaySummary({ today: t, waiting, previous, usual, updating, upd
         ) : null}
         {/* Check-ins come later. The button is there so the layout matches, but it does nothing yet. */}
         <Button title="Start morning check-in" disabled />
+        {score !== null ? <Button title="Why this score?" kind="secondary" onPress={() => router.push('/today/why')} /> : null}
         {isWide ? <Text variant="bodySmall" color="textSecondary">{date}</Text> : null}
       </View>
       <Text variant="bodySmall" color="textMuted" style={styles.soon}>Check-ins are coming soon.</Text>
@@ -84,6 +92,7 @@ export function TodaySummary({ today: t, waiting, previous, usual, updating, upd
 
 const styles = StyleSheet.create({
   greeting: { marginTop: 8 },
+  confidence: { marginTop: 12 },
   lead: { marginTop: 12 },
   band: { marginTop: 24 },
   actions: { marginTop: 24, gap: 12 },

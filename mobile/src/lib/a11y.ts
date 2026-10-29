@@ -32,6 +32,7 @@ const PAGE_TITLES: [string, string][] = [
   ['/setup/weight', 'Weight'],
   ['/profile/import', 'Import'],
   ['/profile', 'Profile'],
+  ['/today/why', 'Why this score'],
   ['/today', 'Today'],
   ['/trends', 'Trends'],
   ['/muscles', 'Muscles'],

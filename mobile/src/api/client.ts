@@ -116,6 +116,11 @@ export function makeApi(serverUrl: string, userId: string) {
     settings: () => call<Settings>(`${user}/settings`),
     saveSettings: (changes: SettingsUpdate) => call<Settings>(`${user}/settings`, json('PATCH', changes)),
     updateNow: () => call<ProcessingRun>(`${user}/processing-runs`, json('POST')),
+    /** Why this score's "Was this helpful?" for one night. Answering again replaces the earlier answer. */
+    saveFeedback: (nightDate: string, helpful: boolean) =>
+      call<Schemas['Feedback']>(`${user}/nights/${nightDate}/feedback`, json('PUT', { helpful })),
+    /** Sweat per day for the Trends chart, ending yesterday. */
+    sweatDaily: (nights: 14 | 28 | 90) => call<Schemas['SweatDaily']>(`${user}/sweat/daily?nights=${nights}`),
     loadDemo: (person: 'sam' | 'alex' | 'jordan') =>
       call<DemoUser>(`/api/v1/demo-users/${person}`, json('POST')),
     /** Uploads a Health export and returns the new import. onProgress(0..1) reports how much has been sent. */

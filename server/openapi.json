@@ -366,6 +366,69 @@
         }
       }
     },
+    "/api/v1/users/{user_id}/nights/{night_date}/feedback": {
+      "put": {
+        "tags": [
+          "today"
+        ],
+        "summary": "Save Feedback",
+        "description": "Why this score's \"Was this helpful?\" for one night. Answering again replaces the earlier answer.",
+        "operationId": "save_feedback_api_v1_users__user_id__nights__night_date__feedback_put",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "night_date",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "title": "Night Date"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Feedback"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users/{user_id}/trends": {
       "get": {
         "tags": [
@@ -1599,6 +1662,38 @@
         ],
         "title": "DemoUser"
       },
+      "Feedback": {
+        "properties": {
+          "night_date": {
+            "type": "string",
+            "title": "Night Date"
+          },
+          "helpful": {
+            "type": "boolean",
+            "title": "Helpful"
+          }
+        },
+        "type": "object",
+        "required": [
+          "night_date",
+          "helpful"
+        ],
+        "title": "Feedback"
+      },
+      "FeedbackIn": {
+        "properties": {
+          "helpful": {
+            "type": "boolean",
+            "title": "Helpful"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "helpful"
+        ],
+        "title": "FeedbackIn"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1668,6 +1763,56 @@
           "ok"
         ],
         "title": "HealthCheck"
+      },
+      "Hydration": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "fluid_ml": {
+            "type": "number",
+            "title": "Fluid Ml"
+          },
+          "sodium_mg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sodium Mg"
+          },
+          "duration_min": {
+            "type": "number",
+            "title": "Duration Min"
+          },
+          "units": {
+            "type": "string",
+            "enum": [
+              "metric",
+              "imperial"
+            ],
+            "title": "Units"
+          },
+          "line": {
+            "type": "string",
+            "title": "Line"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "fluid_ml",
+          "sodium_mg",
+          "duration_min",
+          "units",
+          "line"
+        ],
+        "title": "Hydration",
+        "description": "Today's \"Yesterday's run\" panel: the workout behind the advice, and the advice itself."
       },
       "ImportJob": {
         "properties": {
@@ -2419,6 +2564,17 @@
             ],
             "title": "Confidence"
           },
+          "confidence_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence Reason"
+          },
           "contributions": {
             "anyOf": [
               {
@@ -2646,6 +2802,17 @@
               }
             ],
             "title": "Weight Kg"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
           }
         },
         "type": "object",
@@ -2744,6 +2911,17 @@
               }
             ],
             "title": "Weight Kg"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
           }
         },
         "type": "object",
@@ -3424,6 +3602,38 @@
               }
             ],
             "title": "Text Placeholder"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "helpful": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Helpful"
+          },
+          "hydration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Hydration"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",

@@ -1,5 +1,6 @@
 """A person's settings, and the changes Setup and Profile can send."""
 
+import unicodedata
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -16,6 +17,7 @@ class Settings(BaseModel):
     training_days: list[int]
     units: Units
     weight_kg: float | None = None
+    name: str | None = None
 
 
 class SettingsUpdate(BaseModel):
@@ -28,6 +30,20 @@ class SettingsUpdate(BaseModel):
     training_days: list[int] | None = None
     units: Units | None = None
     weight_kg: float | None = None
+    name: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def short_name(cls, v):
+        # Only used to greet the person, so spaces around it go and an empty name means none.
+        # Control and invisible format characters go too, except the joiner inside emoji like 👨‍👩‍👧.
+        if v is not None:
+            v = "".join(c for c in v if c == "\u200d" or unicodedata.category(c) not in ("Cc", "Cf"))
+            v = " ".join(v.split()) or None
+            # Joiners and emoji style marks don't count, so a family emoji counts as its people.
+            if v is not None and len([c for c in v if c not in "\u200d\ufe0f"]) > 40:
+                raise ValueError("keep the name to 40 characters or fewer")
+        return v
 
     @field_validator("timezone")
     @classmethod

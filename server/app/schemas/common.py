@@ -25,6 +25,7 @@ class Readiness(BaseModel):
     placeholder: bool
     # Added for the readiness model. Today has all four, Trends leaves out contributions.
     confidence: Confidence | None = None
+    confidence_reason: str | None = None  # the line under Today's band, None when confidence is high
     contributions: list[Contribution] | None = None
     illness_flag: bool | None = None
     model_version: str | None = None

@@ -37,6 +37,9 @@ class ReadinessResult:
     model_version: str = ""
     placeholder: bool = True
     z_count: int = 0  # how many z-scores went in, kept because the app's API already has it
+    # Why the score is less certain, in a line Today can show. None when confidence is high.
+    # Last, so models that list the fields in order keep working.
+    confidence_reason: str | None = None
 
     def to_api(self, with_contributions: bool = True) -> dict:
         out = asdict(self)

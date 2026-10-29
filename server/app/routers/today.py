@@ -3,9 +3,11 @@ Today: last night's readiness, metric rows and sleep. Brings results up to date 
 which only does work when new data arrived or a new night became ready.
 """
 
+import time
 from datetime import date, timedelta
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from fastapi import Path as UrlPart
 
 from app.core import db
 from app.core.json_values import clean, r1
@@ -15,8 +17,8 @@ from app.readiness.features import build_features
 from app.readiness.model import get_model
 from app.readiness.scoring import LOW_BELOW, READY_FROM
 from app.readiness.usual import metric_rows
-from app.schemas.today import Today
-from app.services import processing
+from app.schemas.today import Feedback, FeedbackIn, Today
+from app.services import processing, sweat
 from app.services.update_schedule import can_update_now, next_update
 from app.services.users import night_rows, require_user
 from layer1 import config as C
@@ -73,6 +75,8 @@ def today(user_id: str):
             "metrics": [],
             "sleep": None,
             "quality_notes": None,
+            # So the greeting has the name from the first morning, before any night is processed.
+            "name": user["name"],
         }
 
     row = nights.iloc[-1].to_dict()
@@ -102,4 +106,41 @@ def today(user_id: str):
         "reason": text.reason,
         "advice": text.advice,
         "text_placeholder": explainer.placeholder,
+        "name": user["name"],
+        "helpful": helpful(user_id, shown),
+        # Always this morning's advice, even while Today still shows an older night before the update time.
+        "hydration": sweat.hydration(user_id, last_night),
     }
+
+
+def helpful(user_id: str, night: date) -> bool | None:
+    with db.connect() as conn:
+        row = conn.execute(
+            "SELECT helpful FROM explanation_feedback WHERE user_id = ? AND night_date = ?",
+            (user_id, night.isoformat()),
+        ).fetchone()
+    return bool(row["helpful"]) if row else None
+
+
+@router.put("/nights/{night_date}/feedback", response_model=Feedback)
+def save_feedback(
+    user_id: str, body: FeedbackIn, night: str = UrlPart(alias="night_date", pattern=r"^\d{4}-\d{2}-\d{2}$")
+):
+    """Why this score's "Was this helpful?" for one night. Answering again replaces the earlier answer."""
+    # Only YYYY-MM-DD, so timestamps and other date forms FastAPI would accept are refused.
+    try:
+        night_date = date.fromisoformat(night)
+    except ValueError:
+        raise HTTPException(422, f"{night} isn't a real date. Use YYYY-MM-DD.") from None
+    with db.connect() as conn:
+        require_user(conn, user_id)
+        if not conn.execute(
+            "SELECT 1 FROM nights WHERE user_id = ? AND night_date = ?", (user_id, night_date.isoformat())
+        ).fetchone():
+            raise HTTPException(404, f"No night {night_date.isoformat()} for '{user_id}'.")
+        conn.execute(
+            "INSERT INTO explanation_feedback VALUES (?, ?, ?, ?) ON CONFLICT (user_id, night_date) "
+            "DO UPDATE SET helpful = excluded.helpful, answered_at_ms = excluded.answered_at_ms",
+            (user_id, night_date.isoformat(), int(body.helpful), int(time.time() * 1000)),
+        )
+    return {"night_date": night_date.isoformat(), "helpful": body.helpful}

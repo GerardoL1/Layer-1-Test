@@ -32,6 +32,7 @@ def test_the_real_limits():
         USER + "/readings/shortcuts",
         USER + "/settings",
         USER + "/checkins/morning",
+        USER + "/nights/{night_date}/feedback",
         USER + "/workouts",
         USER + "/workouts/{workout_id}/rating",
         USER + "/workouts/{workout_id}/sweat",

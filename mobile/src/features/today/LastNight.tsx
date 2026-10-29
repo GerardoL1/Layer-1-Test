@@ -20,12 +20,15 @@ function figure(m: MetricRow): { value: string; unit: string } {
     const total = Math.round(m.value);
     return { value: `${Math.floor(total / 60)} h ${total % 60} m`, unit: '' };
   }
+  // No unit next to a missing value, so it reads "–" and not "– ms".
+  if (m.value === null) return { value: num(m.value), unit: '' };
   return { value: num(m.value), unit: m.key === 'hrv' ? 'ms' : m.key === 'rhr' ? 'bpm' : '' };
 }
 
 /** How last night compares with the usual, in words: "18% below usual", "52 min short", "Usual for you". */
 export function changeText(m: MetricRow): string {
-  // No direction means there's nothing to compare with (a new person, or a night too short to count).
+  // No value: the watch didn't record it (the score is then based on what was). No direction: nothing to compare with.
+  if (m.value === null) return 'Not recorded';
   if (m.direction === null) return 'Not compared';
   if (m.key === 'awakenings') {
     return m.direction === 'usual' ? 'Usual for you' : m.direction === 'worse' ? 'More than usual' : 'Fewer than usual';

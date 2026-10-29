@@ -15,6 +15,8 @@ import { LastNight } from './LastNight';
 import { NightlyChart } from './NightlyChart';
 import { TimeZoneNote } from './TimeZoneNote';
 import { TodaySummary } from './TodaySummary';
+import { WhatMoved } from './WhatMoved';
+import { YesterdaysRun } from './YesterdaysRun';
 
 /** The device's own clock, for the greeting when Today itself couldn't load. */
 function nowLocal(): string {
@@ -96,19 +98,40 @@ export default function TodayScreen() {
   const previous = shown > 0 ? rows[shown - 1].readiness.score : null;
   const night = t.metrics.find((m) => m.key === 'hrv');
   // The charts end at the night on screen: "Last night", or its short weekday while waiting ("Mon").
-  const chartEnd = `${waiting ? weekdayShort(t.night_date!) : 'Last night'}${night?.value != null ? `, ${Math.round(night.value)} ms` : ''}`;
+  const chartEnd = `${waiting ? weekdayShort(t.night_date!) : 'Last night'}`
+    + (night?.value != null ? `, ${Math.round(night.value)} ms` : ': not recorded');
+  const chart = (
+    <NightlyChart title="HRV, last 14 nights" label="Heart rate variability, last 14 nights" metric="hrv"
+      trends={trends} lastLabel={chartEnd} />
+  );
 
   return (
     <Page>
       {syncFailed}
+      {t.readiness.illness_flag ? (
+        <View style={styles.syncFailed}>
+          <Notice type="warning" label="Possible illness">
+            Rest today, drink fluids, and check in with a doctor if you feel unwell.
+          </Notice>
+        </View>
+      ) : null}
       <TodaySummary today={{ ...t, readiness: t.readiness }} waiting={waiting} previous={previous}
         usual={usualScores(rows.map((r) => r.readiness.score))} updating={updating} updateNote={updateNote}
         onUpdateNow={updateNow} notice={<TimeZoneNote onChanged={() => { today.reload(); trends.reload(); }} />} />
       <View style={styles.space32}><LastNight today={t} /></View>
-      <View style={styles.space12}>
-        <NightlyChart title="HRV, last 14 nights" label="Heart rate variability, last 14 nights" metric="hrv"
-          trends={trends} lastLabel={chartEnd} />
-      </View>
+      {/* Figma: on a computer the chart and What moved your score sit side by side. */}
+      {isWide ? (
+        <View style={[styles.space12, styles.columns]}>
+          <View style={styles.wideChart}>{chart}</View>
+          <View style={styles.column}><WhatMoved today={t} link /></View>
+        </View>
+      ) : (
+        <>
+          <View style={styles.space12}>{chart}</View>
+          <View style={styles.space12}><WhatMoved today={t} link /></View>
+        </>
+      )}
+      <View style={styles.space12}><YesterdaysRun today={t} /></View>
       <Text variant="bodySmall" color="textMuted" style={[styles.footer, isWide && styles.footerWide]}>
         From your Apple Watch. Score and wording are placeholders while the team builds the model.
         A guide, not medical advice.
@@ -124,6 +147,9 @@ const styles = StyleSheet.create({
   syncFailed: { marginBottom: 24 },
   space32: { marginTop: 32 },
   space12: { marginTop: 12 },
+  columns: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  wideChart: { flex: 2 },
+  column: { flex: 1 },
   footer: { marginTop: 24 },
   footerWide: { maxWidth: 640 },
 });
