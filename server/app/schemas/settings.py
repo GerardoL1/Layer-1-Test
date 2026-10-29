@@ -16,6 +16,7 @@ class Settings(BaseModel):
     training_days: list[int]
     units: Units
     weight_kg: float | None = None
+    name: str | None = None
 
 
 class SettingsUpdate(BaseModel):
@@ -28,6 +29,17 @@ class SettingsUpdate(BaseModel):
     training_days: list[int] | None = None
     units: Units | None = None
     weight_kg: float | None = None
+    name: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def short_name(cls, v):
+        # Only used to greet the person, so spaces around it go and an empty name means none.
+        if v is not None:
+            v = " ".join(v.split()) or None
+            if v is not None and len(v) > 40:
+                raise ValueError("keep the name under 40 characters")
+        return v
 
     @field_validator("timezone")
     @classmethod

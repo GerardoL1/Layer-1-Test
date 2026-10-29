@@ -30,6 +30,7 @@ def load_demo(person: Literal["sam", "alex", "jordan"]):
             "runs",
             "readiness_snapshots",
             "checkins",
+            "explanation_feedback",
             "workouts",
             "sweat_sessions",
             "sweat_minutes",

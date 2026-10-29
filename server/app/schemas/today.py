@@ -1,6 +1,16 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, StrictBool
 
 from app.schemas.common import Cutoffs, MetricRow, Readiness, SleepBlock
+
+
+class Hydration(BaseModel):
+    """Today's "Yesterday's run" panel: the workout behind the advice, and the advice itself."""
+
+    title: str  # "Yesterday's run", "This morning's workouts"
+    fluid_ml: float
+    sodium_mg: float | None
+    duration_min: float
+    line: str
 
 
 class Today(BaseModel):
@@ -24,3 +34,15 @@ class Today(BaseModel):
     reason: str | None = None
     advice: str | None = None  # also at the end of reason, so older app builds still show it
     text_placeholder: bool | None = None
+    name: str | None = None  # for the greeting, None until the person gives one
+    helpful: bool | None = None  # their "Was this helpful?" answer for this night, None if not answered
+    hydration: Hydration | None = None  # only when a sweaty workout leads into this morning
+
+
+class FeedbackIn(BaseModel):
+    helpful: StrictBool
+
+
+class Feedback(BaseModel):
+    night_date: str
+    helpful: bool

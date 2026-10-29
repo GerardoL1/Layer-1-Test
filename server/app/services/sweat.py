@@ -607,6 +607,12 @@ def hydration_line(user_id: str, night_date: date) -> str | None:
     Today's Hydration line for the morning after this night, or None. Placeholder wording until the team
     decides the advice. Only sessions where Nix picked up sweat (or typed-in numbers) count.
     """
+    h = hydration(user_id, night_date)
+    return h["line"] if h else None
+
+
+def hydration(user_id: str, night_date: date) -> dict | None:
+    """The hydration line plus the workouts behind it, for Today's "Yesterday's run" panel."""
     with db.connect() as conn:
         user = conn.execute("SELECT units, update_time FROM users WHERE user_id = ?", (user_id,)).fetchone()
         if user is None:
@@ -620,10 +626,15 @@ def hydration_line(user_id: str, night_date: date) -> str | None:
     what = "workouts" if len(sweaty) > 1 else _type_text(sweaty[0])
     # A workout that started the morning the line is shown, before the update time, isn't "yesterday".
     when = "This morning's" if all(s["start_at"].date() > night_date for s in sweaty) else "Yesterday's"
-    return (
-        f"{when} {what} cost about {_amount(total, user['units'])} of sweat. "
-        "Drink a little more than usual this morning."
-    )
+    sodium = [s["sodium_mg"] for s in sweaty if s["sodium_mg"] is not None]
+    return {
+        "title": f"{when} {what}",
+        "fluid_ml": total,
+        "sodium_mg": sum(sodium) if sodium else None,
+        "duration_min": sum(s["duration_min"] for s in sweaty),
+        "line": f"{when} {what} cost about {_amount(total, user['units'])} of sweat. "
+        "Drink a little more than usual this morning.",
+    }
 
 
 def daily(user_id: str, nights: int) -> dict:

@@ -35,6 +35,7 @@ LIMITS_BY_PATH = {
     USER + "/readings/shortcuts": MAX_JSON_BYTES,
     USER + "/settings": MAX_SMALL_JSON_BYTES,
     USER + "/checkins/morning": MAX_SMALL_JSON_BYTES,
+    USER + "/nights/{night_date}/feedback": MAX_SMALL_JSON_BYTES,
     USER + "/workouts": MAX_SMALL_JSON_BYTES,
     USER + "/workouts/{workout_id}/rating": MAX_SMALL_JSON_BYTES,
     USER + "/workouts/{workout_id}/sweat": MAX_SMALL_JSON_BYTES,

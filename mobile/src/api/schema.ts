@@ -147,6 +147,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{user_id}/nights/{night_date}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Feedback
+         * @description Why this score's "Was this helpful?" for one night. Answering again replaces the earlier answer.
+         */
+        put: operations["save_feedback_api_v1_users__user_id__nights__night_date__feedback_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{user_id}/trends": {
         parameters: {
             query?: never;
@@ -530,6 +550,18 @@ export interface components {
             /** Clock Local */
             clock_local: string;
         };
+        /** Feedback */
+        Feedback: {
+            /** Night Date */
+            night_date: string;
+            /** Helpful */
+            helpful: boolean;
+        };
+        /** FeedbackIn */
+        FeedbackIn: {
+            /** Helpful */
+            helpful: boolean;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -557,6 +589,22 @@ export interface components {
         HealthCheck: {
             /** Ok */
             ok: boolean;
+        };
+        /**
+         * Hydration
+         * @description Today's "Yesterday's run" panel: the workout behind the advice, and the advice itself.
+         */
+        Hydration: {
+            /** Title */
+            title: string;
+            /** Fluid Ml */
+            fluid_ml: number;
+            /** Sodium Mg */
+            sodium_mg: number | null;
+            /** Duration Min */
+            duration_min: number;
+            /** Line */
+            line: string;
         };
         /**
          * ImportJob
@@ -747,6 +795,8 @@ export interface components {
             placeholder: boolean;
             /** Confidence */
             confidence?: ("high" | "medium" | "low" | "sleep_only") | null;
+            /** Confidence Reason */
+            confidence_reason?: string | null;
             /** Contributions */
             contributions?: components["schemas"]["Contribution"][] | null;
             /** Illness Flag */
@@ -814,6 +864,8 @@ export interface components {
             units: "metric" | "imperial";
             /** Weight Kg */
             weight_kg?: number | null;
+            /** Name */
+            name?: string | null;
         };
         /**
          * SettingsUpdate
@@ -834,6 +886,8 @@ export interface components {
             units?: ("metric" | "imperial") | null;
             /** Weight Kg */
             weight_kg?: number | null;
+            /** Name */
+            name?: string | null;
         };
         /** SleepBlock */
         SleepBlock: {
@@ -1007,6 +1061,11 @@ export interface components {
             advice?: string | null;
             /** Text Placeholder */
             text_placeholder?: boolean | null;
+            /** Name */
+            name?: string | null;
+            /** Helpful */
+            helpful?: boolean | null;
+            hydration?: components["schemas"]["Hydration"] | null;
         };
         /** TrendRow */
         TrendRow: {
@@ -1389,6 +1448,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Today"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_feedback_api_v1_users__user_id__nights__night_date__feedback_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                night_date: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedbackIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Feedback"];
                 };
             };
             /** @description Validation Error */
