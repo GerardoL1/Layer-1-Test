@@ -123,12 +123,12 @@ export default function TodayScreen() {
       {isWide ? (
         <View style={[styles.space12, styles.columns]}>
           <View style={styles.wideChart}>{chart}</View>
-          <View style={styles.column}><WhatMoved today={t} /></View>
+          <View style={styles.column}><WhatMoved today={t} link /></View>
         </View>
       ) : (
         <>
           <View style={styles.space12}>{chart}</View>
-          <View style={styles.space12}><WhatMoved today={t} /></View>
+          <View style={styles.space12}><WhatMoved today={t} link /></View>
         </>
       )}
       <View style={styles.space12}><YesterdaysRun today={t} /></View>

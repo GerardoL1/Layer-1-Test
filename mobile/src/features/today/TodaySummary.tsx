@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -70,6 +71,7 @@ export function TodaySummary({ today: t, waiting, previous, usual, updating, upd
         ) : null}
         {/* Check-ins come later. The button is there so the layout matches, but it does nothing yet. */}
         <Button title="Start morning check-in" disabled />
+        {score !== null ? <Button title="Why this score?" kind="secondary" onPress={() => router.push('/today/why')} /> : null}
         {isWide ? <Text variant="bodySmall" color="textSecondary">{date}</Text> : null}
       </View>
       <Text variant="bodySmall" color="textMuted" style={styles.soon}>Check-ins are coming soon.</Text>

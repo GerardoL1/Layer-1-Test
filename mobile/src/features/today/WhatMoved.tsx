@@ -1,4 +1,5 @@
-import { StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Today } from '../../api/client';
 import { SectionHeader } from '../../components/SectionHeader';
@@ -31,7 +32,7 @@ export function movedNote(t: Today): string {
 }
 
 /** Today's "What moved your score": each input's points, from the readiness model's contributions. */
-export function WhatMoved({ today: t }: { today: Today }) {
+export function WhatMoved({ today: t, link }: { today: Today; link?: boolean }) {
   const { colors } = useTheme();
   const rows = t.readiness?.contributions ?? [];
   if (!rows.length) return null;
@@ -50,6 +51,11 @@ export function WhatMoved({ today: t }: { today: Today }) {
         );
       })}
       <Text variant="bodySmall" color="textSecondary" style={styles.note}>{movedNote(t)}</Text>
+      {link ? (
+        <Pressable accessibilityRole="link" onPress={() => router.push('/today/why')} style={styles.link}>
+          <Text variant="bodyEmphasis" style={{ color: colors.link }}>Read the full explanation</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -58,4 +64,5 @@ const styles = StyleSheet.create({
   panel: { borderRadius: radius.lg, paddingHorizontal: 16, paddingBottom: 16 },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 6 },
   note: { marginTop: 8 },
+  link: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', marginTop: 4 },
 });
