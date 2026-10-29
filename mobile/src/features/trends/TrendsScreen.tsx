@@ -11,6 +11,7 @@ import { Text } from '../../components/Text';
 import { hoursMinutes, monthDay, rangeText } from '../../lib/format';
 import { useLoad } from '../../lib/useLoad';
 import { useTheme } from '../../theme/theme';
+import { SweatChart } from './SweatChart';
 import { average, trendPoints } from './trendData';
 
 function Section({ title, note, summary, children }: { title: string; note?: string | null; summary?: string | null;
@@ -31,6 +32,9 @@ export default function TrendsScreen() {
   // Reload when the tester or the range changes.
   const key = useMemo(() => ({ api, range }), [api, range]);
   const { data, error, loading } = useLoad(() => api.trends(range), key);
+  const sweat = useLoad(() => api.sweatDaily(range), key);
+  const settings = useLoad(() => api.settings(), api);
+  const units = settings.data?.units ?? 'metric';
 
   const rows = data?.rows ?? [];
   const latest = rows[rows.length - 1];
@@ -59,6 +63,13 @@ export default function TrendsScreen() {
       summary={s.efficiency}>
       <TrendLine label="Sleep efficiency" color={colors.sleep} points={trendPoints(rows, 'efficiency')} unit="%" />
     </Section>,
+    // Only for people with sweat data, from Nix or typed in. A failed load just leaves the chart out.
+    ...(sweat.data?.days.some((d) => d.has_sweat_data) ? [
+      <Section key="sweat" title="Sweat loss per workout" note={units === 'imperial' ? 'Ounces' : 'Litres'}
+        summary={sweat.data.summary}>
+        <SweatChart days={sweat.data.days} units={units} />
+      </Section>,
+    ] : []),
   ] : [];
 
   return (
