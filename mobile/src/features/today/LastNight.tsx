@@ -25,7 +25,8 @@ function figure(m: MetricRow): { value: string; unit: string } {
 
 /** How last night compares with the usual, in words: "18% below usual", "52 min short", "Usual for you". */
 export function changeText(m: MetricRow): string {
-  // No direction means there's nothing to compare with (a new person, or a night too short to count).
+  // No value: the watch didn't record it (the score is then based on what was). No direction: nothing to compare with.
+  if (m.value === null) return 'Not recorded';
   if (m.direction === null) return 'Not compared';
   if (m.key === 'awakenings') {
     return m.direction === 'usual' ? 'Usual for you' : m.direction === 'worse' ? 'More than usual' : 'Fewer than usual';
