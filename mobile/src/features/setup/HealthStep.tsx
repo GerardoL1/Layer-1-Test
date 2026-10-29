@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { Button } from '../../components/Button';
 import { ListRow } from '../../components/ListRow';
+import { Panel } from '../../components/Panel';
 import { SetupFrame } from '../../components/SetupFrame';
 import { LiveText } from '../../components/LiveText';
 import { Text } from '../../components/Text';
@@ -83,9 +84,9 @@ export default function HealthStep() {
       <Text variant="bodyLarge" color="textSecondary" style={styles.intro}>
         Your watch saves these to the Health app while you sleep. We read them once a day, on your phone.
       </Text>
-      <View style={styles.reads}>
+      <Panel style={styles.reads}>
         {READS.map((r) => <ListRow key={r.label} label={r.label} value={r.when} />)}
-      </View>
+      </Panel>
       <Text variant="bodySmall" color="textMuted" style={styles.privacy}>
         We don&apos;t read your location, workouts or anything else. You can turn access off any time in the Health app.
       </Text>

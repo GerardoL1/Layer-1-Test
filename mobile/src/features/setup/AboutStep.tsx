@@ -5,6 +5,7 @@ import { StyleSheet } from 'react-native';
 import { useApi } from '../../api/useApi';
 import { Button } from '../../components/Button';
 import { ListRow } from '../../components/ListRow';
+import { Panel } from '../../components/Panel';
 import { Chips, DaysPicker, EditRow, TextEditor, TRAINING } from '../../components/Editors';
 import { SetupFrame } from '../../components/SetupFrame';
 import { Text } from '../../components/Text';
@@ -34,6 +35,7 @@ export default function AboutStep() {
       <Text variant="bodyLarge" color="textSecondary" style={styles.intro}>
         This helps explain your scores. It doesn&apos;t change the numbers from your watch.
       </Text>
+      <Panel style={styles.rows}>
       <EditRow label="Age" value={s?.age ? String(s.age) : 'Choose'} open={isOpen('age')} onToggle={() => toggle('age')}
         error={error}>
         <TextEditor initial={s?.age ? String(s.age) : ''} label="Age" keyboard="number-pad" placeholder="Age"
@@ -50,10 +52,12 @@ export default function AboutStep() {
         open={isOpen('days')} onToggle={() => toggle('days')} error={error}>
         <DaysPicker value={s?.training_days ?? []} onChange={(days) => save({ training_days: days }, false)} />
       </EditRow>
+      </Panel>
     </SetupFrame>
   );
 }
 
 const styles = StyleSheet.create({
+  rows: { marginTop: 20 },
   intro: { marginTop: 12, marginBottom: 20 },
 });

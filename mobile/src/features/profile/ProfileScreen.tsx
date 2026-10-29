@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { useApi } from '../../api/useApi';
 import { Button } from '../../components/Button';
 import { ListRow } from '../../components/ListRow';
+import { Panel } from '../../components/Panel';
 import { Page, PageState } from '../../components/Page';
 import { Text } from '../../components/Text';
 import { displayName, longDate } from '../../lib/format';
@@ -17,17 +18,19 @@ import { ProfileSettings } from './ProfileSettings';
 export default function ProfileScreen() {
   const api = useApi();
   const session = useSession();
-  const { colors, isWide } = useTheme();
+  const { isWide } = useTheme();
   const { data: p, error, loading, reload } = useLoad(() => api.profile(), api);
 
   // Switching tester or server has to work even when Profile can't load (server down, wrong
   // address, or a tester with no data yet), or there'd be no way out of this screen.
   const testerTools = (
     <View style={styles.space24}>
-      <ListRow label="Switch tester" onPress={async () => {
-        await session.signOut();
-        router.replace('/setup');
-      }} />
+      <Panel>
+        <ListRow label="Switch tester" onPress={async () => {
+          await session.signOut();
+          router.replace('/setup');
+        }} />
+      </Panel>
       <TestBuild />
     </View>
   );
@@ -50,8 +53,7 @@ export default function ProfileScreen() {
 
   return (
     <Page>
-      <Text variant="labelSmall" color="textSecondary">Profile</Text>
-      <Text variant="h1" accessibilityRole="header" style={styles.name}>{displayName(p.user_id)}</Text>
+      <Text variant="h1" accessibilityRole="header">{displayName(p.user_id)}</Text>
       <Text variant="body" color="textSecondary" style={styles.since}>
         {p.first_night
           ? `Tracking since ${longDate(p.first_night)} · ${p.nights_usable} ${p.nights_usable === 1 ? 'night' : 'nights'} recorded`
@@ -69,7 +71,7 @@ export default function ProfileScreen() {
         </>
       )}
       {testerTools}
-      <Text variant="bodySmall" color="textMuted" style={[styles.footer, { borderTopColor: colors.border }]}>
+      <Text variant="bodySmall" color="textMuted" style={styles.footer}>
         Readiness is a training guide, not medical advice. Version 0.1 (test build).
       </Text>
     </Page>
@@ -77,12 +79,11 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  name: { marginTop: 4 },
   since: { marginTop: 4, marginBottom: 24 },
   columns: { flexDirection: 'row', gap: 56 },
   column: { flex: 1 },
   space32: { marginTop: 32 },
   space24: { marginTop: 24 },
   retry: { alignSelf: 'flex-start', marginTop: 16 },
-  footer: { marginTop: 24, paddingTop: 12, borderTopWidth: 1 },
+  footer: { marginTop: 24 },
 });

@@ -67,7 +67,7 @@ export default function TrendsScreen() {
         {rows.length ? `${monthDay(rows[0].night_date)} – ${monthDay(latest.night_date)}` : ' '}
       </Text>
       <Text variant="h1" accessibilityRole="header" style={styles.title}>Trends</Text>
-      <View style={[styles.switch, { borderBottomColor: colors.border }]}>
+      <View style={styles.switch}>
         <RangeSwitch value={range} onChange={setRange} />
       </View>
       {!data ? <PageState loading={loading} error={error} /> : null}
@@ -78,7 +78,7 @@ export default function TrendsScreen() {
         </View>
       ) : sections}
       {data ? (
-        <Text variant="bodySmall" color="textMuted" style={[styles.footer, { borderTopColor: colors.border }]}>
+        <Text variant="bodySmall" color="textMuted" style={styles.footer}>
           Shaded bands show your usual range, from the 28 nights before each night. Apple Watch data.
           The sentences are placeholders until the explanations are written by the app&apos;s assistant.
         </Text>
@@ -92,8 +92,8 @@ const styles = StyleSheet.create({
   chart: { marginTop: 8 },
   summary: { marginTop: 12 },
   title: { marginTop: 4 },
-  switch: { marginTop: 16, marginBottom: 20, paddingBottom: 0, borderBottomWidth: 1 },
+  switch: { marginTop: 16, marginBottom: 28 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 56 },
   cell: { width: '46%', flexGrow: 1 },
-  footer: { paddingTop: 12, borderTopWidth: 1 },
+  footer: { marginTop: 8 },
 });

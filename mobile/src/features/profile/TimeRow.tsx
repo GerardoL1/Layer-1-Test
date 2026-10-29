@@ -24,7 +24,7 @@ export function TimeRow({ label, selected, onPress, arrow, children }: Props) {
 }
 
 const styles = StyleSheet.create({
-  rule: { borderTopWidth: 1 },
+  rule: {},
   row: { minHeight: 51, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   marks: { flexDirection: 'row', gap: 10 },
 });

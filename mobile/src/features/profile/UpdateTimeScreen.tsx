@@ -19,6 +19,7 @@ import { errorText, useLoad } from '../../lib/useLoad';
 import { useTheme } from '../../theme/theme';
 import { radius, type } from '../../theme/tokens';
 import { TimeRow } from './TimeRow';
+import { Panel } from '../../components/Panel';
 
 const PRESETS = ['06:00', '07:00', '08:00', '09:00', '10:00'];
 
@@ -63,7 +64,7 @@ export default function UpdateTimeScreen() {
   const choose = (
     <View>
       {isWide ? <SectionHeader title="Choose a time" /> : null}
-      <View accessibilityRole="radiogroup" accessibilityLabel="Update time">
+      <Panel accessibilityRole="radiogroup" accessibilityLabel="Update time">
       {PRESETS.map((t) => (
         <TimeRow key={t} label={clock(t)} selected={selected === t} onPress={() => {
           setPicked(t);
@@ -77,13 +78,12 @@ export default function UpdateTimeScreen() {
           <View style={styles.other}>
             <TextInput value={otherText} onChangeText={setOtherText} placeholder="4:00 pm" autoFocus
               placeholderTextColor={colors.textMuted} accessibilityLabel="Other update time" onSubmitEditing={applyOther}
-              style={[styles.input, { color: colors.textPrimary, borderColor: colors.borderStrong }]} />
+              style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.surface }]} />
             <Button title="Use" kind="secondary" onPress={applyOther} />
           </View>
         ) : null}
       </TimeRow>
-      </View>
-      <View style={[styles.rule, { borderTopColor: colors.border }]} />
+      </Panel>
       <Text variant="bodySmall" color="textMuted" style={styles.hint}>
         Work nights? Pick a time after you usually wake up, for example 4:00 pm.
       </Text>
@@ -141,8 +141,7 @@ export default function UpdateTimeScreen() {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   other: { flexDirection: 'row', gap: 8, paddingBottom: 12 },
-  input: { ...type.body, flex: 1, borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 10 },
-  rule: { borderTopWidth: 1 },
+  input: { ...type.body, flex: 1, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 10 },
   hint: { marginTop: 12 },
   error: { marginTop: 8 },
   wideContent: { paddingHorizontal: 48, paddingTop: 40, paddingBottom: 40 },

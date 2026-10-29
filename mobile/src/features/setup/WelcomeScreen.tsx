@@ -46,7 +46,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   headline: { fontSize: 40, lineHeight: 44, marginTop: 72 },
   intro: { marginTop: 16 },
-  steps: { marginTop: 24, borderBottomWidth: 1 },
-  step: { flexDirection: 'row', alignItems: 'center', gap: 16, minHeight: 54, borderTopWidth: 1 },
+  steps: { marginTop: 24 },
+  step: { flexDirection: 'row', alignItems: 'center', gap: 16, minHeight: 54 },
   number: { fontSize: 24, width: 18 },
 });

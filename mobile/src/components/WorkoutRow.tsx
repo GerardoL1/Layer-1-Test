@@ -41,7 +41,7 @@ export function WorkoutRow({ startLocal, type, minutes, source, tags, onPress }:
 }
 
 const styles = StyleSheet.create({
-  row: { borderTopWidth: 1, minHeight: 66, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  row: { minHeight: 66, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
   text: { flex: 1, gap: 2 },
   type: { marginTop: 2 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' },

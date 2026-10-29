@@ -18,7 +18,7 @@ import { fieldError } from '../../lib/a11y';
 import { errorText, useLoad } from '../../lib/useLoad';
 import { parseWeight, weightInput, weightUnit } from '../../lib/weight';
 import { useTheme } from '../../theme/theme';
-import { type } from '../../theme/tokens';
+import { radius, type } from '../../theme/tokens';
 
 /**
  * back: what the back link says, "Profile" or "About you" during setup.
@@ -67,11 +67,12 @@ export default function WeightScreen({ back = 'Profile', home = '/profile' }: { 
   }
 
   const other = units === 'imperial' ? 'kg' : 'lb';
-  const lineColor = error ? colors.low : colors.borderStrong;
+  // A tinted box, outlined in red only when the weight can't be saved.
+  const lineColor = error ? colors.low : 'transparent';
   const field = (
     <View>
       <Text variant="labelSmall" color={error ? 'low' : 'textSecondary'}>Weight</Text>
-      <View style={[styles.inputRow, { borderBottomColor: lineColor }]}>
+      <View style={[styles.inputRow, { borderColor: lineColor, backgroundColor: colors.surface }]}>
         <TextInput value={text} onChangeText={setTyped} keyboardType="decimal-pad" onSubmitEditing={save}
           editable={!!settings} autoCorrect={false} autoCapitalize="none" spellCheck={false}
           accessibilityLabel={settings ? `Weight in ${weightUnit(units) === 'kg' ? 'kilograms' : 'pounds'}` : 'Weight'}
@@ -134,7 +135,8 @@ export default function WeightScreen({ back = 'Profile', home = '/profile' }: { 
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  inputRow: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 2, minHeight: 44, gap: 8 },
+  inputRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: radius.sm, minHeight: 46,
+    paddingHorizontal: 14, marginTop: 6, gap: 8 },
   input: { ...type.bodyLarge, flex: 1, paddingVertical: 8 },
   error: { marginTop: 8 },
   hint: { marginTop: 12 },

@@ -67,7 +67,7 @@ export function Sidebar({ footer }: { footer?: string | null }) {
 }
 
 const styles = StyleSheet.create({
-  tabBar: { borderTopWidth: 1, flexDirection: 'row' },
+  tabBar: { flexDirection: 'row' },
   tab: { flex: 1, alignItems: 'center', paddingTop: 16, minHeight: 44 },
   tabMark: { position: 'absolute', top: -1, height: 3, width: 32 },
   sidebar: { width: 232, borderRightWidth: 1, paddingTop: 40, paddingHorizontal: 24, paddingBottom: 24 },
