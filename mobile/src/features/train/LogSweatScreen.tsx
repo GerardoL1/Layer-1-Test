@@ -98,7 +98,8 @@ export default function LogSweatScreen() {
   if (!workoutId) {
     return (
       <Page>
-        {header('Train', '/train')}
+        {/* Figma's no-workout frame: only the way back and what to do. */}
+        <SubPageHeader back="Train" home="/train" label="Sweat sensor" />
         <Text variant="body" color="textSecondary">Open a workout first, then log its sweat session from there.</Text>
       </Page>
     );
