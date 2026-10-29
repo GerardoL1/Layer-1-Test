@@ -87,10 +87,10 @@ def test_a_new_person_gets_their_name_before_any_night():
 @pytest.mark.parametrize(
     "sent, saved",
     [
-        ("​", None),  # a zero-width space alone is no name
+        ("\u200b", None),  # a zero-width space alone is no name
         ("Sam\x00\x1b", "Sam"),  # control characters go
-        ("‮Sam", "Sam"),  # so does right-to-left override
-        ("👨‍👩‍👧" * 6, "👨‍👩‍👧" * 6),  # family emoji keep their joiners and count as people
+        ("\u202eSam", "Sam"),  # so does right-to-left override
+        ("👨\u200d👩\u200d👧" * 6, "👨\u200d👩\u200d👧" * 6),  # family emoji keep their joiners and count as people
     ],
 )
 def test_name_drops_invisible_characters(sent, saved):
