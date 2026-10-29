@@ -20,6 +20,8 @@ function figure(m: MetricRow): { value: string; unit: string } {
     const total = Math.round(m.value);
     return { value: `${Math.floor(total / 60)} h ${total % 60} m`, unit: '' };
   }
+  // No unit next to a missing value, so it reads "–" and not "– ms".
+  if (m.value === null) return { value: num(m.value), unit: '' };
   return { value: num(m.value), unit: m.key === 'hrv' ? 'ms' : m.key === 'rhr' ? 'bpm' : '' };
 }
 

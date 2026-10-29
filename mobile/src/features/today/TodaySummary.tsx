@@ -47,7 +47,8 @@ export function TodaySummary({ today: t, waiting, previous, usual, updating, upd
   const { isWide } = useTheme();
   // "Morning, Sam." with a name, just "Morning." without one.
   const second = waiting ? 'Last night isn’t in yet.' : t.verdict;
-  const hello = t.name ? `${partOfDay(t.now_local)}, ${t.name}.` : `${partOfDay(t.now_local)}.`;
+  // A name ending in a full stop ("Sam Jr.") doesn't get a second one.
+  const hello = t.name ? `${partOfDay(t.now_local)}, ${t.name.replace(/\.$/, '')}.` : `${partOfDay(t.now_local)}.`;
   const greeting = `${hello}${second ? (isWide ? ' ' : '\n') + second : ''}`;
   const text = lead(t, waiting, usual === null);
   const date = `${fullDay(t.now_local)}${isWide && t.updated_at ? ` · updated ${clock(t.updated_at)}` : ''}`;

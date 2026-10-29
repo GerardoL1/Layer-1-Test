@@ -18,7 +18,7 @@ export function YesterdaysRun({ today: t }: { today: Today }) {
     { label: 'Duration', shown: { value: String(Math.round(h.duration_min)), unit: 'min' } },
   ];
   // Long workouts read "1 h 10 min", which doesn't split into a number and a unit.
-  if (h.duration_min >= 60) figures[figures.length - 1].shown = { value: duration(h.duration_min), unit: '' };
+  if (Math.round(h.duration_min) >= 60) figures[figures.length - 1].shown = { value: duration(h.duration_min), unit: '' };
   // The title arrives in a sentence's lower case ("Yesterday's easy run"), which also reads fine as a heading.
   return (
     <View style={[styles.panel, { backgroundColor: colors.surface }]}>

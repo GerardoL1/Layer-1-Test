@@ -14,11 +14,12 @@ export function SweatChart({ days, units, height = 90 }: { days: Day[]; units: U
   const sweaty = days.filter((d) => d.fluid_loss_ml !== null);
   // The bars are a picture, so screen readers get the days with sweat data as a sentence instead.
   const spoken = sweaty.length
-    ? `Sweat loss per workout: ${sweaty.map((d) => `${monthDay(d.date)} ${joined(fluid(d.fluid_loss_ml!, units))}`).join(', ')}.`
+    ? `Sweat loss by day: ${sweaty.map((d) => `${monthDay(d.date)} ${joined(fluid(d.fluid_loss_ml!, units))}`).join(', ')}.`
     : 'No sweat data in these days.';
   return (
-    <View accessible accessibilityLabel={spoken}>
-      <View style={[styles.bars, { height }]}>
+    <View accessible accessibilityRole="image" accessibilityLabel={spoken}>
+      {/* Thinner gaps for long ranges, or 90 bars on a phone have no room left. */}
+      <View style={[styles.bars, { height, gap: days.length > 40 ? 1 : 3 }]}>
         {days.map((d) => (
           <View key={d.date} style={[styles.bar, d.fluid_loss_ml === null || max === 0
             ? { height: 2, backgroundColor: colors.border }
@@ -34,7 +35,7 @@ export function SweatChart({ days, units, height = 90 }: { days: Day[]; units: U
 }
 
 const styles = StyleSheet.create({
-  bars: { flexDirection: 'row', alignItems: 'flex-end', gap: 3 },
+  bars: { flexDirection: 'row', alignItems: 'flex-end' },
   bar: { flex: 1, borderRadius: 2 },
   axis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
 });

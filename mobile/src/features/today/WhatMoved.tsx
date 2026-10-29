@@ -11,9 +11,12 @@ import { radius } from '../../theme/tokens';
 const NAMES: Record<string, string> = { hrv: 'HRV', rhr: 'Resting heart rate', sleep: 'Sleep',
   efficiency: 'Sleep efficiency', fragmentation: 'Awakenings' };
 
+/** Whole points, with halves rounded away from zero so −1.5 and +1.5 both move by 2. */
+const whole = (points: number) => Math.sign(points) * Math.round(Math.abs(points)) + 0;
+
 /** "−7 points", "+3 points", "0 points". */
 export function pointsText(points: number): string {
-  const n = Math.round(points);
+  const n = whole(points);
   return `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n)} ${Math.abs(n) === 1 ? 'point' : 'points'}`;
 }
 
@@ -25,7 +28,7 @@ export function movedNote(t: Today): string {
     return 'Nothing stood out. Every reading was inside your usual range.';
   }
   // With the score at the middle the points cancel out, so a list of zeros needs saying why.
-  if ((t.readiness?.contributions ?? []).every((c) => Math.round(c.points) === 0)) {
+  if ((t.readiness?.contributions ?? []).every((c) => whole(c.points) === 0)) {
     return 'The ups and downs evened out, so nothing moved the score much.';
   }
   return 'Points against a usual night.';
@@ -40,7 +43,7 @@ export function WhatMoved({ today: t, link }: { today: Today; link?: boolean }) 
     <View style={[styles.panel, { backgroundColor: colors.surface }]}>
       <SectionHeader title="What moved your score" />
       {rows.map((c) => {
-        const tone = c.points <= -0.5 ? 'moderate' : c.points >= 0.5 ? 'ready' : 'textSecondary';
+        const tone = whole(c.points) < 0 ? 'moderate' : whole(c.points) > 0 ? 'ready' : 'textSecondary';
         return (
           // Read as one line: "HRV, minus 7 points".
           <View key={c.input} accessible style={styles.row}

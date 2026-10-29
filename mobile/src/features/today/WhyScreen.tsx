@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useApi } from '../../api/useApi';
@@ -28,6 +28,9 @@ export default function WhyScreen() {
   // The answer tapped here, until Today is loaded again. undefined means the saved one stands.
   const [picked, setPicked] = useState<boolean | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
+  // One save at a time, so a quick Yes then No can't end with the server and the screen disagreeing.
+  const busy = useRef(false);
+  const [saving, setSaving] = useState(false);
   const t = today.data;
   const header = <SubPageHeader back="Today" home="/today" label="Readiness" title={t?.readiness?.score != null
     ? `Why your score is ${STATUS_WORD[t.readiness.status].toLowerCase()}` : 'Why this score'}
@@ -48,8 +51,11 @@ export default function WhyScreen() {
   const night = t.night_date;
   const helpful = picked !== undefined ? picked : t.helpful ?? null;
   async function answer(value: 'yes' | 'no') {
+    if (busy.current) return;
+    busy.current = true;
     const before = helpful;
     setPicked(value === 'yes');
+    setSaving(true);
     setError(null);
     try {
       await api.saveFeedback(night, value === 'yes');
@@ -57,6 +63,9 @@ export default function WhyScreen() {
       // Put the earlier answer back, so the chips never show one that wasn't saved.
       setPicked(before);
       setError(errorText(e));
+    } finally {
+      busy.current = false;
+      setSaving(false);
     }
   }
 
@@ -80,7 +89,8 @@ export default function WhyScreen() {
         <Chips name="Was this helpful?" options={[...ANSWERS]} onPick={answer}
           value={helpful === null ? null : helpful ? 'yes' : 'no'} />
         <LiveText variant="bodySmall" color="textSecondary" style={styles.caption}>
-          {helpful === null ? 'Your answer helps the team improve these explanations.' : 'Thanks, your answer was saved.'}
+          {saving ? 'Saving…' : helpful === null ? 'Your answer helps the team improve these explanations.'
+            : 'Thanks, your answer was saved.'}
         </LiveText>
         {error ? <LiveText error variant="bodySmall" color="low" style={styles.caption}>{error}</LiveText> : null}
       </View>

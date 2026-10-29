@@ -65,7 +65,7 @@ export default function TrendsScreen() {
     </Section>,
     // Only for people with sweat data, from Nix or typed in. A failed load just leaves the chart out.
     ...(sweat.data?.days.some((d) => d.has_sweat_data) ? [
-      <Section key="sweat" title="Sweat loss per workout" note={units === 'imperial' ? 'Ounces' : 'Litres'}
+      <Section key="sweat" title="Sweat loss per workout" note={settings.data ? (units === 'imperial' ? 'Ounces' : 'Litres') : null}
         summary={sweat.data.summary}>
         <SweatChart days={sweat.data.days} units={units} />
       </Section>,
