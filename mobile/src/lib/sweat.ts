@@ -94,19 +94,19 @@ function parts(iso: string) {
 }
 
 function clock(h: number, min: number): string {
-  return `${h % 12 === 0 ? 12 : h % 12}:${String(min).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+  return `${h % 12 === 0 ? 12 : h % 12}:${String(min).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
 }
 
 const dayText = (d: Date) => `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 
-/** "Tue 30 Sep · 7:05 AM" (a label style shows it in capitals). */
+/** "Tue 30 Sep · 7:05 am". */
 export function startLabel(startLocal: string): string {
   const p = parts(startLocal);
   return p ? `${dayText(p.date)} · ${clock(p.h, p.min)}` : DASH;
 }
 
 /**
- * "Mon 29 Sep · 6:10–7:08 PM". Both halves in full when AM and PM differ, the end day too when the
+ * "Mon 29 Sep · 6:10–7:08 pm". Both halves in full when am and pm differ, the end day too when the
  * workout crosses midnight, and just the start when it has no length.
  */
 export function spanLabel(startLocal: string, endLocal: string): string {

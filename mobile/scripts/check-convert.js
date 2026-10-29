@@ -98,9 +98,9 @@ const checks = {
     assert.strictEqual(s.duration(35), '35 min');
     assert.strictEqual(s.duration(74), '1 h 14 min');
     assert.strictEqual(s.duration(120), '2 h');
-    assert.strictEqual(s.startLabel('2026-09-30T07:05'), 'Wed 30 Sep · 7:05 AM');
-    assert.strictEqual(s.spanLabel('2026-09-29T18:10', '2026-09-29T19:08'), 'Tue 29 Sep · 6:10–7:08 PM');
-    assert.strictEqual(s.spanLabel('2026-09-29T11:30', '2026-09-29T12:15'), 'Tue 29 Sep · 11:30 AM–12:15 PM');
+    assert.strictEqual(s.startLabel('2026-09-30T07:05'), 'Wed 30 Sep · 7:05 am');
+    assert.strictEqual(s.spanLabel('2026-09-29T18:10', '2026-09-29T19:08'), 'Tue 29 Sep · 6:10–7:08 pm');
+    assert.strictEqual(s.spanLabel('2026-09-29T11:30', '2026-09-29T12:15'), 'Tue 29 Sep · 11:30 am–12:15 pm');
     assert.strictEqual(s.sourceText('apple_health'), 'Apple Watch');
     assert.strictEqual(s.sourceText('patch'), 'Started in the app');
   },
@@ -132,8 +132,8 @@ const checks = {
     assert.deepStrictEqual(got.map((w) => w.start_local), ['2026-10-31T10:00', '2026-10-30T10:00']);
   },
   'time ranges show the day change and single moments': () => {
-    assert.strictEqual(s.spanLabel('2026-09-29T23:30', '2026-09-30T00:30'), 'Tue 29 Sep · 11:30 PM – Wed 30 Sep 12:30 AM');
-    assert.strictEqual(s.spanLabel('2026-09-29T08:00', '2026-09-29T08:00'), 'Tue 29 Sep · 8:00 AM');
+    assert.strictEqual(s.spanLabel('2026-09-29T23:30', '2026-09-30T00:30'), 'Tue 29 Sep · 11:30 pm – Wed 30 Sep 12:30 am');
+    assert.strictEqual(s.spanLabel('2026-09-29T08:00', '2026-09-29T08:00'), 'Tue 29 Sep · 8:00 am');
   },
   'future workouts go under Upcoming': () => {
     const got = s.sections([{ start_local: '2026-10-20T08:00' }, { start_local: '2026-09-30T08:00' }], '2026-10-01T08:30');
@@ -202,7 +202,7 @@ const checks = {
     assert.strictEqual(s.existingNote('replaces_less_precise'), 'Replaces your earlier sweat data with more precise numbers.');
     assert.strictEqual(s.existingNote('keeps_more_precise'),
       'This workout already has more precise sweat data, so saving this file won’t change it.');
-    assert.strictEqual(s.notThisWorkout('2026-09-28T09:10'), 'This file is from Mon 28 Sep at 9:10 AM, not this workout.');
+    assert.strictEqual(s.notThisWorkout('2026-09-28T09:10'), 'This file is from Mon 28 Sep at 9:10 am, not this workout.');
     const all = { sweat_detected: true, electrolytes_mg: 860, electrolyte_rate_mg_h: null, sodium_rate_mg_h: 403.4,
       nix_index: 74 };
     // Shown on the preview, before anything is saved, so it says what's in the file.
