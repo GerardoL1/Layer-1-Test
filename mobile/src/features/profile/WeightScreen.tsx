@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
   inputRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 2, borderRadius: radius.sm, minHeight: 46,
     paddingHorizontal: 14, marginTop: 6, gap: 8 },
   // The box's own teal outline shows focus, so the browser's ring is turned off.
-  input: { ...type.bodyLarge, flex: 1, paddingVertical: 8, outlineColor: 'transparent' },
+  input: { ...type.bodyLarge, flex: 1, paddingVertical: 8, outlineStyle: 'solid', outlineWidth: 0 },
   error: { marginTop: 8 },
   hint: { marginTop: 12 },
   cancel: { minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
