@@ -133,6 +133,6 @@ const styles = StyleSheet.create({
   editor: { gap: 8 },
   inputRow: { flexDirection: 'row', gap: 8 },
   input: { ...type.body, flex: 1, borderWidth: 2, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 10,
-    outlineColor: 'transparent' },
+    outlineStyle: 'solid', outlineWidth: 0 },
   opened: { paddingBottom: 16, gap: 8 },
 });

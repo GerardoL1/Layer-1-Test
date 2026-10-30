@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   other: { flexDirection: 'row', gap: 8, paddingBottom: 12 },
   input: { ...type.body, flex: 1, borderWidth: 2, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 10,
-    outlineColor: 'transparent' },
+    outlineStyle: 'solid', outlineWidth: 0 },
   hint: { marginTop: 12 },
   error: { marginTop: 8 },
   wideContent: { paddingHorizontal: 48, paddingTop: 40, paddingBottom: 40 },
