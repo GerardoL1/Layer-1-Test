@@ -67,6 +67,43 @@ def test_a_check_in_labels_the_night_just_slept():
     assert morning(u, local_ms(2025, 10, 11, 0, 30)).json()["night_date"] == "2025-10-10"
 
 
+def test_a_late_answer_still_labels_the_night_it_describes():
+    # Answered at 7:30 am on 10 Oct, but the phone was offline and only sent it the next morning.
+    u = user("checkin_late")
+    r = morning(u, local_ms(2025, 10, 10, 7, 30))
+    assert r.status_code == 200 and r.json()["night_date"] == "2025-10-09"
+
+
+def test_a_rating_from_the_future_or_older_than_the_saved_one_is_not_kept():
+    u = user("rate_order")
+    start = local_ms(2025, 10, 9, 18, 0)
+    client.post(
+        f"{u}/workouts",
+        json={
+            "id": "w1",
+            "start_ms": start,
+            "end_ms": start + 3600000,
+            "start_tz_min": CDT,
+            "end_tz_min": CDT,
+            "type": "Run",
+        },
+    )
+    rate = lambda ms, effort: client.put(f"{u}/workouts/w1/rating", json={"effort": effort, "answered_at_ms": ms})  # noqa: E731
+    assert rate(start + 4 * 3600000, 8).json()["effort"] == 8
+    # A retry of an earlier answer that arrives late keeps the newer one.
+    assert rate(start + 2 * 3600000, 3).json()["effort"] == 8
+    assert rate(int(time.time() * 1000) + 3600000, 5).status_code == 400
+
+
+def test_the_night_follows_the_persons_clock_not_the_phones():
+    # A demo clock fixed at 1 Oct, answered now from a phone in Tokyo: the night is the one Today shows.
+    u = user("checkin_clock")
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET clock_local = '2026-10-01T08:30' WHERE user_id = 'checkin_clock'")
+    body = {"answered_at_ms": int(time.time() * 1000), "tz_offset_min": 540, "answers": ANSWERS}
+    assert client.post(f"{u}/checkins/morning", json=body).json()["night_date"] == "2026-09-30"
+
+
 def test_answering_again_replaces_and_the_morning_score_is_linked():
     u = user("checkin_again")
     morning(u, local_ms(2025, 10, 9, 7, 30))

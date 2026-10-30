@@ -1,13 +1,16 @@
 import { router } from 'expo-router';
-import { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ReactNode, useMemo } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Today } from '../../api/client';
+import { useApi } from '../../api/useApi';
 import { Button } from '../../components/Button';
 import { LiveText } from '../../components/LiveText';
 import { ReadinessBand, STATUS_WORD } from '../../components/Readiness';
 import { Text } from '../../components/Text';
+import { nightFor } from '../../lib/checkin';
 import { clock, fullDay, partOfDay, weekdayName } from '../../lib/format';
+import { useLoad } from '../../lib/useLoad';
 import { useTheme } from '../../theme/theme';
 
 type Props = {
@@ -23,6 +26,12 @@ type Props = {
   /** A notice that goes between the words and the band, like the time zone note. */
   notice?: ReactNode;
 };
+
+/** "7:40 am" on the clock where it was answered, not this device's, which may be in another time zone now. */
+function answeredAt(ms: number, offsetMin: number): string {
+  const d = new Date(ms + offsetMin * 60000);
+  return clock(`${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`);
+}
 
 /** "Readiness 28 of 100, which is low. <reason>", or what Today shows while last night isn't in yet. */
 function lead(t: Props['today'], waiting: boolean, firstWeek: boolean): string | null {
@@ -45,6 +54,11 @@ function lead(t: Props['today'], waiting: boolean, firstWeek: boolean): string |
  */
 export function TodaySummary({ today: t, waiting, previous, usual, updating, updateNote, onUpdateNow, notice }: Props) {
   const { isWide } = useTheme();
+  const api = useApi();
+  const night = nightFor(t.now_local);
+  const checkinKey = useMemo(() => ({ api, night }), [api, night]);
+  const checkin = useLoad(() => api.morningCheckin(night), checkinKey);
+  // No reload on focus: coming back from the check-in opens Today afresh, which loads it again.
   // "Morning, Sam." with a name, just "Morning." without one.
   const second = waiting ? 'Last night isn’t in yet.' : t.verdict;
   // A name ending in a full stop ("Sam Jr.") doesn't get a second one.
@@ -70,12 +84,22 @@ export function TodaySummary({ today: t, waiting, previous, usual, updating, upd
         {waiting ? (
           <Button title="Update now" kind="secondary" busy={updating} disabled={!t.can_update_now} onPress={onUpdateNow} />
         ) : null}
-        {/* Check-ins come later. The button is there so the layout matches, but it does nothing yet. */}
-        <Button title="Start morning check-in" disabled />
+        {/* Once it's in, a line says when, with a link to change the answers until midnight. */}
+        {checkin.data ? (
+          <View style={styles.checkedIn}>
+            <Text variant="bodySmall" color="textMuted">
+              Checked in at {answeredAt(checkin.data.answered_at_ms, checkin.data.tz_offset_min)}
+            </Text>
+            <Pressable accessibilityRole="link" onPress={() => router.push('/today/checkin')} style={styles.change}>
+              <Text variant="bodySmall" color="link">Change answers</Text>
+            </Pressable>
+          </View>
+        ) : !checkin.loading ? (
+          <Button title="Start morning check-in" onPress={() => router.push('/today/checkin')} />
+        ) : null}
         {score !== null ? <Button title="Why this score?" kind="secondary" onPress={() => router.push('/today/why')} /> : null}
         {isWide ? <Text variant="bodySmall" color="textSecondary">{date}</Text> : null}
       </View>
-      <Text variant="bodySmall" color="textMuted" style={styles.soon}>Check-ins are coming soon.</Text>
     </>
   );
   return (
@@ -97,5 +121,8 @@ const styles = StyleSheet.create({
   band: { marginTop: 24 },
   actions: { marginTop: 24, gap: 12 },
   actionsWide: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
+  checkedIn: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, minHeight: 46 },
   soon: { marginTop: 8 },
+  // hitSlop does nothing on the web, so the link is 44 px tall itself.
+  change: { minHeight: 44, justifyContent: 'center' },
 });

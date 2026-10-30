@@ -26,15 +26,20 @@ function Chip({ label, on, onPress, multi }: { label: string; on: boolean; onPre
   );
 }
 
-/** name: what screen readers call the group, like "Main training". */
+/**
+ * name: what screen readers call the group, like "Main training".
+ * A list as value means several can be on at once, so the chips are checkboxes.
+ */
 export function Chips<T extends string | number>({ options, value, onPick, label, name }: {
-  options: { value: T; label: string }[]; value: T | null; onPick: (v: T) => void; label?: (v: T) => string;
+  options: { value: T; label: string }[]; value: T | T[] | null; onPick: (v: T) => void; label?: (v: T) => string;
   name: string;
 }) {
+  const multi = Array.isArray(value);
   return (
-    <View accessibilityRole="radiogroup" accessibilityLabel={name} style={styles.chips}>
-      {options.map((o) => <Chip key={String(o.value)} label={label ? label(o.value) : o.label} on={o.value === value}
-        onPress={() => onPick(o.value)} />)}
+    <View {...(multi ? { role: 'group' as const } : { accessibilityRole: 'radiogroup' as const })} accessibilityLabel={name}
+      style={styles.chips}>
+      {options.map((o) => <Chip key={String(o.value)} label={label ? label(o.value) : o.label} multi={multi}
+        on={multi ? value.includes(o.value) : o.value === value} onPress={() => onPick(o.value)} />)}
     </View>
   );
 }

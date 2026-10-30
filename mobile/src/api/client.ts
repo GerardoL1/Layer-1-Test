@@ -152,9 +152,24 @@ export function makeApi(serverUrl: string, userId: string) {
     importStatus: (importId: string) => call<ImportJob>(`${user}/imports/${encodeURIComponent(importId)}`),
     /** This person's latest import, if the server still has it. Empty after a server restart. */
     imports: () => call<ImportJob[]>(`${user}/imports`),
+    /** Saves this morning's check-in. Answering again the same morning replaces it. */
+    saveCheckin: (body: Schemas['MorningCheckinIn']) =>
+      call<Schemas['MorningCheckin']>(`${user}/checkins/morning`, json('POST', body)),
+    /** The check-in for a night, or null when there isn't one yet. */
+    morningCheckin: async (nightDate: string) => {
+      try {
+        return await call<Schemas['MorningCheckin']>(`${user}/checkins/morning/${nightDate}`);
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 404) return null;
+        throw e;
+      }
+    },
     /** Workouts that started in the last N days (up to 366), oldest first. */
     workouts: (days = 366) => call<Workout[]>(`${user}/workouts?days=${days}`),
     workout: (id: string) => call<Workout>(`${user}/workouts/${encodeURIComponent(id)}`),
+    /** The after-workout check-in. Rating again replaces the earlier answer. */
+    rateWorkout: (id: string, body: Schemas['RatingIn']) =>
+      call<Workout>(`${user}/workouts/${encodeURIComponent(id)}/rating`, json('PUT', body)),
     /** Adds a workout, or updates it when the same id is sent again. */
     saveWorkout: (body: Schemas['WorkoutIn']) => call<Workout>(`${user}/workouts`, json('POST', body)),
     /** The workout's sweat data, or null when it has none yet. */

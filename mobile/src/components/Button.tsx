@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, StyleProp, StyleSheet, ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 
 import { useTheme } from '../theme/theme';
 import { radius } from '../theme/tokens';
@@ -12,6 +12,8 @@ type Props = {
   /** Figma's State = Disabled, for actions that aren't available (like "Coming soon"). */
   disabled?: boolean;
   busy?: boolean;
+  /** Said next to the spinner while busy, like "Saving…". Without it the spinner shows alone. */
+  busyTitle?: string;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -19,7 +21,7 @@ type Props = {
  * Primary = filled, secondary = outlined, both fully round. One primary per screen.
  * Disabled uses muted colors from Figma instead of fading, so it stays readable in both modes.
  */
-export function Button({ title, onPress, kind = 'primary', disabled, busy, style }: Props) {
+export function Button({ title, onPress, kind = 'primary', disabled, busy, busyTitle, style }: Props) {
   const { colors } = useTheme();
   const primary = kind === 'primary';
   const look = primary
@@ -39,7 +41,12 @@ export function Button({ title, onPress, kind = 'primary', disabled, busy, style
       // Reacts on press down, not release (motion spec). shortcut: snaps to 0.97 with no 100 ms ease, add one if it feels abrupt.
       style={({ pressed }) => [styles.button, { backgroundColor: look.fill, borderColor: look.border,
         transform: [{ scale: pressed && !off ? 0.97 : 1 }] }, style]}>
-      {busy ? <ActivityIndicator color={look.text} />
+      {busy && busyTitle ? (
+        <View style={styles.busy}>
+          <ActivityIndicator size={16} color={look.text} />
+          <Text variant="button" style={{ color: look.text }}>{busyTitle}</Text>
+        </View>
+      ) : busy ? <ActivityIndicator color={look.text} />
         : <Text variant="button" style={{ color: look.text }}>{title}</Text>}
     </Pressable>
   );
@@ -48,4 +55,5 @@ export function Button({ title, onPress, kind = 'primary', disabled, busy, style
 const styles = StyleSheet.create({
   button: { minHeight: 46, paddingHorizontal: 18, borderRadius: radius.full, alignItems: 'center',
     justifyContent: 'center', borderWidth: 1 },
+  busy: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 });

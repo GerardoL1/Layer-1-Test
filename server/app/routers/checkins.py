@@ -1,7 +1,7 @@
 """
 Morning check-ins. They're the labels the readiness model learns from, so each one is tied to the night it
-describes: a check-in answered on day D (the person's local date) belongs to the night of D-1, and to the
-score first shown that morning.
+describes: a check-in saved on day D (the person's own clock, as Today uses) belongs to the night of D-1,
+and to the score first shown that morning.
 """
 
 import json
@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException, Query
 from app.core import db
 from app.core.urls import USER
 from app.schemas.checkins import MorningCheckin, MorningCheckinIn
+from app.services import processing
 from app.services.time_checks import local_time, require_time
 from app.services.users import require_user
 
@@ -47,9 +48,16 @@ def save_morning_checkin(user_id: str, checkin: MorningCheckinIn):
     if checkin.answered_at_ms > time.time() * 1000 + CLOCK_SLACK_MS:
         # It would label a night that hasn't been slept yet.
         raise HTTPException(400, "The check-in is dated in the future. Check the phone's clock.")
-    night = (local_time(checkin.answered_at_ms, checkin.tz_offset_min).date() - timedelta(days=1)).isoformat()
     with db.connect() as conn:
-        require_user(conn, user_id)
+        user = require_user(conn, user_id)
+        # The night comes from when it was answered on the phone, so an answer sent late (offline, or retried
+        # after midnight) still lands on the night it describes. Demo people live on a fixed clock instead,
+        # which is the night their Today shows.
+        if user["clock_local"]:
+            answered = processing.local_now(conn, user_id, processing.utc_now())
+        else:
+            answered = local_time(checkin.answered_at_ms, checkin.tz_offset_min)
+        night = (answered.date() - timedelta(days=1)).isoformat()
         conn.execute(
             # A retry of an older answer that arrives late must not replace a newer one.
             "INSERT INTO checkins VALUES (?,?,?,?,?,?) ON CONFLICT(user_id, night_date) DO UPDATE SET "

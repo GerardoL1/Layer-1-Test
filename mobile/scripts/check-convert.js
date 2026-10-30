@@ -26,6 +26,7 @@ const c = load('health', 'convert.ts');
 const w = load('lib', 'weight.ts');
 const s = load('lib', 'sweat.ts');
 const lw = load('lib', 'logWorkout.ts');
+const ci = load('lib', 'checkin.ts');
 
 const checks = {
   'a logged workout reports every problem at once': () => {
@@ -49,6 +50,40 @@ const checks = {
     assert.deepStrictEqual([b.start_tz_min, b.end_tz_min, b.type, b.source], [-300, -360, 'Night run', 'manual']);
     assert.strictEqual(lw.dateText('2026-10-01'), 'Thu 1 Oct');
     assert.deepStrictEqual([lw.timeText('18:10'), lw.timeText('00:05'), lw.timeText('12:00')], ['6:10 pm', '12:05 am', '12:00 pm']);
+  },
+  'a check-in needs "How ready" and leaves the rest unanswered': () => {
+    const now = new Date(2026, 10, 1, 8, 0);  // the morning after clocks go back in Chicago
+    assert.strictEqual(ci.checkinBody(ci.EMPTY_FORM, now, false), null);
+    const b = ci.checkinBody({ ...ci.EMPTY_FORM, scales: { ready_to_train: 7, soreness: 4 }, rehydrated: 'fully' }, now, false);
+    assert.deepStrictEqual([b.tz_offset_min, b.survey_version, b.answers.ready_to_train, b.answers.soreness], [-360, 'v2', 7, 4]);
+    // No workout yesterday, so a leftover rehydrate answer isn't sent. Nothing tapped on the map isn't "none".
+    assert.deepStrictEqual([b.answers.rehydrated, b.answers.sore_muscles, b.answers.unusual, b.answers.energy], [null, null, null, null]);
+    // The night comes from the person's clock (Today's now_local), not the phone's date.
+    assert.strictEqual(ci.nightFor('2026-11-01T08:00'), '2026-10-31');
+    assert.strictEqual(ci.nightFor('2026-03-01T00:05'), '2026-02-28');
+    assert.strictEqual(ci.nightFor('2026-10-01T08:30'), '2026-09-30');  // a demo clock
+  },
+  'Change answers fills the form back in, and the summary shows the rating': () => {
+    const f = ci.formFrom({ ready_to_train: 7, soreness: 4, energy: null, sore_muscles: ['quads'], unusual: [], rehydrated: null });
+    assert.deepStrictEqual(f, { scales: { ready_to_train: 7, soreness: 4 }, sore: ['quads'], unusual: [], rehydrated: null });
+    assert.strictEqual(ci.ratingText({ effort: 8, satisfaction: 7 }), 'Effort 8 · Happy 7');
+    assert.strictEqual(ci.ratingText({ effort: 8, satisfaction: null }), 'Effort 8');
+    assert.strictEqual(ci.ratingText({ effort: null, satisfaction: null }), null);
+  },
+  'check-in picks: "None" clears the rest, muscles stay in the server order': () => {
+    assert.deepStrictEqual(ci.toggleUnusual(['alcohol', 'travel'], 'none'), []);
+    assert.deepStrictEqual(ci.toggleUnusual([], 'travel'), ['travel']);
+    assert.strictEqual(ci.toggleUnusual([], 'none'), null);
+    assert.strictEqual(ci.toggleUnusual(['travel'], 'travel'), null);
+    assert.deepStrictEqual(ci.toggleMuscle(['glutes'], 'quads'), ['quads', 'glutes']);
+    assert.deepStrictEqual(ci.toggleMuscle(['quads', 'glutes'], 'quads'), ['glutes']);
+  },
+  'the rehydrate question follows yesterday’s latest workout': () => {
+    const now = '2026-10-02T07:00';
+    const ws =[{ start_local: '2026-09-30T18:00', type: 'Ride' }, { start_local: '2026-10-01T07:00', type: 'Run' },
+      { start_local: '2026-10-01T18:10', type: 'Leg day' }, { start_local: '2026-10-02T06:00', type: 'Swim' }];
+    assert.strictEqual(ci.yesterdaysWorkout(ws, now).type, 'Leg day');
+    assert.strictEqual(ci.yesterdaysWorkout(ws.slice(3), now), null);
   },
   'UTC offset in a named time zone': () => {
     assert.strictEqual(c.offsetInZone('America/Chicago', Date.UTC(2026, 6, 1, 12)), -300);  // summer
