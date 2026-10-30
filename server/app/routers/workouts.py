@@ -3,12 +3,14 @@ Workouts and the after-workout check-in. Effort (1 to 10) times minutes is the t
 model will use. Patch and sweat sessions (Layers 2 and 3) point at a workout by its id.
 """
 
+import time
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Query
 
 from app.core import db
 from app.core.urls import USER
+from app.routers.checkins import CLOCK_SLACK_MS
 from app.schemas.workouts import RatingIn, Workout, WorkoutIn
 from app.services import processing
 from app.services.time_checks import local_time, require_time
@@ -97,14 +99,17 @@ def get_workout(user_id: str, workout_id: str):
 @router.put("/{workout_id}/rating", response_model=Workout)
 def rate_workout(user_id: str, workout_id: str, rating: RatingIn):
     """The after-workout check-in. Rating again replaces the earlier answer."""
-    if not db.valid_time(rating.answered_at_ms):
+    # Same rule as the morning check-in: a few minutes of clock drift is fine, a rating from the future isn't.
+    if not db.valid_time(rating.answered_at_ms) or rating.answered_at_ms > time.time() * 1000 + CLOCK_SLACK_MS:
         raise HTTPException(400, "The rating is dated before 2000 or in the future. Check the phone's clock.")
     with db.connect() as conn:
         require_user(conn, user_id)
         if rating.answered_at_ms < _get(conn, user_id, workout_id)["start_ms"]:
             raise HTTPException(400, "The rating is dated before the workout started.")
         conn.execute(
-            "UPDATE workouts SET effort = ?, satisfaction = ?, rated_at_ms = ? WHERE user_id = ? AND id = ?",
-            (rating.effort, rating.satisfaction, rating.answered_at_ms, user_id, workout_id),
+            # A retry of an older rating that arrives late must not replace a newer one.
+            "UPDATE workouts SET effort = ?, satisfaction = ?, rated_at_ms = ? WHERE user_id = ? AND id = ? "
+            "AND (rated_at_ms IS NULL OR rated_at_ms <= ?)",
+            (rating.effort, rating.satisfaction, rating.answered_at_ms, user_id, workout_id, rating.answered_at_ms),
         )
         return workout_reply(_get(conn, user_id, workout_id))

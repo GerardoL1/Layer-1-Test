@@ -12,7 +12,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core import db
-from app.services.time_checks import local_time
 
 client = TestClient(main.app)
 CDT = -300  # minutes, US Central summer time
@@ -51,18 +50,9 @@ def test_weight_is_saved_in_kg_and_checked():
 
 
 def morning(u, ms, answers=ANSWERS, offset=CDT):
-    """Saves a check-in with the person's clock set to the moment it was answered, then back to normal."""
-    user_id = u.rsplit("/", 1)[1]
-    with db.connect() as conn:
-        clock = local_time(ms, offset).isoformat(timespec="minutes")
-        conn.execute("UPDATE users SET clock_local = ? WHERE user_id = ?", (clock, user_id))
-    try:
-        return client.post(
-            f"{u}/checkins/morning", json={"answered_at_ms": ms, "tz_offset_min": offset, "answers": answers}
-        )
-    finally:
-        with db.connect() as conn:
-            conn.execute("UPDATE users SET clock_local = NULL WHERE user_id = ?", (user_id,))
+    return client.post(
+        f"{u}/checkins/morning", json={"answered_at_ms": ms, "tz_offset_min": offset, "answers": answers}
+    )
 
 
 def test_a_check_in_labels_the_night_just_slept():
@@ -75,6 +65,34 @@ def test_a_check_in_labels_the_night_just_slept():
     assert body["answers"]["unusual"] == [] and body["answers"]["energy"] is None  # "None" picked vs not answered
     # Just after midnight still belongs to the night before.
     assert morning(u, local_ms(2025, 10, 11, 0, 30)).json()["night_date"] == "2025-10-10"
+
+
+def test_a_late_answer_still_labels_the_night_it_describes():
+    # Answered at 7:30 am on 10 Oct, but the phone was offline and only sent it the next morning.
+    u = user("checkin_late")
+    r = morning(u, local_ms(2025, 10, 10, 7, 30))
+    assert r.status_code == 200 and r.json()["night_date"] == "2025-10-09"
+
+
+def test_a_rating_from_the_future_or_older_than_the_saved_one_is_not_kept():
+    u = user("rate_order")
+    start = local_ms(2025, 10, 9, 18, 0)
+    client.post(
+        f"{u}/workouts",
+        json={
+            "id": "w1",
+            "start_ms": start,
+            "end_ms": start + 3600000,
+            "start_tz_min": CDT,
+            "end_tz_min": CDT,
+            "type": "Run",
+        },
+    )
+    rate = lambda ms, effort: client.put(f"{u}/workouts/w1/rating", json={"effort": effort, "answered_at_ms": ms})  # noqa: E731
+    assert rate(start + 4 * 3600000, 8).json()["effort"] == 8
+    # A retry of an earlier answer that arrives late keeps the newer one.
+    assert rate(start + 2 * 3600000, 3).json()["effort"] == 8
+    assert rate(int(time.time() * 1000) + 3600000, 5).status_code == 400
 
 
 def test_the_night_follows_the_persons_clock_not_the_phones():
