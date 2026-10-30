@@ -2,18 +2,21 @@
  * Train > a workout: its length and its sweat data (Layer 3), with the rehydrate advice.
  * The patch parts of Figma's "Workout summary" (fatigue by set, muscles worked) come with Layer 2.
  */
-import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useApi } from '../../api/useApi';
 import { Button } from '../../components/Button';
+import { ListRow } from '../../components/ListRow';
 import { LiveText } from '../../components/LiveText';
 import { Notice } from '../../components/Notice';
 import { Page, PageState } from '../../components/Page';
+import { Panel } from '../../components/Panel';
 import { SectionHeader } from '../../components/SectionHeader';
 import { SubPageHeader } from '../../components/SubPageHeader';
 import { Text } from '../../components/Text';
+import { ratingText } from '../../lib/checkin';
 import { about, duration, durationWords, sessionStats, Shown, sourceText, spanLabel, Units } from '../../lib/sweat';
 import { errorText, useLoad } from '../../lib/useLoad';
 import { Colors } from '../../theme/tokens';
@@ -59,6 +62,8 @@ export default function WorkoutScreen() {
     ]);
     return { workoutId, workout, sweat, sweatError, units: settings.units as Units };
   }, key);
+  // The check-in saves with Back, so the summary loads again whenever it's shown, or the row keeps the old value.
+  useFocusEffect(useCallback(() => reload(), [reload]));
 
   // Old data from another workout is never shown under this one's address.
   const current = data && data.workoutId === workoutId ? data : null;
@@ -86,6 +91,11 @@ export default function WorkoutScreen() {
           <Stat label="Duration" shown={{ value: mins.slice(0, -1).join(' '), unit: mins[mins.length - 1] }}
             spoken={durationWords(w.duration_min)} big />
         </View>
+        {/* The after-workout check-in. Shown here only, not on the workout lists. */}
+        <Panel style={styles.space16}>
+          <ListRow label="How was it?" value={ratingText(w)}
+            onPress={() => router.push({ pathname: '/train/workout/[workoutId]/rate', params: { workoutId: w.id } })} />
+        </Panel>
 
         <View style={styles.space32}>
           <SectionHeader title="Sweat" note={s ? (s.source === 'nix' ? 'From Nix' : 'Typed in') : null} />

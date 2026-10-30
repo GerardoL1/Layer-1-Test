@@ -116,7 +116,7 @@ export default function LogWorkoutScreen() {
         {errors.length ? <LiveText error nativeID="workout-length-error" variant="bodySmall" color="low">{errors.length}</LiveText> : null}
       </View>
       {saveError ? <LiveText error variant="bodySmall" color="low">{saveError}</LiveText> : null}
-      <Button title="Save workout" busy={saving} onPress={save} />
+      <Button title="Save workout" busy={saving} busyTitle="Saving…" onPress={save} />
       <Button title="Cancel" kind="secondary" disabled={saving}
         onPress={() => (router.canGoBack() ? router.back() : router.replace('/train'))} />
     </View>
