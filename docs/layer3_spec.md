@@ -219,7 +219,8 @@ An unknown person gets 404 before the file is read.
   that ended between the previous morning's update time and this night's morning (the next day at the update
   time), so mornings never overlap and each session counts for one night. The 2d window starts a day earlier.
   Only sessions where sweat was detected count, and `has_sweat_data` is about the 2d window. Missing stays empty
-  (NaN), never 0. It uses today's weight from Settings, since weight has no history yet. It joins the readiness
+  (NaN), never 0. Sodium counts only when every sweaty session in the window has it, the same rule as Today's
+  hydration panel and the Trends chart, since a total from some of them would look complete but isn't. It uses today's weight from Settings, since weight has no history yet. It joins the readiness
   training table on the night it leads into. Adding it to `server/export_training_table.py` is for the Layer 1 tab.
 - Layer 3 may later be a low-weight readiness input (proposed cap ±5 points, still open). It enters only through
   `server/app/readiness/features.py`, which the Layer 1 tab owns.
