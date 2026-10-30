@@ -144,7 +144,10 @@ const styles = StyleSheet.create({
   field: { gap: 6 },
   box: { flexDirection: 'row', alignItems: 'center', borderWidth: 2, borderRadius: radius.sm, minHeight: 46,
     paddingHorizontal: 14, gap: 8 },
-  input: { ...type.body, flex: 1, minHeight: 44, paddingVertical: 8, outlineColor: 'transparent' },
+  // The teal or red outline is on the box around it. The browser's own focus ring and fill are switched off
+  // here, or they draw on top of it.
+  input: { ...type.body, flex: 1, minHeight: 44, paddingVertical: 8, outlineWidth: 0, outlineColor: 'transparent',
+    borderWidth: 0, backgroundColor: 'transparent' },
   columns: { flexDirection: 'row', gap: 56 },
   column: { flex: 1 },
 });
