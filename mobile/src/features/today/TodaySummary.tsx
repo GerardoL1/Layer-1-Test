@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
-import { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ReactNode, useMemo } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Today } from '../../api/client';
 import { useApi } from '../../api/useApi';
@@ -10,6 +10,7 @@ import { ReadinessBand, STATUS_WORD } from '../../components/Readiness';
 import { Text } from '../../components/Text';
 import { nightFor } from '../../lib/checkin';
 import { clock, fullDay, partOfDay, weekdayName } from '../../lib/format';
+import { timeText, timeValue } from '../../lib/logWorkout';
 import { useLoad } from '../../lib/useLoad';
 import { useTheme } from '../../theme/theme';
 
@@ -49,7 +50,9 @@ function lead(t: Props['today'], waiting: boolean, firstWeek: boolean): string |
 export function TodaySummary({ today: t, waiting, previous, usual, updating, updateNote, onUpdateNow, notice }: Props) {
   const { isWide } = useTheme();
   const api = useApi();
-  const checkin = useLoad(() => api.morningCheckin(nightFor(new Date())), api);
+  const night = nightFor(t.now_local);
+  const checkinKey = useMemo(() => ({ api, night }), [api, night]);
+  const checkin = useLoad(() => api.morningCheckin(night), checkinKey);
   // Coming back from the check-in finds it saved.
   useFocusEffect(checkin.reload);
   // "Morning, Sam." with a name, just "Morning." without one.
@@ -77,9 +80,19 @@ export function TodaySummary({ today: t, waiting, previous, usual, updating, upd
         {waiting ? (
           <Button title="Update now" kind="secondary" busy={updating} disabled={!t.can_update_now} onPress={onUpdateNow} />
         ) : null}
-        {/* Hidden once this morning's check-in is in, and while that's still being looked up. */}
-        {checkin.data === null && !checkin.loading
-          ? <Button title="Start morning check-in" onPress={() => router.push('/today/checkin')} /> : null}
+        {/* Once it's in, a line says when, with a link to change the answers until midnight. */}
+        {checkin.data ? (
+          <View style={styles.checkedIn}>
+            <Text variant="bodySmall" color="textMuted">
+              Checked in at {timeText(timeValue(new Date(checkin.data.answered_at_ms)))}
+            </Text>
+            <Pressable accessibilityRole="link" onPress={() => router.push('/today/checkin')} hitSlop={12}>
+              <Text variant="bodySmall" color="link">Change answers</Text>
+            </Pressable>
+          </View>
+        ) : !checkin.loading ? (
+          <Button title="Start morning check-in" onPress={() => router.push('/today/checkin')} />
+        ) : null}
         {score !== null ? <Button title="Why this score?" kind="secondary" onPress={() => router.push('/today/why')} /> : null}
         {isWide ? <Text variant="bodySmall" color="textSecondary">{date}</Text> : null}
       </View>
@@ -104,5 +117,6 @@ const styles = StyleSheet.create({
   band: { marginTop: 24 },
   actions: { marginTop: 24, gap: 12 },
   actionsWide: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
+  checkedIn: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, minHeight: 46 },
   soon: { marginTop: 8 },
 });

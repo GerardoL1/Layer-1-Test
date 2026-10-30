@@ -1,26 +1,26 @@
 /**
  * Today > Morning check-in (Figma "Check-in v2"). Three short steps on iPhone, one page on a computer.
  * Only "How ready" is required. The answers label last night, which is what the readiness model learns from.
+ * Opened again the same day, the saved answers are filled in and saving replaces them.
  */
 import { router } from 'expo-router';
-import { useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useApi } from '../../api/useApi';
 import { BodyMap } from '../../components/BodyMap';
 import { Button } from '../../components/Button';
 import { Chips } from '../../components/Editors';
 import { LiveText } from '../../components/LiveText';
-import { Page } from '../../components/Page';
+import { Page, PageState } from '../../components/Page';
 import { RatingScale } from '../../components/RatingScale';
 import { StepBar } from '../../components/SetupFrame';
 import { Text } from '../../components/Text';
 import {
-  CheckinForm, checkinBody, EMPTY_FORM, REHYDRATED, SCALES, ScaleKey, STEP_SCALES, toggleMuscle, toggleUnusual, UNUSUAL,
-  yesterdaysWorkout,
+  CheckinForm, checkinBody, EMPTY_FORM, formFrom, nightFor, REHYDRATED, SCALES, ScaleKey, STEP_SCALES, toggleMuscle,
+  toggleUnusual, UNUSUAL, yesterdaysWorkout,
 } from '../../lib/checkin';
 import { dayLabel } from '../../lib/format';
-import { dateValue } from '../../lib/logWorkout';
 import { errorText, useLoad } from '../../lib/useLoad';
 import { useTheme } from '../../theme/theme';
 
@@ -33,10 +33,33 @@ const NEED_READY = 'Pick how ready you feel to train.';
 
 const leave = () => (router.canGoBack() ? router.back() : router.replace('/today'));
 
+/** "‹ Today" or "‹ Back", where SubPageHeader puts its back link. */
+function BackLink({ label, spoken, onPress }: { label: string; spoken: string; onPress: () => void }) {
+  return (
+    <Pressable accessibilityRole="link" accessibilityLabel={spoken} onPress={onPress} style={styles.back}>
+      <Text variant="button" color="textSecondary">‹ {label}</Text>
+    </Pressable>
+  );
+}
+
+/** Loads the person's clock and any answers already saved for the night, then shows the form. */
 export default function CheckinScreen() {
   const api = useApi();
+  const today = useLoad(() => api.today(), api);
+  const nowLocal = today.data?.now_local ?? null;
+  const key = useMemo(() => ({ api, nowLocal }), [api, nowLocal]);
+  const saved = useLoad(() => (nowLocal ? api.morningCheckin(nightFor(nowLocal)) : Promise.resolve(null)), key);
+  const error = today.error ?? saved.error;
+  if (!nowLocal || saved.loading || error) {
+    return <Page><PageState loading={!error} error={error} onRetry={() => (today.error ? today.reload() : saved.reload())} /></Page>;
+  }
+  return <CheckinFormScreen nowLocal={nowLocal} initial={saved.data ? formFrom(saved.data.answers) : null} />;
+}
+
+function CheckinFormScreen({ nowLocal, initial }: { nowLocal: string; initial: CheckinForm | null }) {
+  const api = useApi();
   const { isWide } = useTheme();
-  const [form, setForm] = useState<CheckinForm>(EMPTY_FORM);
+  const [form, setForm] = useState<CheckinForm>(initial ?? EMPTY_FORM);
   const [step, setStep] = useState(0);
   const [needReady, setNeedReady] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -45,7 +68,7 @@ export default function CheckinScreen() {
   const busy = useRef(false);
   // The rehydrate question is only for mornings after a workout. If this fails it's just not asked.
   const workouts = useLoad(() => api.workouts(2), api);
-  const yesterday = workouts.data ? yesterdaysWorkout(workouts.data, new Date()) : null;
+  const yesterday = workouts.data ? yesterdaysWorkout(workouts.data, nowLocal) : null;
 
   function pickScale(key: ScaleKey, n: number) {
     setForm((f) => ({ ...f, scales: { ...f.scales, [key]: n } }));
@@ -120,12 +143,13 @@ export default function CheckinScreen() {
 
   const ending = (
     <>
-      {saveError ? <LiveText error variant="bodySmall" color="low">{saveError}</LiveText> : null}
+      {saveError ? <LiveText error variant="bodySmall" color="low" style={styles.saveError}>{saveError}</LiveText> : null}
       <View style={[styles.actions, isWide && styles.actionsWide]}>
         {isWide || step === 2
-          ? <Button title="Save check-in" busy={saving} onPress={save} />
+          ? <Button title="Save check-in" busy={saving} busyTitle="Saving…" onPress={save} />
           : <Button title="Next" onPress={next} />}
-        <Button title="Skip today" kind="text" disabled={saving} onPress={leave} />
+        {/* Changing answers already saved is something to back out of, not a morning to skip. */}
+        <Button title={initial ? 'Cancel' : 'Skip today'} kind="text" disabled={saving} onPress={leave} />
       </View>
     </>
   );
@@ -133,7 +157,7 @@ export default function CheckinScreen() {
   if (isWide) {
     return (
       <Page>
-        <Text variant="bodySmall" color="textSecondary">{`${dayLabel(dateValue(new Date()))} · morning check-in`}</Text>
+        <Text variant="bodySmall" color="textSecondary">{`${dayLabel(nowLocal)} · morning check-in`}</Text>
         <Text variant="h1" accessibilityRole="header" style={styles.title}>{STEPS[0].title}</Text>
         <Text variant="body" color="textSecondary" style={styles.introWide}>
           About a minute. 10 is always the good end. Your answers teach the scores what your normal feels like.
@@ -147,9 +171,12 @@ export default function CheckinScreen() {
     );
   }
 
-  // A new Page per step, so each step starts at the top.
+  // A new Page per step, so each step starts at the top. Going back keeps every answer.
   return (
     <Page key={step}>
+      {step === 0
+        ? <BackLink label="Today" spoken="Back to Today" onPress={leave} />
+        : <BackLink label="Back" spoken={`Back to step ${step}`} onPress={() => setStep(step - 1)} />}
       <StepBar label={`Morning check-in · ${step + 1} of 3`} step={step + 1} />
       <Text variant="h1" accessibilityRole="header">{STEPS[step].title}</Text>
       <Text variant="body" color="textSecondary" style={styles.intro}>{STEPS[step].intro}</Text>
@@ -163,6 +190,7 @@ export default function CheckinScreen() {
 }
 
 const styles = StyleSheet.create({
+  back: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', marginBottom: 8 },
   title: { marginTop: 8 },
   intro: { marginTop: 12, marginBottom: 24 },
   introWide: { marginTop: 8, marginBottom: 32, maxWidth: 580 },
@@ -171,6 +199,7 @@ const styles = StyleSheet.create({
   where: { gap: 8 },
   chipQuestion: { gap: 12 },
   error: { marginTop: 8 },
+  saveError: { marginTop: 24 },
   actions: { marginTop: 32, gap: 12 },
   actionsWide: { flexDirection: 'row', alignItems: 'center' },
 });

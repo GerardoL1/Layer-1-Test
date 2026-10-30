@@ -12,6 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core import db
+from app.services.time_checks import local_time
 
 client = TestClient(main.app)
 CDT = -300  # minutes, US Central summer time
@@ -50,9 +51,18 @@ def test_weight_is_saved_in_kg_and_checked():
 
 
 def morning(u, ms, answers=ANSWERS, offset=CDT):
-    return client.post(
-        f"{u}/checkins/morning", json={"answered_at_ms": ms, "tz_offset_min": offset, "answers": answers}
-    )
+    """Saves a check-in with the person's clock set to the moment it was answered, then back to normal."""
+    user_id = u.rsplit("/", 1)[1]
+    with db.connect() as conn:
+        clock = local_time(ms, offset).isoformat(timespec="minutes")
+        conn.execute("UPDATE users SET clock_local = ? WHERE user_id = ?", (clock, user_id))
+    try:
+        return client.post(
+            f"{u}/checkins/morning", json={"answered_at_ms": ms, "tz_offset_min": offset, "answers": answers}
+        )
+    finally:
+        with db.connect() as conn:
+            conn.execute("UPDATE users SET clock_local = NULL WHERE user_id = ?", (user_id,))
 
 
 def test_a_check_in_labels_the_night_just_slept():
@@ -65,6 +75,15 @@ def test_a_check_in_labels_the_night_just_slept():
     assert body["answers"]["unusual"] == [] and body["answers"]["energy"] is None  # "None" picked vs not answered
     # Just after midnight still belongs to the night before.
     assert morning(u, local_ms(2025, 10, 11, 0, 30)).json()["night_date"] == "2025-10-10"
+
+
+def test_the_night_follows_the_persons_clock_not_the_phones():
+    # A demo clock fixed at 1 Oct, answered now from a phone in Tokyo: the night is the one Today shows.
+    u = user("checkin_clock")
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET clock_local = '2026-10-01T08:30' WHERE user_id = 'checkin_clock'")
+    body = {"answered_at_ms": int(time.time() * 1000), "tz_offset_min": 540, "answers": ANSWERS}
+    assert client.post(f"{u}/checkins/morning", json=body).json()["night_date"] == "2026-09-30"
 
 
 def test_answering_again_replaces_and_the_morning_score_is_linked():

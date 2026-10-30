@@ -93,16 +93,33 @@ export function toggleUnusual(cur: Unusual[] | null, v: Unusual | 'none'): Unusu
 const pad = (n: number) => String(n).padStart(2, '0');
 const dateValue = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-/** The night this morning's answers describe: yesterday on the phone's calendar, like the server works it out. */
-export function nightFor(now: Date): string {
-  return dateValue(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1));
+/**
+ * The night this morning's answers describe: the day before on the person's own clock (Today's now_local,
+ * like "2026-10-01T08:30"), which is how the server labels it too. Not the phone's date, which can differ.
+ */
+export function nightFor(nowLocal: string): string {
+  const [y, m, d] = nowLocal.slice(0, 10).split('-').map(Number);
+  return dateValue(new Date(y, m - 1, d - 1));
 }
 
 /** Yesterday's latest workout, for "Did you rehydrate after yesterday's run?". null when there wasn't one. */
-export function yesterdaysWorkout<W extends { start_local: string }>(workouts: W[], now: Date): W | null {
-  const night = nightFor(now);
+export function yesterdaysWorkout<W extends { start_local: string }>(workouts: W[], nowLocal: string): W | null {
+  const night = nightFor(nowLocal);
   const found = workouts.filter((w) => w.start_local.slice(0, 10) === night);
   return found.length ? found[found.length - 1] : null;
+}
+
+/** Workout summary's "How was it?" value: "Effort 8 · Happy 7", or null before it's rated. */
+export function ratingText(w: { effort: number | null; satisfaction: number | null }): string | null {
+  if (w.effort === null) return null;
+  return w.satisfaction === null ? `Effort ${w.effort}` : `Effort ${w.effort} · Happy ${w.satisfaction}`;
+}
+
+/** A saved check-in back in the form, for "Change answers". */
+export function formFrom(a: MorningAnswers): CheckinForm {
+  const scales: CheckinForm['scales'] = {};
+  for (const { key } of SCALES) if (a[key] != null) scales[key] = a[key]!;
+  return { scales, sore: a.sore_muscles ?? [], unusual: a.unusual ?? null, rehydrated: a.rehydrated ?? null };
 }
 
 /** The answers to send. Only "How ready" is required, so it's null until that's picked. */

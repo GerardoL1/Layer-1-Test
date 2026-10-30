@@ -16,7 +16,7 @@ import main
 import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
-from test_checkins_workouts import local_ms
+from test_checkins_workouts import local_ms, morning
 from test_processing import load, store, to_utc
 
 from app.core import db
@@ -53,10 +53,7 @@ def person():
     client.patch(f"{u}/settings", json={"weight_kg": 70})
     # The morning after that night: the label.
     answers = {"ready_to_train": 4, "fatigue": 3, "sore_muscles": ["quads", "glutes"], "unusual": []}
-    client.post(
-        f"{u}/checkins/morning",
-        json={"answered_at_ms": ms_at(night + timedelta(days=1), 7, 30), "tz_offset_min": LA, "answers": answers},
-    )
+    morning(u, ms_at(night + timedelta(days=1), 7, 30), answers, offset=LA)
     # Workouts that evening (rated 8, 60 min) and two days before (rated 5, 30 min), plus one never rated.
     for wid, day, minutes, effort in (
         ("w_today", night, 60, 8),
