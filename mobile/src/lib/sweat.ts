@@ -81,7 +81,6 @@ export function durationWords(min: number): string {
 /** Where a workout came from, as the workout rows say it. */
 export function sourceText(source: string): string {
   if (source === 'apple_health') return 'Apple Watch';
-  if (source === 'patch') return 'Started in the app';
   return 'Added in the app';
 }
 

@@ -8,6 +8,7 @@
     "@expo/metro-runtime": "~57.0.16",
     "@kingstinct/react-native-healthkit": "^16.0.0",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/datetimepicker": "9.1.0",
     "expo": "~57.0.26",
     "expo-constants": "~57.0.21",
     "expo-dev-client": "~57.0.19",
