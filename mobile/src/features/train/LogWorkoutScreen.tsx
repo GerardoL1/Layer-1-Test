@@ -9,9 +9,11 @@ import { StyleSheet, TextInput, View } from 'react-native';
 import { useApi } from '../../api/useApi';
 import { Button } from '../../components/Button';
 import { Chips } from '../../components/Editors';
+import { ListRow } from '../../components/ListRow';
 import { LiveText } from '../../components/LiveText';
 import { NumberedSteps } from '../../components/NumberedSteps';
 import { Page } from '../../components/Page';
+import { Panel } from '../../components/Panel';
 import { SectionHeader } from '../../components/SectionHeader';
 import { SubPageHeader } from '../../components/SubPageHeader';
 import { Text } from '../../components/Text';
@@ -93,6 +95,10 @@ export default function LogWorkoutScreen() {
   const picked = WORKOUT_PICKS.includes(form.name) ? form.name : null;
   const fields = (
     <View style={styles.form}>
+      {/* The other way to add a workout: a Nix file brings its own times, and the import matches or creates one. */}
+      <Panel>
+        <ListRow label="Import a Nix file" value=".xlsx" onPress={() => router.replace('/train/import')} />
+      </Panel>
       <View style={styles.field}>
         <Box id="workout-name" label="Workout" spoken="Workout name" value={form.name} placeholder="e.g. Leg day"
           onChange={(t) => set('name', t)} error={errors.name} editable={!saving} />

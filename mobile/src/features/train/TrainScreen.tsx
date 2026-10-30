@@ -82,7 +82,6 @@ export default function TrainScreen() {
         )}
         <ListRow label="All workouts" onPress={() => router.push('/train/workouts')} />
         <ListRow label="Log a workout" onPress={() => router.push('/train/new')} />
-        <ListRow label="Import a Nix file" value=".xlsx" onPress={() => router.push('/train/import')} />
       </Panel>
       <Text variant="bodySmall" color="textSecondary" style={styles.note}>
         Workouts from your Apple Watch appear here on their own. Open one to add exercises, patch and sweat data.
