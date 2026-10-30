@@ -25,8 +25,31 @@ function load(...parts) {
 const c = load('health', 'convert.ts');
 const w = load('lib', 'weight.ts');
 const s = load('lib', 'sweat.ts');
+const lw = load('lib', 'logWorkout.ts');
 
 const checks = {
+  'a logged workout reports every problem at once': () => {
+    const now = new Date(2026, 9, 1, 8, 30);
+    assert.deepStrictEqual(lw.checkWorkout({ name: ' ', date: '2026-10-01', time: '09:00', length: '0' }, now), {
+      name: 'Type a name for the workout.',
+      length: 'Type a length between 1 and 1,440 minutes.',
+      time: 'The workout can’t start in the future.',
+    });
+    assert.deepStrictEqual(lw.checkWorkout({ name: 'Leg day', date: '2026-10-01', time: '', length: '45' }, now),
+      { time: 'Pick a start time.' });
+    for (const bad of ['1441', '4.5', '-3', 'abc', '']) {
+      assert.ok(lw.checkWorkout({ name: 'Run', date: '2026-09-30', time: '18:10', length: bad }, now).length, bad);
+    }
+    assert.deepStrictEqual(lw.checkWorkout({ name: 'Run', date: '2026-09-30', time: '18:10', length: '1440' }, now), {});
+  },
+  'a logged workout keeps each end in its own UTC offset': () => {
+    // Clocks go back in Chicago at 2 am on 1 Nov 2026, so this workout starts in CDT and ends in CST.
+    const b = lw.workoutBody({ name: ' Night run ', date: '2026-11-01', time: '01:30', length: '90' }, 'logged-x');
+    assert.strictEqual(b.end_ms - b.start_ms, 90 * 60000);
+    assert.deepStrictEqual([b.start_tz_min, b.end_tz_min, b.type, b.source], [-300, -360, 'Night run', 'manual']);
+    assert.strictEqual(lw.dateText('2026-10-01'), 'Thu 1 Oct');
+    assert.deepStrictEqual([lw.timeText('18:10'), lw.timeText('00:05'), lw.timeText('12:00')], ['6:10 pm', '12:05 am', '12:00 pm']);
+  },
   'UTC offset in a named time zone': () => {
     assert.strictEqual(c.offsetInZone('America/Chicago', Date.UTC(2026, 6, 1, 12)), -300);  // summer
     assert.strictEqual(c.offsetInZone('America/Chicago', Date.UTC(2026, 0, 1, 12)), -360);  // winter
@@ -102,7 +125,7 @@ const checks = {
     assert.strictEqual(s.spanLabel('2026-09-29T18:10', '2026-09-29T19:08'), 'Tue 29 Sep · 6:10–7:08 pm');
     assert.strictEqual(s.spanLabel('2026-09-29T11:30', '2026-09-29T12:15'), 'Tue 29 Sep · 11:30 am–12:15 pm');
     assert.strictEqual(s.sourceText('apple_health'), 'Apple Watch');
-    assert.strictEqual(s.sourceText('patch'), 'Started in the app');
+    assert.strictEqual(s.sourceText('patch'), 'Added in the app');
   },
   'workouts in this week, last week and by month, newest first': () => {
     const at = (start_local) => ({ start_local });

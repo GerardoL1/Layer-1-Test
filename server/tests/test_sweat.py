@@ -431,6 +431,24 @@ def test_daily_ml_table():
     assert oct25["sodium_mg_1d"] != oct25["sodium_mg_1d"]
 
 
+def test_sodium_counts_only_when_every_sweaty_workout_has_it():
+    # Same rule as Today's hydration panel: a total from some of the workouts would look complete but isn't.
+    u = person("sw_sodium_rule", weight_kg=70)
+    workout(u, "run1", SWEAT_START, SWEAT_END, "Run")
+    save(u)  # Nix file with 540 mg of sodium
+    noon = local_ms(2026, 10, 20, 12, 0)
+    workout(u, "ride", noon, noon + 45 * 60000, "Ride")
+    assert client.put(f"{u}/workouts/ride/sweat", json={"fluid_loss_ml": 400}).status_code == 200  # no sodium
+    fix_clock("sw_sodium_rule", "2026-10-26T08:30:00")
+    day = {x["date"]: x for x in client.get(f"{u}/sweat/daily", params={"nights": 14}).json()["days"]}["2026-10-20"]
+    assert day["fluid_loss_ml"] == 1082 and day["sodium_mg"] is None
+    with db.connect() as conn:
+        rows = {r["night_date"]: r for r in sweat.daily_sweat_table(conn, "sw_sodium_rule").to_dict("records")}
+    oct20 = rows["2026-10-20"]
+    assert oct20["fluid_loss_pct_bw_1d"] == pytest.approx(1082 / 70000 * 100, abs=0.001)
+    assert oct20["sodium_mg_1d"] != oct20["sodium_mg_1d"]  # NaN, not 540
+
+
 # ---------------------------------------------------------------- findings from the batch 2 testing pass
 
 CST = -360  # US Central winter time

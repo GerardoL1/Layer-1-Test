@@ -155,6 +155,8 @@ export function makeApi(serverUrl: string, userId: string) {
     /** Workouts that started in the last N days (up to 366), oldest first. */
     workouts: (days = 366) => call<Workout[]>(`${user}/workouts?days=${days}`),
     workout: (id: string) => call<Workout>(`${user}/workouts/${encodeURIComponent(id)}`),
+    /** Adds a workout, or updates it when the same id is sent again. */
+    saveWorkout: (body: Schemas['WorkoutIn']) => call<Workout>(`${user}/workouts`, json('POST', body)),
     /** The workout's sweat data, or null when it has none yet. */
     workoutSweat: async (id: string) => {
       try {

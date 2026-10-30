@@ -656,7 +656,8 @@ def daily(user_id: str, nights: int) -> dict:
             {
                 "date": d.isoformat(),
                 "fluid_loss_ml": round(sum(s["fluid_loss_ml"] for s in sweaty), 1) if sweaty else None,
-                "sodium_mg": round(sum(sodium), 1) if sodium else None,
+                # Only when every sweaty workout has sodium, like hydration(). A partial total would look complete.
+                "sodium_mg": round(sum(sodium), 1) if sodium and len(sodium) == len(sweaty) else None,
                 "sessions": len(that_day),
                 "has_sweat_data": bool(sweaty),
             }
@@ -706,7 +707,7 @@ def daily_sweat_table(conn, user_id: str) -> pd.DataFrame:
         fluid = sum(r["fluid_loss_ml"] for r in sweaty)
         pct = fluid / (weight * 1000) * 100 if sweaty and weight else math.nan
         sodium = [r["sodium_mg"] for r in sweaty if r["sodium_mg"] is not None]
-        return pct, (sum(sodium) if sodium else math.nan)
+        return pct, (sum(sodium) if sodium and len(sodium) == len(sweaty) else math.nan)
 
     rows = []
     for night in sorted(nights):

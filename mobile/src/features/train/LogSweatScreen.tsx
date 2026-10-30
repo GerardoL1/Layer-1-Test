@@ -170,6 +170,9 @@ const styles = StyleSheet.create({
   field: { gap: 6 },
   inputRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 2, borderRadius: radius.sm, minHeight: 46,
     paddingHorizontal: 14, gap: 8 },
-  input: { ...type.body, flex: 1, minHeight: 44, paddingVertical: 8, outlineColor: 'transparent' },
+  // The teal or red outline is on the box around it. Chrome draws its own ring for the "auto" outline style
+  // whatever its colour, so it's set to a solid ring 0 px wide instead.
+  input: { ...type.body, flex: 1, minHeight: 44, paddingVertical: 8, outlineStyle: 'solid', outlineWidth: 0,
+    borderWidth: 0, backgroundColor: 'transparent' },
   error: { marginTop: 4 },
 });
