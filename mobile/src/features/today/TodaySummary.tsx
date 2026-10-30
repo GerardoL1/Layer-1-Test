@@ -1,4 +1,4 @@
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { ReactNode, useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -10,7 +10,6 @@ import { ReadinessBand, STATUS_WORD } from '../../components/Readiness';
 import { Text } from '../../components/Text';
 import { nightFor } from '../../lib/checkin';
 import { clock, fullDay, partOfDay, weekdayName } from '../../lib/format';
-import { timeText, timeValue } from '../../lib/logWorkout';
 import { useLoad } from '../../lib/useLoad';
 import { useTheme } from '../../theme/theme';
 
@@ -27,6 +26,12 @@ type Props = {
   /** A notice that goes between the words and the band, like the time zone note. */
   notice?: ReactNode;
 };
+
+/** "7:40 am" on the clock where it was answered, not this device's, which may be in another time zone now. */
+function answeredAt(ms: number, offsetMin: number): string {
+  const d = new Date(ms + offsetMin * 60000);
+  return clock(`${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`);
+}
 
 /** "Readiness 28 of 100, which is low. <reason>", or what Today shows while last night isn't in yet. */
 function lead(t: Props['today'], waiting: boolean, firstWeek: boolean): string | null {
@@ -53,8 +58,7 @@ export function TodaySummary({ today: t, waiting, previous, usual, updating, upd
   const night = nightFor(t.now_local);
   const checkinKey = useMemo(() => ({ api, night }), [api, night]);
   const checkin = useLoad(() => api.morningCheckin(night), checkinKey);
-  // Coming back from the check-in finds it saved.
-  useFocusEffect(checkin.reload);
+  // No reload on focus: coming back from the check-in opens Today afresh, which loads it again.
   // "Morning, Sam." with a name, just "Morning." without one.
   const second = waiting ? 'Last night isn’t in yet.' : t.verdict;
   // A name ending in a full stop ("Sam Jr.") doesn't get a second one.
@@ -84,9 +88,9 @@ export function TodaySummary({ today: t, waiting, previous, usual, updating, upd
         {checkin.data ? (
           <View style={styles.checkedIn}>
             <Text variant="bodySmall" color="textMuted">
-              Checked in at {timeText(timeValue(new Date(checkin.data.answered_at_ms)))}
+              Checked in at {answeredAt(checkin.data.answered_at_ms, checkin.data.tz_offset_min)}
             </Text>
-            <Pressable accessibilityRole="link" onPress={() => router.push('/today/checkin')} hitSlop={12}>
+            <Pressable accessibilityRole="link" onPress={() => router.push('/today/checkin')} style={styles.change}>
               <Text variant="bodySmall" color="link">Change answers</Text>
             </Pressable>
           </View>
@@ -119,4 +123,6 @@ const styles = StyleSheet.create({
   actionsWide: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
   checkedIn: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, minHeight: 46 },
   soon: { marginTop: 8 },
+  // hitSlop does nothing on the web, so the link is 44 px tall itself.
+  change: { minHeight: 44, justifyContent: 'center' },
 });

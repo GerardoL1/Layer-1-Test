@@ -68,7 +68,7 @@ function RateForm({ workout: w }: { workout: Workout }) {
 
   // "Mon 29 Sep · 6:10–7:08 pm": the day only on a computer, like Figma.
   const [day, ...time] = spanLabel(w.start_local, w.end_local).split(' · ');
-  const when = `${w.type} · ${time.join(' · ')}`;
+  const when = [w.type, ...time].filter(Boolean).join(' · ');
   return (
     <Page>
       <View style={styles.column}>
@@ -86,7 +86,7 @@ function RateForm({ workout: w }: { workout: Workout }) {
         </View>
         {saveError ? <LiveText error variant="bodySmall" color="low" style={styles.saveError}>{saveError}</LiveText> : null}
         <View style={[styles.actions, isWide && styles.actionsWide]}>
-          <Button title="Save" busy={saving} busyTitle="Saving…" onPress={save} />
+          <Button title="Save" busy={saving} busyTitle="Saving…" onPress={save} style={styles.save} />
           <Button title={rated ? 'Cancel' : 'Skip'} kind="text" disabled={saving} onPress={leave} />
         </View>
       </View>
@@ -101,4 +101,6 @@ const styles = StyleSheet.create({
   saveError: { marginTop: 24 },
   actions: { marginTop: 32, gap: 12 },
   actionsWide: { flexDirection: 'row', alignItems: 'center' },
+  // Wide enough for "Saving…", so the button next to it doesn't move.
+  save: { minWidth: 120 },
 });

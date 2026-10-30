@@ -31,6 +31,8 @@ const STEPS = [
 ];
 const NEED_READY = 'Pick how ready you feel to train.';
 
+// "Run" reads as "run" in a sentence, but "HIIT" keeps its capitals.
+const sentenceCase = (t: string) => (t === t.toUpperCase() ? t : t.toLowerCase());
 const leave = () => (router.canGoBack() ? router.back() : router.replace('/today'));
 
 /** "‹ Today" or "‹ Back", where SubPageHeader puts its back link. */
@@ -66,6 +68,8 @@ function CheckinFormScreen({ nowLocal, initial }: { nowLocal: string; initial: C
   const [saveError, setSaveError] = useState<string | null>(null);
   // A ref, not state: two taps in the same moment both see state from before the first one.
   const busy = useRef(false);
+  // When the step last changed. Next and Save sit in the same spot, so a quick double tap mustn't skip a step.
+  const stepAt = useRef(0);
   // The rehydrate question is only for mornings after a workout. If this fails it's just not asked.
   const workouts = useLoad(() => api.workouts(2), api);
   const yesterday = workouts.data ? yesterdaysWorkout(workouts.data, nowLocal) : null;
@@ -75,14 +79,21 @@ function CheckinFormScreen({ nowLocal, initial }: { nowLocal: string; initial: C
     if (key === 'ready_to_train') setNeedReady(false);
   }
 
+  function goTo(n: number) {
+    stepAt.current = Date.now();
+    setStep(n);
+  }
+
   function next() {
+    if (Date.now() - stepAt.current < 500) return;
     if (step === 0 && !form.scales.ready_to_train) return setNeedReady(true);
-    setStep(step + 1);
+    goTo(step + 1);
   }
 
   async function save() {
-    if (busy.current) return;
-    const body = checkinBody(form, new Date(), !!yesterday);
+    if (busy.current || Date.now() - stepAt.current < 500) return;
+    // Until the workouts load, the only rehydrate answer the form can hold is the saved one, so keep it.
+    const body = checkinBody(form, new Date(), workouts.data ? !!yesterday : true);
     if (!body) {
       setNeedReady(true);
       if (!isWide) setStep(0);
@@ -92,7 +103,12 @@ function CheckinFormScreen({ nowLocal, initial }: { nowLocal: string; initial: C
     setSaving(true);
     setSaveError(null);
     try {
-      await api.saveCheckin(body);
+      const saved = await api.saveCheckin(body);
+      // The server keeps the newest answer, so an older one (a phone clock running behind) isn't saved.
+      if (saved.answered_at_ms !== body.answered_at_ms) {
+        setSaveError('A newer answer is already saved, so this one wasn’t. Check this phone’s clock.');
+        return;
+      }
       router.replace('/today');
     } catch (e) {
       setSaveError(`Couldn’t save. ${errorText(e)}`);
@@ -133,7 +149,7 @@ function CheckinFormScreen({ nowLocal, initial }: { nowLocal: string; initial: C
       </View>
       {yesterday ? (
         <View style={styles.chipQuestion}>
-          <Text variant="bodyEmphasis">{`Did you rehydrate after yesterday’s ${yesterday.type.toLowerCase()}?`}</Text>
+          <Text variant="bodyEmphasis">{`Did you rehydrate after yesterday’s ${sentenceCase(yesterday.type)}?`}</Text>
           <Chips name="Did you rehydrate?" options={REHYDRATED} value={form.rehydrated}
             onPick={(v) => (saving ? undefined : setForm((f) => ({ ...f, rehydrated: v })))} />
         </View>
@@ -163,8 +179,8 @@ function CheckinFormScreen({ nowLocal, initial }: { nowLocal: string; initial: C
           About a minute. 10 is always the good end. Your answers teach the scores what your normal feels like.
         </Text>
         <View style={styles.columns}>
-          <View style={styles.column}>{[...STEP_SCALES[0], ...STEP_SCALES[1]].map(scale)}</View>
-          <View style={styles.column}>{STEP_SCALES[2].map(scale)}{muscles}</View>
+          <View style={styles.wideColumn}>{[...STEP_SCALES[0], ...STEP_SCALES[1]].map(scale)}</View>
+          <View style={styles.wideColumn}>{STEP_SCALES[2].map(scale)}{muscles}</View>
         </View>
         {ending}
       </Page>
@@ -176,7 +192,7 @@ function CheckinFormScreen({ nowLocal, initial }: { nowLocal: string; initial: C
     <Page key={step}>
       {step === 0
         ? <BackLink label="Today" spoken="Back to Today" onPress={leave} />
-        : <BackLink label="Back" spoken={`Back to step ${step}`} onPress={() => setStep(step - 1)} />}
+        : <BackLink label="Back" spoken={`Back to step ${step}`} onPress={() => goTo(step - 1)} />}
       <StepBar label={`Morning check-in · ${step + 1} of 3`} step={step + 1} />
       <Text variant="h1" accessibilityRole="header">{STEPS[step].title}</Text>
       <Text variant="body" color="textSecondary" style={styles.intro}>{STEPS[step].intro}</Text>
@@ -194,7 +210,9 @@ const styles = StyleSheet.create({
   title: { marginTop: 8 },
   intro: { marginTop: 12, marginBottom: 24 },
   introWide: { marginTop: 8, marginBottom: 32, maxWidth: 580 },
-  columns: { flexDirection: 'row', gap: 56 },
+  // Two columns only when each has room for ten rating buttons and the body map, otherwise they stack.
+  columns: { flexDirection: 'row', flexWrap: 'wrap', gap: 56 },
+  wideColumn: { flexGrow: 1, flexBasis: 340, gap: 32 },
   column: { flex: 1, gap: 32 },
   where: { gap: 8 },
   chipQuestion: { gap: 12 },

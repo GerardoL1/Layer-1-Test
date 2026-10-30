@@ -44,7 +44,8 @@ const PAGE_TITLES: [string, string][] = [
 
 /** The browser tab title for a path, so each page says where you are ("Trends · Recovery"). */
 export function pageTitle(path: string): string {
-  const page = PAGE_TITLES.find(([prefix]) => path.startsWith(prefix))?.[1];
+  // The after-workout check-in sits under a workout's own address, so it's matched by its end.
+  const page = path.endsWith('/rate') ? 'How was it?' : PAGE_TITLES.find(([prefix]) => path.startsWith(prefix))?.[1];
   return page ? `${page} · Recovery` : 'Recovery';
 }
 
