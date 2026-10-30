@@ -33,6 +33,7 @@ const PAGE_TITLES: [string, string][] = [
   ['/profile/import', 'Import'],
   ['/profile', 'Profile'],
   ['/today/why', 'Why this score'],
+  ['/today/checkin', 'Morning check-in'],
   ['/today', 'Today'],
   ['/trends', 'Trends'],
   ['/muscles', 'Muscles'],

@@ -1,0 +1,176 @@
+/**
+ * Today > Morning check-in (Figma "Check-in v2"). Three short steps on iPhone, one page on a computer.
+ * Only "How ready" is required. The answers label last night, which is what the readiness model learns from.
+ */
+import { router } from 'expo-router';
+import { useRef, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+
+import { useApi } from '../../api/useApi';
+import { BodyMap } from '../../components/BodyMap';
+import { Button } from '../../components/Button';
+import { Chips } from '../../components/Editors';
+import { LiveText } from '../../components/LiveText';
+import { Page } from '../../components/Page';
+import { RatingScale } from '../../components/RatingScale';
+import { StepBar } from '../../components/SetupFrame';
+import { Text } from '../../components/Text';
+import {
+  CheckinForm, checkinBody, EMPTY_FORM, REHYDRATED, SCALES, ScaleKey, STEP_SCALES, toggleMuscle, toggleUnusual, UNUSUAL,
+  yesterdaysWorkout,
+} from '../../lib/checkin';
+import { dayLabel } from '../../lib/format';
+import { dateValue } from '../../lib/logWorkout';
+import { errorText, useLoad } from '../../lib/useLoad';
+import { useTheme } from '../../theme/theme';
+
+const STEPS = [
+  { title: 'Good morning. How do you feel?', intro: 'About a minute. 10 is always the good end.' },
+  { title: 'And your energy and mood?', intro: 'Four more. 10 is always the good end.' },
+  { title: 'Last one: your muscles', intro: 'Tap any sore muscles on the body. Tap again to remove.' },
+];
+const NEED_READY = 'Pick how ready you feel to train.';
+
+const leave = () => (router.canGoBack() ? router.back() : router.replace('/today'));
+
+export default function CheckinScreen() {
+  const api = useApi();
+  const { isWide } = useTheme();
+  const [form, setForm] = useState<CheckinForm>(EMPTY_FORM);
+  const [step, setStep] = useState(0);
+  const [needReady, setNeedReady] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  // A ref, not state: two taps in the same moment both see state from before the first one.
+  const busy = useRef(false);
+  // The rehydrate question is only for mornings after a workout. If this fails it's just not asked.
+  const workouts = useLoad(() => api.workouts(2), api);
+  const yesterday = workouts.data ? yesterdaysWorkout(workouts.data, new Date()) : null;
+
+  function pickScale(key: ScaleKey, n: number) {
+    setForm((f) => ({ ...f, scales: { ...f.scales, [key]: n } }));
+    if (key === 'ready_to_train') setNeedReady(false);
+  }
+
+  function next() {
+    if (step === 0 && !form.scales.ready_to_train) return setNeedReady(true);
+    setStep(step + 1);
+  }
+
+  async function save() {
+    if (busy.current) return;
+    const body = checkinBody(form, new Date(), !!yesterday);
+    if (!body) {
+      setNeedReady(true);
+      if (!isWide) setStep(0);
+      return;
+    }
+    busy.current = true;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await api.saveCheckin(body);
+      router.replace('/today');
+    } catch (e) {
+      setSaveError(`Couldn’t save. ${errorText(e)}`);
+    } finally {
+      busy.current = false;
+      setSaving(false);
+    }
+  }
+
+  const scale = (key: ScaleKey) => {
+    const q = SCALES.find((s) => s.key === key)!;
+    return (
+      <View key={key}>
+        <RatingScale question={q.question} low={q.low} high={q.high} value={form.scales[key]} disabled={saving}
+          onPick={(n) => pickScale(key, n)} />
+        {key === 'ready_to_train' && needReady ? (
+          <LiveText error variant="bodySmall" color="low" style={styles.error}>{NEED_READY}</LiveText>
+        ) : null}
+      </View>
+    );
+  };
+
+  const muscles = (
+    <>
+      {isWide ? (
+        <View style={styles.where}>
+          <Text variant="bodyEmphasis">Where are you sore?</Text>
+          <Text variant="body" color="textSecondary">Click the sore muscles. Click again to remove.</Text>
+        </View>
+      ) : null}
+      <BodyMap sore={form.sore} disabled={saving} onToggle={(m) => setForm((f) => ({ ...f, sore: toggleMuscle(f.sore, m) }))} />
+      <View style={styles.chipQuestion}>
+        <Text variant="bodyEmphasis">Anything unusual since yesterday?</Text>
+        <Chips name="Anything unusual since yesterday?" options={UNUSUAL}
+          // "None" is saved as an empty list, and shows as its own chip.
+          value={form.unusual === null ? [] : form.unusual.length ? form.unusual : ['none' as const]}
+          onPick={(v) => (saving ? undefined : setForm((f) => ({ ...f, unusual: toggleUnusual(f.unusual, v) })))} />
+      </View>
+      {yesterday ? (
+        <View style={styles.chipQuestion}>
+          <Text variant="bodyEmphasis">{`Did you rehydrate after yesterday’s ${yesterday.type.toLowerCase()}?`}</Text>
+          <Chips name="Did you rehydrate?" options={REHYDRATED} value={form.rehydrated}
+            onPick={(v) => (saving ? undefined : setForm((f) => ({ ...f, rehydrated: v })))} />
+        </View>
+      ) : null}
+    </>
+  );
+
+  const ending = (
+    <>
+      {saveError ? <LiveText error variant="bodySmall" color="low">{saveError}</LiveText> : null}
+      <View style={[styles.actions, isWide && styles.actionsWide]}>
+        {isWide || step === 2
+          ? <Button title="Save check-in" busy={saving} onPress={save} />
+          : <Button title="Next" onPress={next} />}
+        <Button title="Skip today" kind="text" disabled={saving} onPress={leave} />
+      </View>
+    </>
+  );
+
+  if (isWide) {
+    return (
+      <Page>
+        <Text variant="bodySmall" color="textSecondary">{`${dayLabel(dateValue(new Date()))} · morning check-in`}</Text>
+        <Text variant="h1" accessibilityRole="header" style={styles.title}>{STEPS[0].title}</Text>
+        <Text variant="body" color="textSecondary" style={styles.introWide}>
+          About a minute. 10 is always the good end. Your answers teach the scores what your normal feels like.
+        </Text>
+        <View style={styles.columns}>
+          <View style={styles.column}>{[...STEP_SCALES[0], ...STEP_SCALES[1]].map(scale)}</View>
+          <View style={styles.column}>{STEP_SCALES[2].map(scale)}{muscles}</View>
+        </View>
+        {ending}
+      </Page>
+    );
+  }
+
+  // A new Page per step, so each step starts at the top.
+  return (
+    <Page key={step}>
+      <StepBar label={`Morning check-in · ${step + 1} of 3`} step={step + 1} />
+      <Text variant="h1" accessibilityRole="header">{STEPS[step].title}</Text>
+      <Text variant="body" color="textSecondary" style={styles.intro}>{STEPS[step].intro}</Text>
+      <View style={styles.column}>
+        {STEP_SCALES[step].map(scale)}
+        {step === 2 ? muscles : null}
+      </View>
+      {ending}
+    </Page>
+  );
+}
+
+const styles = StyleSheet.create({
+  title: { marginTop: 8 },
+  intro: { marginTop: 12, marginBottom: 24 },
+  introWide: { marginTop: 8, marginBottom: 32, maxWidth: 580 },
+  columns: { flexDirection: 'row', gap: 56 },
+  column: { flex: 1, gap: 32 },
+  where: { gap: 8 },
+  chipQuestion: { gap: 12 },
+  error: { marginTop: 8 },
+  actions: { marginTop: 32, gap: 12 },
+  actionsWide: { flexDirection: 'row', alignItems: 'center' },
+});

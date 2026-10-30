@@ -21,21 +21,27 @@ export function SetupFrame({ step, children, actions }: { step: 0 | 1 | 2 | 3; c
     <SafeAreaView style={[styles.fill, { backgroundColor: colors.canvas }]}>
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: isWide ? 120 : 24 }]}>
         <View style={styles.column}>
-          {step > 0 ? (
-            <View accessible accessibilityLabel={`Step ${step} of 3`} style={styles.progress}>
-              <Text variant="labelSmall" color="textSecondary">Step {step} of 3</Text>
-              <View style={styles.bars}>
-                {[1, 2, 3].map((i) => (
-                  <View key={i} style={[styles.bar, { backgroundColor: i <= step ? colors.borderStrong : colors.border }]} />
-                ))}
-              </View>
-            </View>
-          ) : null}
+          {step > 0 ? <StepBar label={`Step ${step} of 3`} step={step} /> : null}
           <View style={styles.grow}>{children}</View>
           <View style={styles.actions}>{actions}</View>
         </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+/** "Step 1 of 3" and three bars, filled up to step. Also used by the morning check-in. */
+export function StepBar({ label, step }: { label: string; step: number }) {
+  const { colors } = useTheme();
+  return (
+    <View accessible accessibilityLabel={label} style={styles.progress}>
+      <Text variant="labelSmall" color="textSecondary">{label}</Text>
+      <View style={styles.bars}>
+        {[1, 2, 3].map((i) => (
+          <View key={i} style={[styles.bar, { backgroundColor: i <= step ? colors.borderStrong : colors.border }]} />
+        ))}
+      </View>
+    </View>
   );
 }
 

@@ -1,13 +1,16 @@
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Today } from '../../api/client';
+import { useApi } from '../../api/useApi';
 import { Button } from '../../components/Button';
 import { LiveText } from '../../components/LiveText';
 import { ReadinessBand, STATUS_WORD } from '../../components/Readiness';
 import { Text } from '../../components/Text';
+import { nightFor } from '../../lib/checkin';
 import { clock, fullDay, partOfDay, weekdayName } from '../../lib/format';
+import { useLoad } from '../../lib/useLoad';
 import { useTheme } from '../../theme/theme';
 
 type Props = {
@@ -45,6 +48,10 @@ function lead(t: Props['today'], waiting: boolean, firstWeek: boolean): string |
  */
 export function TodaySummary({ today: t, waiting, previous, usual, updating, updateNote, onUpdateNow, notice }: Props) {
   const { isWide } = useTheme();
+  const api = useApi();
+  const checkin = useLoad(() => api.morningCheckin(nightFor(new Date())), api);
+  // Coming back from the check-in finds it saved.
+  useFocusEffect(checkin.reload);
   // "Morning, Sam." with a name, just "Morning." without one.
   const second = waiting ? 'Last night isn’t in yet.' : t.verdict;
   // A name ending in a full stop ("Sam Jr.") doesn't get a second one.
@@ -70,12 +77,12 @@ export function TodaySummary({ today: t, waiting, previous, usual, updating, upd
         {waiting ? (
           <Button title="Update now" kind="secondary" busy={updating} disabled={!t.can_update_now} onPress={onUpdateNow} />
         ) : null}
-        {/* Check-ins come later. The button is there so the layout matches, but it does nothing yet. */}
-        <Button title="Start morning check-in" disabled />
+        {/* Hidden once this morning's check-in is in, and while that's still being looked up. */}
+        {checkin.data === null && !checkin.loading
+          ? <Button title="Start morning check-in" onPress={() => router.push('/today/checkin')} /> : null}
         {score !== null ? <Button title="Why this score?" kind="secondary" onPress={() => router.push('/today/why')} /> : null}
         {isWide ? <Text variant="bodySmall" color="textSecondary">{date}</Text> : null}
       </View>
-      <Text variant="bodySmall" color="textMuted" style={styles.soon}>Check-ins are coming soon.</Text>
     </>
   );
   return (

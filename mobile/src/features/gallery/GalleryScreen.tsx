@@ -6,15 +6,18 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BodyMap } from '../../components/BodyMap';
 import { Button } from '../../components/Button';
 import { ReadinessHistory, SleepStages, TrendLine } from '../../components/Charts';
 import { ListRow } from '../../components/ListRow';
 import { MetricRow } from '../../components/MetricRow';
 import { Page } from '../../components/Page';
 import { Range, RangeSwitch } from '../../components/RangeSwitch';
+import { RatingScale } from '../../components/RatingScale';
 import { ReadinessScale, ReadinessSummary } from '../../components/Readiness';
 import { SectionHeader } from '../../components/SectionHeader';
 import { Text } from '../../components/Text';
+import { MuscleGroup, toggleMuscle } from '../../lib/checkin';
 import { useSession } from '../../state/session';
 import { useTheme } from '../../theme/theme';
 
@@ -29,6 +32,8 @@ export default function GalleryScreen() {
   const { colors } = useTheme();
   const { appearance, update } = useSession();
   const [range, setRange] = useState<Range>(14);
+  const [rating, setRating] = useState(7);
+  const [sore, setSore] = useState<MuscleGroup[]>(['quads', 'glutes']);
 
   return (
     <SafeAreaView style={[styles.fill, { backgroundColor: colors.canvas }]}>
@@ -85,6 +90,17 @@ export default function GalleryScreen() {
         <ListRow label="Appearance" value="Match system" onPress={() => {}} />
         <ListRow label="Check-in reminder" comingSoon onPress={() => {}} />
         <ListRow label="Delete my data" danger comingSoon />
+
+        <View style={styles.gap}><SectionHeader title="Rating scale" /></View>
+        <View style={styles.summary}>
+          <RatingScale question="How ready do you feel to train hard today?" low="Not at all" high="Completely ready"
+            value={rating} onPick={setRating} />
+        </View>
+
+        <View style={styles.gap}><SectionHeader title="Body map" /></View>
+        <View style={styles.summary}>
+          <BodyMap sore={sore} onToggle={(m) => setSore((s) => toggleMuscle(s, m))} />
+        </View>
 
         <View style={styles.gap}><SectionHeader title="Buttons" /></View>
         <View style={styles.buttons}>
